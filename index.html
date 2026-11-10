@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'; connect-src 'none'; img-src 'self' data:">
+<title>CODE: AFTERMATH — Command Center</title>
+<link rel="stylesheet" href="src/app/mainscreen.css">
+</head>
+<body>
+<header id="top-bar">
+  <div class="brand">
+    <div class="logo-chip">CA</div>
+    <div class="title-group">
+      <h1>CODE: AFTERMATH</h1>
+      <p>Survival Base Management &bull; Programming Laboratory</p>
+    </div>
+  </div>
+
+  <div class="resources" id="resources"></div>
+
+  <div class="time" id="time-block">
+    <div class="day" id="time-day">DAY 1</div>
+    <div class="clock" id="time-clock">06:00</div>
+  </div>
+
+  <div class="controls" id="sim-controls">
+    <button type="button" class="sim-btn active" id="btn-pause" aria-label="Pause simulation">PAUSE</button>
+    <button type="button" class="sim-btn" id="btn-play" aria-label="Play simulation">PLAY</button>
+    <button type="button" class="sim-btn speed" id="btn-speed" aria-label="Simulation speed">1×</button>
+    <button type="button" class="settings-btn" id="btn-settings" aria-label="Settings">⚙</button>
+  </div>
+</header>
+
+<div id="app-shell">
+  <div id="world-region">
+    <h2>WORLD SIMULATION</h2>
+    <div id="world-wrap">
+      <canvas id="map-canvas" width="960" height="640" aria-label="Top-down map of the settlement"></canvas>
+      <div id="selection-ring" class="selection-ring" style="display:none;"></div>
+      <div id="event-markers"></div>
+    </div>
+  </div>
+  <div id="inspector-region">
+    <button type="button" id="inspector-toggle" aria-label="Toggle inspector">▸</button>
+    <div id="inspector">
+      <div id="inspector-card">
+        <div class="header">
+          <div class="portrait" id="inspector-portrait" role="img" aria-label="Survivor portrait">?</div>
+          <div class="info">
+            <div class="name" id="inspector-name">—</div>
+            <div class="sub" id="inspector-sub">No survivor selected</div>
+            <div class="meta-row" id="inspector-meta"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3><span class="icon">❤</span>Needs</h3>
+          <div class="needs-grid" id="inspector-needs"></div>
+        </div>
+
+        <div class="section">
+          <h3><span class="icon">⚡</span>Attributes</h3>
+          <div class="attrs-grid" id="inspector-attrs"></div>
+        </div>
+
+        <div class="section">
+          <h3><span class="icon">🎒</span>Equipment</h3>
+          <div class="equip-grid" id="inspector-equip"></div>
+        </div>
+
+        <div class="section">
+          <h3><span class="icon">⚖</span>Carry Load</h3>
+          <div class="carry-row">
+            <div class="carry-bar"><div class="carry-fill" id="inspector-carry-fill" style="width:0%"></div></div>
+          </div>
+          <div class="carry-text" id="inspector-carry-text">0 / 0 kg</div>
+          <div class="inv-list" id="inspector-inv"></div>
+        </div>
+
+        <div id="task-panel">
+          <div class="section">
+            <h3><span class="icon">📋</span>Current Task</h3>
+            <div class="current-task">
+              <div class="task-icon" id="task-icon">⏳</div>
+              <div class="task-info">
+                <div class="task-title" id="task-title">No active task</div>
+                <div class="task-target" id="task-target">—</div>
+                <div class="task-progress"><div class="task-progress-fill" id="task-progress-fill" style="width:0%"></div></div>
+                <div class="task-meta" id="task-meta">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <h3><span class="icon">📜</span>Task Queue</h3>
+            <div id="task-queue"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="command-region">
+    <div id="cmd-bar">
+      <button type="button" class="cmd-btn code" id="btn-code" aria-label="Open code interface">CODE</button>
+      <button type="button" class="cmd-btn" id="btn-assign" aria-label="Assign task">ASSIGN TASK</button>
+      <button type="button" class="cmd-btn" id="btn-task" aria-label="View tasks">TASK</button>
+      <button type="button" class="cmd-btn" id="btn-build" aria-label="Buildings">BUILD</button>
+      <button type="button" class="cmd-btn" id="btn-survivors" aria-label="Survivors">SURVIVORS</button>
+      <button type="button" class="cmd-btn" id="btn-research" aria-label="Research">RESEARCH</button>
+      <button type="button" class="cmd-btn" id="btn-menu" aria-label="Menu">MENU</button>
+    </div>
+    <div id="cmd-hints">
+      <div class="hint-chip"><span class="api-glyph">survivor.gather("wood")</span>Express intent via code</div>
+      <div class="hint-chip"><span class="api-glyph">survivor.returnToBase()</span>Queue a command</div>
+      <div class="hint-chip"><span class="api-glyph">simulation tick</span>State is authoritative</div>
+    </div>
+  </div>
+
+  <div id="tutor-region">
+    <div id="tutor-panel">
+      <div id="tutor-header">
+        <div id="tutor-title"><span class="tutor-icon">🎓</span>AI Tutor</div>
+      </div>
+      <div id="tutor-content">
+        <div id="tutor-empty">Select a survivor or building to receive contextual guidance.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="code-panel">
+  <div class="code-header">
+    <div class="code-title">Command Interface</div>
+    <button type="button" class="code-close" id="code-close" aria-label="Close code panel">✕</button>
+  </div>
+  <div class="code-body">
+    <div class="code-pane lesson">
+      <div id="code-pane-header">Lesson</div>
+      <div class="code-content" id="code-lesson-content">
+        <p>Write code to command your survivors. Each command expresses intent — the simulation validates and executes it.</p>
+        <div class="example">survivor.gather("wood", 10);</div>
+        <p>The system will: validate preconditions → reserve resources → queue the action → execute on the next simulation tick.</p>
+      </div>
+    </div>
+    <div class="code-pane editor">
+      <div id="code-pane-header">JavaScript Editor</div>
+      <div class="code-content editor-content" id="code-editor" contenteditable spellcheck="false">survivor.gather("wood", 10);</div>
+    </div>
+    <div class="code-pane api">
+      <div id="code-pane-header">Available API</div>
+      <div class="code-content" id="code-api-list"></div>
+    </div>
+  </div>
+  <div class="code-footer">
+    <div class="code-actions">
+      <button type="button" class="btn-run" id="btn-run-code">Run Code</button>
+    </div>
+    <div class="execution-result" id="code-execution-result">Ready.</div>
+  </div>
+</div>
+
+<script type="module" src="src/app/mainscreen.js"></script>
+</body>
+</html>
