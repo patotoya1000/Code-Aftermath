@@ -22,12 +22,14 @@ export const COMMANDS = {
     },
   },
   gather: {
-    type: 'gather', signature: 'survivor.gather(resource, amount = 5)',
-    doc: 'Walk to the nearest node with that resource and gather up to `amount` (1–20) into base stock.',
+    type: 'gather', signature: 'survivor.gather(resource, load = 5, total)',
+    doc: 'Keep gathering that resource in trips of `load` (1–20) into base stock. Stops by itself when storage is full, nothing is left, or the survivor is too tired. Add `total` (1–500) to stop after that many.',
     params(args) {
-      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('gather', 'first argument must be a resource name like "wood"');
-      const amount = optInt('gather', 'amount', args[1], 1, 20);
-      return amount === undefined ? { resource: args[0] } : { resource: args[0], amount };
+      if (args.length < 1 || args.length > 3 || typeof args[0] !== 'string' || !args[0]) throw bad('gather', 'first argument must be a resource name like "wood"');
+      const amount = optInt('gather', 'load', args[1], 1, 20);
+      const total = optInt('gather', 'total', args[2], 1, 500);
+      if (total !== undefined && amount === undefined) throw bad('gather', 'give a load before a total, e.g. gather("wood", 10, 50)');
+      return { resource: args[0], ...(amount !== undefined ? { amount } : {}), ...(total !== undefined ? { total } : {}) };
     },
   },
   rest: {
@@ -47,6 +49,10 @@ export const COMMANDS = {
       return { targetId: args[0] };
     },
   },
+  // A marker, not an action: it costs nothing and is consumed by the session. By default the FIRST command a program
+  // gives a survivor replaces whatever that survivor was doing, and the rest queue behind it. After queue(), even the
+  // first command is added to the end of the survivor's queue instead.
+  queue: { type: null, marker: true, signature: 'survivor.queue()', doc: 'Add the commands that follow to the END of this survivor\'s queue instead of replacing the current task.', params: (args) => noArgs('queue', args) },
   stop: { type: 'stop', signature: 'survivor.stop()', doc: 'Cancel this survivor\'s queued and running actions.', params: (args) => noArgs('stop', args) },
 };
 
@@ -54,12 +60,13 @@ export const COMMANDS = {
 export const READ_SURFACE = [
   'survivor.needs.health / hunger / thirst / energy / morale',
   'survivor.conditions   (e.g. ["hungry","tired"])',
-  'survivor.x, survivor.y, survivor.direction, survivor.task',
+  'survivor.x, survivor.y, survivor.direction, survivor.task, survivor.lastTask   (why the survivor stopped: { type, status, reason, gathered })',
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory',
   'survivors   (array of all survivors)',
   'base.wood, base.stone, base.food, base.water   (available amounts)',
   'fence, hq, buildings   (id, type, level, health, maxHealth, condition, x, y)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
+  'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
   'world.width, world.height, tick',
 ];
 
@@ -81,7 +88,10 @@ export function normalizeCall(name, args) {
 }
 
 /** Command Builder: wire call → versioned Command the simulation accepts. */
+export const isMarker = (name) => Object.prototype.hasOwnProperty.call(COMMANDS, name) && COMMANDS[name].marker === true;
+
 export function buildCommand(actorId, call) {
+  if (isMarker(call.name)) throw new AftermathError('NOT_A_COMMAND', `survivor.${call.name}() is a marker, not a command`);
   const norm = normalizeCall(call.name, call.args ?? []);
   return { apiVersion: API_VERSION, type: COMMANDS[norm.name].type, actorId, params: COMMANDS[norm.name].params(norm.args) };
 }

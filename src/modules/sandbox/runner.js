@@ -33,7 +33,7 @@ export function createSandbox(options = {}) {
   const budget = { ...DEFAULT_BUDGET, ...options };
   return {
     budget,
-    async run({ code, view, seed }) {
+    async run({ code, view, seed, actorId = null }) {
       const check = validateSource(code);
       if (!check.ok) return failure('SAFETY_VIOLATION', check.violations.map((v) => v.message).join('\n'), { violations: check.violations });
 
@@ -47,7 +47,7 @@ export function createSandbox(options = {}) {
         );
         worker.onMessage((r) => finish(r));
         worker.onFail((msg) => finish(failure('WORKER_ERROR', msg)));
-        worker.post({ type: 'run', code, view, seed, budget });
+        worker.post({ type: 'run', code, view, seed, budget, actorId });
       });
     },
   };

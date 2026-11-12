@@ -7,7 +7,7 @@ import { runAttempt } from '../src/modules/session/index.js';
 import { hashValue } from '../src/kernel/index.js';
 
 test('save/load round-trips state and progress exactly', async () => {
-  const a = await runAttempt({ defs, sandbox, code: 'survivor.gather("wood", 10);', seed: 4 });
+  const a = await runAttempt({ defs, sandbox, code: 'survivor.gather("wood", 10, 10);', seed: 4 });
   const store = createSaveStore(createMemoryAdapter(), { clock: () => 1234 });
   await store.save('slot1', { state: a.finalState, progress: emptyProgress() });
   const loaded = await store.load('slot1');
@@ -32,7 +32,7 @@ test('corrupt or unsupported saves are detected', async () => {
 
 test('educational failure never corrupts progression; passes only add', async () => {
   let progress = emptyProgress();
-  const pass = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10);' });
+  const pass = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10, 10);' });
   progress = recordLessonResult(progress, pass.evaluation, { commandCount: 1 });
   const snapshot = JSON.stringify(progress.completed);
   const fail = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'while(true){}' });
@@ -45,8 +45,8 @@ test('educational failure never corrupts progression; passes only add', async ()
 });
 
 test('each attempt starts from the same fresh scenario (retries are independent)', async () => {
-  const a = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10);' });
-  const b = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10);' });
+  const a = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10, 10);' });
+  const b = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10, 10);' });
   assert.equal(a.attempt.initialStateHash, b.attempt.initialStateHash);
   assert.equal(a.attempt.stateHash, b.attempt.stateHash);
 });

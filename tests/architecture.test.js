@@ -63,7 +63,7 @@ test('kernel imports nothing outside itself', () => {
 
 test('simulation state is never exported: projections and simulation are the only readers', () => {
   // The renderer-facing modules must not import the simulation or actions (render can never mutate gameplay).
-  for (const m of ['debugview', 'lessons', 'replay', 'persistence']) {
+  for (const m of ['render', 'assets', 'lessons', 'replay', 'persistence']) {
     assert.ok(!MODULES[m].includes('simulation') && !MODULES[m].includes('actions'), `${m} must not depend on simulation/actions`);
   }
 });

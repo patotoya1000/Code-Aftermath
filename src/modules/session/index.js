@@ -1,12 +1,11 @@
 import { hashValue, SIM_VERSION, API_VERSION, REPLAY_FORMAT } from '../../kernel/index.js';
 import { createInitialState } from '../world/index.js';
 import { createSimulation } from '../simulation/index.js';
-import { buildCommand } from '../api/index.js';
+import { buildCommand, isMarker } from '../api/index.js';
 
 /**
- * Create a fresh simulation with turn tracking for command-focused free play.
- * Returns { sim, initialView } where sim is a live Simulation you can call
- * submitCommand / startTurn / executeTurn / getTurnInfo on between turns.
+ * Create a fresh simulation for continuous free play. Returns { sim, initialView }.
+ * Nothing runs by itself: the app's clock driver (or a test) calls sim.step().
  */
 export function createFreeSim({ defs, scenarioId = 'stage1', seed = 1 }) {
   const initial = createInitialState({ defs, scenarioId, seed });
@@ -14,42 +13,60 @@ export function createFreeSim({ defs, scenarioId = 'stage1', seed = 1 }) {
   return { sim, initialView: sim.studentView() };
 }
 
+const rejectedEntry = (call, e) => ({ ok: false, name: call.name, actorId: call.actorId, args: call.args, error: { code: e.code ?? 'ERROR', message: e.message } });
+
 /**
- * Advance one turn on a live free-play simulation:
- *   1. Submit each command (respects command budget)
- *   2. Execute the turn (run ticks until idle)
- *   3. Return updated attempt info
+ * Submit already-validated calls from ONE program run to the live simulation.
+ * Order rule: for each survivor, the first command REPLACES what that survivor was doing and the rest queue behind it
+ * (so a program reads top to bottom). `survivor.queue()` switches a survivor to "append" for the commands after it.
+ * Strategy points are charged by the simulation (submitCommand); nothing here counts anything itself.
  */
-export async function advanceTurn(sim, commands = []) {
-  // Start a fresh turn: reset command budget, recharge strategy points.
-  sim.startTurn();
-
+export function submitCalls(sim, calls = []) {
   const submitted = [];
-  const rejected = [];
-
-  for (const { actorId, name, args } of commands) {
+  const touched = new Set(); // survivors that already got a command in this run
+  const appendOnly = new Set();
+  for (const call of calls) {
+    if (isMarker(call.name)) { if (call.name === 'queue') appendOnly.add(call.actorId); continue; }
     try {
-      const command = buildCommand(actorId, { name, args });
+      const command = { ...buildCommand(call.actorId, { name: call.name, args: call.args }), mode: touched.has(call.actorId) || appendOnly.has(call.actorId) ? 'queue' : 'replace' };
       const actionId = sim.submitCommand(command);
-      submitted.push({ ok: true, actionId, name, actorId, args });
+      touched.add(call.actorId);
+      submitted.push({ ok: true, actionId, name: call.name, actorId: call.actorId, args: call.args, mode: command.mode });
     } catch (e) {
-      submitted.push({ ok: false, name, actorId, args, error: { code: e.code ?? 'ERROR', message: e.message } });
-      sim.log.append(sim.tick, 'command.rejected', { actorId, name, code: e.code ?? 'ERROR' });
+      submitted.push(rejectedEntry(call, e));
+      sim.log.append(sim.tick, 'command.rejected', { actorId: call.actorId, name: call.name, code: e.code ?? 'ERROR' });
     }
   }
+  return submitted;
+}
 
-  const { events, tick } = sim.executeTurn();
+/**
+ * Free-play code path (same boundary as lessons):
+ *   editor text → Safety Validator → Worker → Game API → Command Builder → live simulation.
+ * The code runs once against the CURRENT world and only issues commands; the simulation keeps ticking on its own.
+ * If the sandbox rejects the code, nothing is submitted and nothing is spent.
+ */
+export async function runLiveCode({ sim, sandbox, code, actorId = null }) {
+  const run = await sandbox.run({ code, view: sim.studentView(), seed: sim.seed, actorId });
+  if (!run.ok) {
+    return { ok: false, error: run.error, violations: run.violations ?? null, logs: run.logs ?? [], submitted: [], clockInfo: sim.getClockInfo() };
+  }
+  const submitted = submitCalls(sim, run.calls);
+  return { ok: true, error: null, violations: null, logs: run.logs, submitted, clockInfo: sim.getClockInfo() };
+}
 
-  return {
-    submitted,
-    rejected,
-    turnInfo: sim.getTurnInfo(),
-    events,
-    tick,
-    studentView: sim.studentView(),
-    renderProjection: sim.renderProjection(),
-    stateHash: sim.stateHash(),
-  };
+/**
+ * Rebuild a live session from its record: same scenario + seed + the commands at the ticks they were issued.
+ * Because the simulation is a deterministic tick counter, the result is identical to the original — at any speed.
+ */
+export function replayTimeline({ defs, scenarioId = 'stage1', seed = 1, timeline, untilTick }) {
+  const { sim } = createFreeSim({ defs, scenarioId, seed });
+  for (const { tick, command } of timeline) {
+    if (tick > sim.tick) sim.step(tick - sim.tick);
+    sim.submitCommand(command);
+  }
+  if (untilTick > sim.tick) sim.step(untilTick - sim.tick);
+  return sim;
 }
 
 /**
@@ -74,6 +91,7 @@ export async function runAttempt({
 
   if (run.ok) {
     for (const call of run.calls) {
+      if (isMarker(call.name)) continue; // lessons already queue in order
       try {
         const command = buildCommand(call.actorId, call);
         const actionId = sim.submit(command);

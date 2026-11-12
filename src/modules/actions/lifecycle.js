@@ -26,5 +26,16 @@ export const FailureReason = Object.freeze({
   STORAGE_FULL: 'STORAGE_FULL',
   NOT_NEEDED: 'NOT_NEEDED',
   NOTHING_TO_REPAIR: 'NOTHING_TO_REPAIR',
+  CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',
+  REPLACED: 'REPLACED', // a newer command from the same program took over this survivor
+});
+
+// Why a STANDING action (e.g. gather) ended on its own. If it ended having done some work the action COMPLETES with
+// one of these as its stopReason; if it ended before doing any work it FAILS with the same reason code.
+export const StopReason = Object.freeze({
+  TARGET_REACHED: 'TARGET_REACHED', // the requested total was gathered
+  STORAGE_FULL: 'STORAGE_FULL',     // base storage has no room left for this resource
+  NO_TARGET: 'NO_TARGET',           // no node of that resource has anything left
+  EXHAUSTED: 'EXHAUSTED',           // the survivor is too tired to keep working
 });

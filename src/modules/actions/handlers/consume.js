@@ -12,7 +12,8 @@ export const consumeHandler = {
   tick(ctx, a) {
     a.phase = a.actionType;
     a.progress += 1;
-    return a.progress >= ctx.defs.actions[a.actionType].ticks ? DONE : RUNNING;
+    const ticks = Math.ceil(ctx.defs.actions[a.actionType].ticks * (a.durationModifier ?? 1));
+    return a.progress >= ticks ? DONE : RUNNING;
   },
   complete(ctx, a) {
     const def = ctx.defs.actions[a.actionType];

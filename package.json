@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CODE: AFTERMATH — modular-monolith game engine (Phases 0-1)",
+  "description": "CODE: AFTERMATH — modular-monolith game engine (Phases 0-1 + correction)",
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
     "serve": "node scripts/serve.mjs",
@@ -14,5 +14,21 @@
   },
   "devDependencies": {
     "playwright": "^1.65.0"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/patotoya1000/Code-Aftermath.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/patotoya1000/Code-Aftermath/issues"
+  },
+  "homepage": "https://github.com/patotoya1000/Code-Aftermath#readme"
 }

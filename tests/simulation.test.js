@@ -8,7 +8,7 @@ import { FailureReason } from '../src/modules/actions/lifecycle.js';
 
 test('gather walks to the nearest tree, works, and credits base stock via the full lifecycle', () => {
   const sim = newSim();
-  call(sim, 'gather', 'wood', 10);
+  call(sim, 'gather', 'wood', 10, 10);
   runUntilIdle(sim);
   const statuses = sim.log.all().filter((e) => e.type.startsWith('action.')).map((e) => e.type);
   assert.deepEqual(statuses, ['action.queued', 'action.validating', 'action.reserved', 'action.executing', 'action.completed']);
@@ -32,7 +32,7 @@ test('movement uses the 8-direction vocabulary and the simulation owns direction
 test('render projection derives animation from simulation task (never the reverse)', () => {
   const sim = newSim();
   assert.equal(sim.renderProjection().npcs[0].animation, 'IDLE');
-  call(sim, 'gather', 'wood', 5);
+  call(sim, 'gather', 'wood', 5, 5);
   sim.step(1);
   assert.equal(sim.renderProjection().npcs[0].animation, 'WALK');
   while (sim.renderProjection().npcs[0].animation === 'WALK') sim.step(1);
@@ -82,7 +82,7 @@ test('failure reasons: tired survivor cannot start work; unknown targets and bad
 
 test('gather exposes STORAGE_FULL when the HQ reaches its capacity limit', () => {
   const sim = newSim('stage1', 1, (s) => { s.ledger['stock.wood'].total = 150; });
-  call(sim, 'gather', 'wood', 10);
+  call(sim, 'gather', 'wood', 10, 10);
   runUntilIdle(sim);
   assert.equal(sim.log.ofType('action.failed')[0].reason, FailureReason.STORAGE_FULL);
   assert.equal(sim.studentView().base.wood, 150);
@@ -112,8 +112,8 @@ test('two gatherers sharing one node reserve disjoint amounts', () => {
     for (const id of ['tree_2', 'tree_3']) { s.ledger[`node.${id}`].total = 0; }
     s.ledger['node.tree_1'].total = 12;
   });
-  sim.submit(buildCommand('survivor_1', { name: 'gather', args: ['wood', 10] }));
-  sim.submit(buildCommand('survivor_2', { name: 'gather', args: ['wood', 10] }));
+  sim.submit(buildCommand('survivor_1', { name: 'gather', args: ['wood', 10, 10] }));
+  sim.submit(buildCommand('survivor_2', { name: 'gather', args: ['wood', 10, 10] }));
   runUntilIdle(sim);
   const got = sim.log.ofType('resource.gathered').map((e) => e.amount).sort((a, b) => a - b);
   assert.deepEqual(got, [2, 10], 'second survivor only gets what is left (and its shorter job finishes first)');
@@ -150,7 +150,7 @@ test('needs decay, derived conditions are read-only data, eating restores hunger
 
 test('starvation damages health and a downed survivor cancels their work', () => {
   const sim = newSim('stage1', 1, (s) => { Object.assign(s.survivors.survivor_1.needs, { hunger: 0, health: 2 }); });
-  call(sim, 'gather', 'wood', 20);
+  call(sim, 'gather', 'wood', 20, 20);
   sim.step(40);
   assert.equal(sim.studentView().survivor.status, 'downed');
   assert.ok(sim.log.ofType('survivor.downed').length === 1);
@@ -168,7 +168,7 @@ test('rest restores energy over simulation ticks, not instantly', () => {
 });
 
 test('determinism: same seed => identical state & log; different seed => different world', () => {
-  const run = (seed) => { const s = newSim('stage1', seed); call(s, 'gather', 'wood', 15); runUntilIdle(s); return s; };
+  const run = (seed) => { const s = newSim('stage1', seed); call(s, 'gather', 'wood', 15, 15); runUntilIdle(s); return s; };
   const a = run(7); const b = run(7); const c = run(8);
   assert.equal(a.stateHash(), b.stateHash());
   assert.equal(a.log.hash(), b.log.hash());

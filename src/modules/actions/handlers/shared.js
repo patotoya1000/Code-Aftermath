@@ -1,4 +1,4 @@
-import { directionFromDelta, chebyshev } from '../../../kernel/index.js';
+import { directionFromDelta, chebyshev, own } from '../../../kernel/index.js';
 
 export const ok = { ok: true };
 export const fail = (reason) => ({ ok: false, reason });
@@ -7,7 +7,7 @@ export const DONE = { status: 'done' };
 export const failTick = (reason) => ({ status: 'fail', reason });
 
 export function positionOfEntity(state, id) {
-  const e = state.nodes[id] ?? state.buildings[id] ?? state.survivors[id];
+  const e = own(state.nodes, id) ?? own(state.buildings, id) ?? own(state.survivors, id);
   if (!e) return null;
   return e.position ? { x: e.position.x, y: e.position.y } : { x: e.x, y: e.y };
 }

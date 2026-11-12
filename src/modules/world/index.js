@@ -12,6 +12,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     schema: STATE_SCHEMA, scenarioId, seed, tick: 0, rngState: 0,
     map: { ...sc.map },
     counters: { action: 0, reservation: 0 },
+    strategyPoints: defs.clock.strategy.start, // spent by learner commands, regenerates over time (see simulation tick)
     ledger: {}, reservations: {},
     nodes: {}, buildings: {}, survivors: {},
     actions: {}, activeActions: [],

@@ -1,6 +1,6 @@
 import { AftermathError, hashValue, SAVE_FORMAT, SIM_VERSION } from '../../kernel/index.js';
 
-// ---- Storage adapters (swap freely: memory for tests, IndexedDB in the browser/Capacitor) ----
+// ---- Storage adapters (swap freely: memory for tests, IndexedDB in the browser) ----
 export function createMemoryAdapter() {
   const m = new Map();
   return { get: async (k) => m.get(k) ?? null, set: async (k, v) => { m.set(k, v); }, delete: async (k) => { m.delete(k); }, keys: async () => [...m.keys()] };

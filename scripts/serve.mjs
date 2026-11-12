@@ -11,7 +11,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 export function normalizeEntryPath(value) {
   if (!value) return '';
   const path = value.startsWith('file:') ? fileURLToPath(value) : value;
-  return normalize(path).replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
+  return normalize(path).replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/([a-z]:)/i, '$1').toLowerCase();
 }
 
 export function isDirectExecutionEntry(currentUrl, argvValue = process.argv[1]) {

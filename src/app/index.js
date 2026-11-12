@@ -2,7 +2,8 @@
 import { createDefinitions } from '../modules/definitions/index.js';
 import { createSandbox } from '../modules/sandbox/index.js';
 import { runLesson, listLessons } from '../modules/lessons/index.js';
-import { runAttempt, createFreeSim, advanceTurn } from '../modules/session/index.js';
+import { runAttempt, createFreeSim, runLiveCode, replayTimeline, submitCalls } from '../modules/session/index.js';
+import { createClockDriver } from '../modules/simulation/index.js';
 import { verifyReplay } from '../modules/replay/index.js';
 import { describeApi } from '../modules/api/index.js';
 import { createSaveStore, createMemoryAdapter, emptyProgress, recordLessonResult } from '../modules/persistence/index.js';
@@ -31,14 +32,32 @@ export function createApp({ adapter = createMemoryAdapter(), sandbox = createSan
       lastAttempt = await runAttempt({ defs, sandbox, code, scenarioId, seed, maxTicks, captureFrames: true });
       return lastAttempt;
     },
-    /** Create a fresh turn-based free-play simulation. Returns { sim, initialView }. */
+    /** Create a fresh free-play simulation. It does not run until a clock driver (or a test) steps it. */
     createFreeSim({ scenarioId = 'stage1', seed = 1 } = {}) {
       return createFreeSim({ defs, scenarioId, seed });
     },
-    /** Advance one turn on a live free-play simulation with the given commands. */
-    async advanceTurn(sim, commands = []) {
-      return advanceTurn(sim, commands);
+    /** Real-time driver for a free-play sim: play/pause/speed and frame pacing, numbers from defs.clock. */
+    createClock(sim) {
+      return createClockDriver(sim, defs.clock);
     },
+    /** Free-play editor path: code → sandbox Worker → Game API → live simulation (commands start working at once). */
+    async runCode(sim, code, { actorId = null } = {}) {
+      return runLiveCode({ sim, sandbox, code, actorId });
+    },
+    /** Run code through sandbox, submit commands, advance turn, return results. */
+    async runTurnCode(sim, code) {
+      const run = await sandbox.run({ code, view: sim.studentView(), seed: sim.seed, actorId: sim.survivors?.[0]?.id });
+      if (!run.ok) {
+        return { ok: false, error: run.error, violations: run.violations ?? null, submitted: [], turnInfo: sim.getTurnInfo() };
+      }
+      const submitted = submitCalls(sim, run.calls);
+      sim.strategyPoints = sim.defs.clock.strategy.start;
+      sim.turn = (sim.turn ?? 0) + 1;
+      return { ok: true, submitted, turnInfo: sim.getTurnInfo(), events: sim.log.all() };
+    },
+
+    /** Rebuild a live session from scenario + seed + its command timeline. */
+    replayTimeline: (record) => replayTimeline({ defs, ...record }),
     verifyReplay: (record) => verifyReplay(record, { defs, sandbox }),
     async save(slot = 'autosave') {
       if (!lastAttempt) return false;

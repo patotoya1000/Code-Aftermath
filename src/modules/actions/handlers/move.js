@@ -15,7 +15,8 @@ export const moveHandler = {
     if (s.position.x === dest.x && s.position.y === dest.y) return DONE;
     a.phase = 'travel';
     a.progress += 1;
-    if (a.progress % ctx.defs.actions.move.ticksPerTile === 0) stepToward(s, dest);
+    const ticksPerTile = Math.ceil(ctx.defs.actions.move.ticksPerTile * (a.durationModifier ?? 1));
+    if (a.progress % ticksPerTile === 0) stepToward(s, dest);
     return s.position.x === dest.x && s.position.y === dest.y ? DONE : RUNNING;
   },
   complete(ctx, a) {

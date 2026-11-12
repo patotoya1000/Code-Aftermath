@@ -20,15 +20,15 @@
   <div class="resources" id="resources"></div>
 
   <div class="time" id="time-block">
-    <div class="day" id="time-day">DAY 1</div>
-    <div class="clock" id="time-clock">06:00</div>
+    <div class="day" id="clock-label">PAUSED · 1×</div>
+    <div class="clock" id="clock-detail">STRATEGY 10/10 · TICK 0</div>
   </div>
 
   <div class="controls" id="sim-controls">
-    <button type="button" class="sim-btn active" id="btn-pause" aria-label="Pause simulation">PAUSE</button>
-    <button type="button" class="sim-btn" id="btn-play" aria-label="Play simulation">PLAY</button>
-    <button type="button" class="sim-btn speed" id="btn-speed" aria-label="Simulation speed">1×</button>
-    <button type="button" class="settings-btn" id="btn-settings" aria-label="Settings">⚙</button>
+    <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
+    <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
+    <button type="button" class="sim-btn" id="btn-restart" aria-label="Restart scenario">RESTART</button>
+    <button type="button" class="sim-btn" id="btn-lessons" aria-label="Lesson mode">📚 LESSONS</button>
   </div>
 </header>
 
@@ -69,15 +69,6 @@
           <div class="equip-grid" id="inspector-equip"></div>
         </div>
 
-        <div class="section">
-          <h3><span class="icon">⚖</span>Carry Load</h3>
-          <div class="carry-row">
-            <div class="carry-bar"><div class="carry-fill" id="inspector-carry-fill" style="width:0%"></div></div>
-          </div>
-          <div class="carry-text" id="inspector-carry-text">0 / 0 kg</div>
-          <div class="inv-list" id="inspector-inv"></div>
-        </div>
-
         <div id="task-panel">
           <div class="section">
             <h3><span class="icon">📋</span>Current Task</h3>
@@ -103,18 +94,16 @@
   <div id="command-region">
     <div id="cmd-bar">
       <button type="button" class="cmd-btn code" id="btn-code" aria-label="Open code interface">CODE</button>
-      <button type="button" class="cmd-btn" id="btn-assign" aria-label="Assign task">ASSIGN TASK</button>
-      <button type="button" class="cmd-btn" id="btn-task" aria-label="View tasks">TASK</button>
-      <button type="button" class="cmd-btn" id="btn-build" aria-label="Buildings">BUILD</button>
-      <button type="button" class="cmd-btn" id="btn-survivors" aria-label="Survivors">SURVIVORS</button>
-      <button type="button" class="cmd-btn" id="btn-research" aria-label="Research">RESEARCH</button>
-      <button type="button" class="cmd-btn" id="btn-menu" aria-label="Menu">MENU</button>
+      <button type="button" class="cmd-btn" id="btn-assign" disabled>ASSIGN TASK<small class="soon">Coming in Phase I5</small></button>
+      <button type="button" class="cmd-btn" id="btn-task" disabled>TASK<small class="soon">Coming in Phase I5</small></button>
+      <button type="button" class="cmd-btn" id="btn-build" disabled>BUILD<small class="soon">Coming in Phase I11</small></button>
+      <button type="button" class="cmd-btn" id="btn-survivors" disabled>SURVIVORS<small class="soon">Coming in Phase I5</small></button>
+      <button type="button" class="cmd-btn" id="btn-research" disabled>RESEARCH<small class="soon">Not yet scheduled</small></button>
+      <button type="button" class="cmd-btn" id="btn-menu" disabled>MENU<small class="soon">Coming in Phase I3</small></button>
+      <button type="button" class="cmd-btn" id="btn-settings" disabled>SETTINGS<small class="soon">Coming in Phase I3</small></button>
     </div>
-    <div id="cmd-hints">
-      <div class="hint-chip"><span class="api-glyph">survivor.gather("wood")</span>Express intent via code</div>
-      <div class="hint-chip"><span class="api-glyph">survivor.returnToBase()</span>Queue a command</div>
-      <div class="hint-chip"><span class="api-glyph">simulation tick</span>State is authoritative</div>
-    </div>
+    <div id="cmd-hints"></div>
+    <div id="event-feed" aria-live="polite"><span class="hint">The world keeps running. Open CODE, run a command, and watch your survivors work. Events appear here.</span></div>
   </div>
 
   <div id="tutor-region">
@@ -140,12 +129,14 @@
       <div class="code-content" id="code-lesson-content">
         <p>Write code to command your survivors. Each command expresses intent — the simulation validates and executes it.</p>
         <div class="example">survivor.gather("wood", 10);</div>
-        <p>The system will: validate preconditions → reserve resources → queue the action → execute on the next simulation tick.</p>
+        <p>Your code runs in an isolated Worker. It can only <em>request</em> actions; each command costs 1 strategy point, which comes back over time. Survivors keep working on a command until it stops by itself: storage full, nothing left to gather, or too tired.</p>
+        <div class="example">survivor.gather("wood", 20);      // trips of 20, until done<br>survivor.gather("wood", 20, 60); // stop after 60 wood</div>
+        <p>A new program replaces what the survivor was doing; its commands run top to bottom. Call <code>survivor.queue()</code> first to add to the end instead.</p>
       </div>
     </div>
     <div class="code-pane editor">
       <div id="code-pane-header">JavaScript Editor</div>
-      <div class="code-content editor-content" id="code-editor" contenteditable spellcheck="false">survivor.gather("wood", 10);</div>
+      <textarea class="code-content editor-content" id="code-editor" spellcheck="false" aria-label="JavaScript editor">survivor.gather("wood", 10);</textarea>
     </div>
     <div class="code-pane api">
       <div id="code-pane-header">Available API</div>
@@ -156,7 +147,26 @@
     <div class="code-actions">
       <button type="button" class="btn-run" id="btn-run-code">Run Code</button>
     </div>
-    <div class="execution-result" id="code-execution-result">Ready.</div>
+    <div class="execution-result" id="code-execution-result">Ready. Commands start working as soon as you run them; use PLAY if the simulation is paused.</div>
+    <div id="code-commands"></div>
+  </div>
+</div>
+
+<div id="lesson-player-panel" style="display:none;">
+  <div class="code-header">
+    <div class="code-title">Lesson Player</div>
+    <button type="button" class="code-close" onclick="exitLesson()">✕</button>
+  </div>
+  <div class="code-body lesson-mode">
+    <div id="lesson-brief"></div>
+    <div class="lesson-tabs">
+      <button type="button" class="lesson-tab active" onclick="renderLessonList()">📋 Lessons</button>
+      <button type="button" class="lesson-tab" onclick="renderProgressScreen()">📊 Progress</button>
+    </div>
+    <div id="lesson-list"></div>
+    <div id="lesson-instructions"></div>
+    <div id="lesson-result" style="display:none;"></div>
+    <div id="progress-screen"></div>
   </div>
 </div>
 

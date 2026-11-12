@@ -15,6 +15,7 @@ export const FAILURE_HINTS = {
   OUT_OF_BOUNDS: 'That tile is outside the map.',
   ACTOR_DOWNED: 'Your survivor collapsed. Keep hunger, thirst and health safe.',
   CANCELLED: 'The action was cancelled.',
+  CAPABILITY_INSUFFICIENT: 'Your survivor lacks the attribute, skill, or trait needed for this action. Check survivor.attributes and survivor.skills, then train or choose a different action.',
 };
 
 export function listLessons(defs) {

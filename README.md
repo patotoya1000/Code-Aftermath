@@ -1,12 +1,12 @@
-# CODE: AFTERMATH — engine (Phases 0–1)
+# CODE: AFTERMATH — engine (Phases 0–1 + correction C0–C8)
 
 A **modular monolith**: one deployable app (static files, offline-first, no build step), split into modules with
 enforced boundaries. Vanilla ES modules; Node ≥ 22 for tests.
 
 ```
-npm test          # 51 tests incl. architecture-boundary checks and the Phase 0 gate
+npm test          # 94 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer
 npm run serve     # http://localhost:8080  (ES modules need http://, not file://)
-npm run smoke     # real-browser check (needs Playwright + Chromium)
+npm run smoke     # real-browser check (needs Playwright + Chromium) — (C9 gate: passing)
 ```
 
 ## Architecture
@@ -27,14 +27,15 @@ Learner code → Sandbox (Worker, Clock A) → Game API v1 → Command → Actio
 | `world` | builds the initial GameState from a scenario + seed | resources, survivors, buildings |
 | `projection` | read-only views: student view, render projection, Inspector card | resources, survivors, buildings |
 | `actions` | action queue, lifecycle state machine, handlers | resources, buildings |
-| `simulation` | **the only writer of GameState**; tick loop | survivors, actions, projection |
+| `simulation` | **the only writer of GameState**; tick loop; clock driver (play/pause/speed → `sim.step`) | survivors, actions, projection |
 | `api` | versioned Game API contract + command builder | — |
 | `sandbox` | static safety check + isolated Worker runner + budgets | api |
 | `session` | one attempt end to end | world, simulation, api |
 | `lessons` | goal checks, feedback | session |
 | `replay` | replay record + verification | session |
 | `persistence` | save store (memory / IndexedDB), campaign progress | — |
-| `debugview` | Phase 1 canvas view (replaced by `render` in Phase 2) | — |
+| `assets` | semantic asset keys → atlas frames, 5-step fallback, in-code placeholder atlas, animation timing | — |
+| `render` | the one production canvas renderer; reads the render projection only; optional debug overlay (`?debug`, Alt+D) | assets |
 | `app/` | composition root: the one place modules are wired together | all |
 
 **Rules (enforced by `tests/architecture.test.js`, declared in `src/architecture.js`)**
@@ -50,16 +51,18 @@ Learner code → Sandbox (Worker, Clock A) → Game API v1 → Command → Actio
 - Every attempt starts from a fresh scenario; failed attempts can't reduce saved progress.
 - All numbers/definitions are data (`modules/definitions/data/`), not code.
 
-## Command Console Mode (free play)
+## Free play: a world that keeps running (real-time)
 
-In free-play mode, instead of writing a script that runs all at once, you issue commands turn by turn:
+- The simulation ticks continuously; there are **no turns**. A clock driver turns frame time into ticks (3 ticks/s at 1x; speeds 1×/2×/4×). It starts **paused**; **PLAY**/**PAUSE** (or Space) and the speed button control it.
+- **CODE** opens the editor. **Run Code** sends your JavaScript through `Safety Validator → Worker → Game API → Command Builder` straight into the live world. Commands start working at once and the clock resumes if it was paused.
+- **Standing commands:** `survivor.gather("wood", 20)` keeps gathering in trips of 20 until storage is full, nothing is left, or the survivor is too tired. Add a total to stop earlier: `gather("wood", 20, 60)`. `survivor.lastTask` says why a survivor stopped (`TARGET_REACHED`, `STORAGE_FULL`, `NO_TARGET`, `EXHAUSTED`).
+- **Replace vs queue:** the first command a program gives a survivor replaces what it was doing; the rest queue behind it in order. `survivor.queue()` appends instead.
+- **Strategy points:** each command costs 1; start 10, max 10, +1 every 20 ticks.
+- Commands: `moveTo`, `gather`, `rest`, `eat`, `drink`, `repair`, `stop` (+ the free `queue` marker). Survival is manual: nothing eats or rests for you. Buttons for systems that do not exist yet are disabled and labelled with their phase.
+- Run the screen with `npm run serve`; `?debug` (or Alt+D) shows the debug overlay. Details: `docs/game/15-realtime-simulation-and-tasks.md`.
 
-- **Command budget**: 3 commands per turn (`survivor.gather(...)`, `survivor.moveTo(...)`, `survivor.rest(...)`, etc.)
-- **Strategy points**: 10 per turn; each command costs 1 strategy point; 2 points recharge each turn
-- **Turn flow**: Type `survivor.commandName(args)` → click **Next Turn** → simulation runs until idle → see results
-- **Commands available**: `moveTo`, `gather`, `rest`, `eat`, `drink`, `repair`, `stop`
-
-The command console replaces the old Play/scrubber animation. Use **Free Play** to run a script all at once, or **Next Turn** for turn-by-turn command control.
+## Design docs
+`docs/game/` holds the former .docx files as chunked Markdown (architecture, design flow, NPC, buildings, assets, …). `docs/correction/` holds the audit, correction phases (C0–C9), implementation phases (I0–I15) and the C0 baseline, with completed items ticked.
 
 ## Security note
 The static check gives friendly errors; real containment is the **Worker** (no DOM/storage, runs under the page CSP
@@ -67,7 +70,7 @@ with `connect-src 'none'`), prototype hardening, and a termination timeout. The 
 only — it is not a security boundary.
 
 ## Adding things
-- **New command**: add to `api/v1.js` (`COMMANDS`), add an action def in `definitions/data/actions.js`, add a handler in `actions/handlers/`.
+- **New command**: add to `api/v1.js` (`COMMANDS`), add an action def in `definitions/data/actions.js`, add a handler in `actions/handlers/`. A handler may be *standing* (see `handlers/gather.js`): keep returning `RUNNING` across batches and finish with `{ status: 'done', stopReason }`.
 - **New building / node / item / lesson**: edit the data files; `validateDefinitions` tells you what's inconsistent.
 - **New lesson check**: add a function to `lessons/checks.js`, reference it by name in lesson data.
 

@@ -9,7 +9,7 @@ import { verifyReplay } from '../src/modules/replay/index.js';
 import { createSandbox } from '../src/modules/sandbox/index.js';
 
 test('GATE: full pipeline from learner code to lesson feedback', async () => {
-  const { attempt, evaluation } = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10);' });
+  const { attempt, evaluation } = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.gather("wood", 10, 10);' });
   assert.equal(attempt.ok, true);
   assert.ok(attempt.events.some((e) => e.type === 'action.completed'));
   assert.equal(attempt.finalView.base.wood, 10);
@@ -18,7 +18,7 @@ test('GATE: full pipeline from learner code to lesson feedback', async () => {
 });
 
 test('GATE: replay reproduces identical outcome from seed + code + versions', async () => {
-  const a = await runAttempt({ defs, sandbox, code: 'for (let i=0;i<3;i++) survivor.gather("wood", 5); survivor.repair(fence);', scenarioId: 'stage1', seed: 99, maxTicks: 600, lessonId: 'x', lessonVersion: 1 });
+  const a = await runAttempt({ defs, sandbox, code: 'for (let i=0;i<3;i++) survivor.gather("wood", 5, 5); survivor.repair(fence);', scenarioId: 'stage1', seed: 99, maxTicks: 600, lessonId: 'x', lessonVersion: 1 });
   const r = await verifyReplay(a.record, { defs, sandbox });
   assert.equal(r.matches, true, JSON.stringify(r.mismatches));
   // Tampering is detected.
@@ -49,11 +49,11 @@ test('GATE: learner cannot mutate authoritative state through the API surface', 
 
 test('GATE: lessons accept different valid coding styles unless a construct is required', async () => {
   const styles = [
-    'survivor.gather("wood", 10);',
-    'survivor.gather("wood", 5);\nsurvivor.gather("wood", 5);',
-    'for (let i = 0; i < 2; i++) { survivor.gather("wood", 5); }',
-    'function chop(n) { survivor.gather("wood", n); }\nchop(10);',
-    'const amount = 10;\nif (survivor.needs.energy > 10) survivor.gather("wood", amount);',
+    'survivor.gather("wood", 10, 10);',
+    'survivor.gather("wood", 5, 5);\nsurvivor.gather("wood", 5, 5);',
+    'for (let i = 0; i < 2; i++) { survivor.gather("wood", 5, 5); }',
+    'function chop(n) { survivor.gather("wood", n, n); }\nchop(10);',
+    'const amount = 10;\nif (survivor.needs.energy > 10) survivor.gather("wood", amount, amount);',
   ];
   for (const code of styles) {
     const { evaluation } = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code });
@@ -62,12 +62,12 @@ test('GATE: lessons accept different valid coding styles unless a construct is r
 });
 
 test('lesson: rest-first requires the construct and fails helpfully without handling energy', async () => {
-  const naive = await runLesson({ defs, sandbox, lessonId: 'm1_rest_first', code: 'survivor.gather("wood", 10);' });
+  const naive = await runLesson({ defs, sandbox, lessonId: 'm1_rest_first', code: 'survivor.gather("wood", 10, 10);' });
   assert.equal(naive.evaluation.passed, false);
   assert.ok(naive.evaluation.feedback.some((f) => /too tired/.test(f)));
-  const good = await runLesson({ defs, sandbox, lessonId: 'm1_rest_first', code: 'if (survivor.needs.energy < 30) { survivor.rest(); }\nsurvivor.gather("wood", 10);' });
+  const good = await runLesson({ defs, sandbox, lessonId: 'm1_rest_first', code: 'if (survivor.needs.energy < 30) { survivor.rest(); }\nsurvivor.gather("wood", 10, 10);' });
   assert.equal(good.evaluation.passed, true, JSON.stringify(good.evaluation));
-  const noIf = await runLesson({ defs, sandbox, lessonId: 'm1_rest_first', code: 'survivor.rest();\nsurvivor.gather("wood", 10);' });
+  const noIf = await runLesson({ defs, sandbox, lessonId: 'm1_rest_first', code: 'survivor.rest();\nsurvivor.gather("wood", 10, 10);' });
   assert.equal(noIf.evaluation.passed, false, 'structural check requires an if');
 });
 
@@ -76,18 +76,18 @@ test('lesson: mend the fence and loop lessons are solvable with their starters',
     const { evaluation } = await runLesson({ defs, sandbox, lessonId: id, code: defs.lessons[id].starter });
     assert.equal(evaluation.passed, true, `${id}: ${JSON.stringify(evaluation)}`);
   }
-  const noLoop = await runLesson({ defs, sandbox, lessonId: 'm2_loop_wood', code: 'survivor.gather("wood", 20);\nsurvivor.gather("wood", 10);' });
+  const noLoop = await runLesson({ defs, sandbox, lessonId: 'm2_loop_wood', code: 'survivor.gather("wood", 20, 20);\nsurvivor.gather("wood", 10, 10);' });
   assert.equal(noLoop.evaluation.passed, false);
 });
 
 test('lesson: a rejected command is recorded and fails the clean-run goal', async () => {
-  const a = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.moveTo(500, 500); survivor.gather("wood", 10);' });
+  const a = await runLesson({ defs, sandbox, lessonId: 'm1_first_wood', code: 'survivor.moveTo(500, 500); survivor.gather("wood", 10, 10);' });
   assert.equal(a.evaluation.passed, false);
   assert.ok(a.attempt.events.some((e) => e.type === 'action.failed' && e.reason === 'OUT_OF_BOUNDS'));
 });
 
 test('lessons: evaluate is pure and checkpoints expose intermediate state', async () => {
-  const a = await runAttempt({ defs, sandbox, code: 'survivor.gather("wood", 20);', scenarioId: 'stage1', seed: 3, checkpointEvery: 10 });
+  const a = await runAttempt({ defs, sandbox, code: 'survivor.gather("wood", 20, 20);', scenarioId: 'stage1', seed: 3, checkpointEvery: 10 });
   assert.ok(a.checkpoints.length >= 4);
   assert.equal(a.checkpoints[0].tick, 0);
   const before = JSON.stringify(a.finalView);

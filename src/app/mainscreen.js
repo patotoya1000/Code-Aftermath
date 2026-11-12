@@ -1,453 +1,490 @@
-// CODE: AFTERMATH — Main Game Screen Controller (Phase 2)
-// Connects the renderer, inspector, and command bar to the simulation.
-// Every value shown is a read-only projection of GameState — the UI never mutates state.
+// CODE: AFTERMATH — Main Game Screen Controller
+// Every value shown is a read-only projection of the simulation. The UI never mutates GameState,
+// never parses commands itself, and never invents gameplay numbers.
+//   editor → app.runCode() → Safety Validator → Worker → Game API → live simulation (strategy points)
+//   animation frame → clock driver → sim.step(n) → projections → renderer / inspector / event feed
+// Time is continuous: survivors keep working until their command stops by itself. PLAY / PAUSE / speed only
+// decide how fast wall-clock time becomes simulation ticks; they never change a gameplay rule.
 
-import { mountRenderer } from '../render/renderer.js';
-import { createApp } from './index.js';
+import { mountRenderer } from '../modules/render/index.js';
+import { placeholderManifestFor } from '../modules/assets/index.js';
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
-import { buildCommand } from '../modules/api/index.js';
+import { createApp } from './index.js';
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-let app, renderer, freeSim;
-let selectedEntity = null;
+let app; let renderer; let freeSim; let clock;
+let selected = null; // { kind: 'npc' | 'building' | 'node', id }
 let isInspectorOpen = true;
 let isCodePanelOpen = false;
-let simPaused = false;
-let simSpeed = 1;
-let lastProjection = null;
+let isLessonMode = false;
+let currentLessonId = null;
+let lessonAttempt = null;
+let stepInspectorActive = false;
+let stepStep = 0;
+let feed = []; // recent event lines (newest last)
+let eventCursor = 0;
+let lastFrame = 0; let lastPanelRefresh = 0;
 
-const RESOURCE_ICONS = {
-  wood: 'wood', stone: 'stone', metal: 'metal', food: 'food', water: 'water',
-  survivor: 'survivor', base: 'base',
-};
+// Presentation-only icon hints for action types (no gameplay meaning).
+const TASK_ICON = { gather: '🌲', move: '🚶', rest: '💤', eat: '🍎', drink: '💧', repair: '🔧' };
 
 async function init() {
-  const canvas = $('map-canvas');
-  renderer = mountRenderer(canvas);
-
-  const adapter = createIndexedDbAdapter();
+  let adapter;
+  try { adapter = createIndexedDbAdapter(); } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
-
-  await ensureFreeSim();
+  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  await startScenario();
+  renderHints();
+  renderCodeAPI();
   bindEvents();
-  renderFrame();
   requestAnimationFrame(loop);
 }
 
-async function ensureFreeSim() {
-  if (!freeSim) {
-    const { sim: s } = await app.createFreeSim({ scenarioId: 'stage1', seed: 1 });
-    freeSim = s;
+async function startScenario() {
+  const { sim } = await app.createFreeSim({ scenarioId: 'stage1', seed: 1 });
+  freeSim = sim;
+  clock = app.createClock(sim);
+  feed = []; eventCursor = 0;
+  const first = freeSim.studentView().survivors[0];
+  selected = first ? { kind: 'npc', id: first.id } : null;
+  if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
+  refreshUI();
+}
+
+// Every frame: advance the simulation by however many ticks the clock says, then draw. Panels refresh a few times a
+// second (and on every user action) instead of every frame.
+function loop(now) {
+  if (freeSim) {
+    const dt = lastFrame ? now - lastFrame : 0; lastFrame = now;
+    const ran = clock.update(dt);
     renderer.draw(freeSim.renderProjection());
-    lastProjection = freeSim.renderProjection();
-    updateTopBar(lastProjection);
-    selectEntity('npc', freeSim.studentView().survivors[0]);
+    if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
+  }
+  requestAnimationFrame(loop);
+}
+
+function refreshUI() {
+  if (!freeSim) return;
+  updateTopBar();
+  renderInspector();
+  updateTutor();
+  collectEvents();
+  renderFeed();
+  if (isLessonMode) {
+    renderLessonList();
+    renderLessonInstructions();
+    if (lessonAttempt) renderLessonResult();
   }
 }
 
-function loop() {
-  renderFrame();
-  requestAnimationFrame(loop);
+function renderUI() {
+  refreshUI();
+  if (isLessonMode) {
+    renderLessonList();
+    renderLessonInstructions();
+    renderProgressScreen();
+    if (lessonAttempt) renderLessonResult();
+  }
 }
 
-function renderFrame() {
-  if (!freeSim) return;
+// ---------- Top bar (projection data only) ----------
+function updateTopBar() {
   const proj = freeSim.renderProjection();
-  lastProjection = proj;
-  renderer.draw(proj);
-  updateTopBar(proj);
-  if (selectedEntity) renderInspector();
-  updateTutor(proj);
-}
-function updateTopBar(proj) {
-  const res = $('resources');
-  if (!res || !proj) return;
+  const view = freeSim.studentView();
+  const info = freeSim.getClockInfo();
 
-  const stock = proj.stock || {};
-  const order = ['wood', 'stone', 'metal', 'food', 'water'];
-  let html = order.map((key) => {
-    const val = stock[key] ?? 0;
-    const icon = RESOURCE_ICONS[key] || key;
-    return `
-      <div class="resource">
-        <div class="icon ${icon}">${icon.toUpperCase().slice(0, 2)}</div>
-        <b>${val}</b>
-      </div>
-    `;
-  }).join('');
+  let html = Object.entries(proj.stock).map(([key, val]) => `
+    <div class="resource" title="${esc(cap(key))}"><div class="icon ${esc(key)}">${esc(key.slice(0, 2).toUpperCase())}</div><b>${val}</b></div>`).join('');
+  html += `<div class="resource" title="Survivors"><div class="icon survivor">SV</div><b>${view.survivors.length}</b></div>`;
+  if (view.hq) {
+    const pct = Math.round((view.hq.health / view.hq.maxHealth) * 100);
+    const cls = pct >= 80 ? 'pos' : pct >= 50 ? 'warn' : 'neg';
+    html += `<div class="resource" title="Headquarters condition"><div class="icon base">BS</div><b><span class="delta ${cls}">${pct}%</span></b></div>`;
+  }
+  $('resources').innerHTML = html;
 
-  const survCount = proj.survivors ? proj.survivors.length : 0;
-  html += `
-    <div class="resource">
-      <div class="icon survivor">SV</div>
-      <b>${survCount}</b>
-    </div>
-  `;
-
-  const hq = proj.hq;
-  const baseCond = hq ? Math.round((hq.health / hq.maxHealth) * 100) : 100;
-  const condClass = baseCond >= 80 ? 'pos' : baseCond >= 50 ? 'warn' : 'neg';
-  html += `
-    <div class="resource">
-      <div class="icon base">BS</div>
-      <b><span class="delta ${condClass}">${baseCond}%</span></b>
-    </div>
-  `;
-
-  res.innerHTML = html;
-
-  const tick = proj.tick ?? 0;
-  const day = Math.floor(tick / 100) + 1;
-  const hour = Math.floor((tick % 100) / 4) + 6;
-  const minute = Math.floor(((tick % 100) % 4) / 4 * 60);
-  $('time-day').textContent = `DAY ${day}`;
-  $('time-clock').textContent = `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
+  $('clock-label').textContent = `${clock.paused ? 'PAUSED' : 'RUNNING'} · ${clock.speed}×`;
+  $('clock-detail').textContent = `STRATEGY ${info.strategyPoints}/${info.maxStrategyPoints} · TICK ${info.tick}`;
+  $('btn-play').textContent = clock.paused ? '▶ PLAY' : '⏸ PAUSE';
+  $('btn-speed').textContent = `${clock.speed}×`;
 }
 
-function selectEntity(kind, data) {
-  selectedEntity = { kind, data };
-  renderer.select(kind, data.id);
-  renderInspector();
-  updateTutor(lastProjection);
+// ---------- Inspector / Survivor Card (projection-driven) ----------
+function bar(label, val, max = 100, cls = '') {
+  const pct = Math.max(0, Math.min(100, (val / max) * 100));
+  return `<div class="need-row"><div class="label">${esc(cap(label))}</div><div class="bar-flex"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div><div class="value">${Math.round(val)}</div></div>`;
+}
+const section = (icon, title, body) => `<div class="section"><h3><span class="icon">${icon}</span>${esc(title)}</h3>${body}</div>`;
+const muted = (t) => `<span style="color:var(--muted);font-size:11px;">${esc(t)}</span>`;
+
+function survivorSections(card) {
+  const needs = Object.entries(card.needs).map(([k, v]) => bar(k, v, 100, v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good')).join('');
+  const attrs = Object.entries(card.attributes).map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('');
+  const skills = Object.entries(card.skills);
+  const equip = Object.entries(card.equipment);
+  const inv = card.inventoryDetail.map((i) => `<div class="inv-item"><span class="name">${esc(i.name)} × ${i.quantity}</span><span class="qty">${i.weight} wt</span></div>`).join('');
+  return [
+    section('❤', 'Needs', `<div class="needs-grid">${needs}</div>`),
+    card.conditions.length ? section('⚠', 'Conditions', card.conditions.map((c) => `<span class="status-pill" style="margin-right:6px;">${esc(c)}</span>`).join('')) : '',
+    section('⚡', 'Attributes', `<div class="attrs-grid">${attrs}</div>`),
+    section('🎓', 'Skills', skills.length ? `<div class="attrs-grid">${skills.map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('')}</div>` : muted('No skills tracked yet (Phase I4).')),
+    card.traits.length ? section('🏷', 'Traits', card.traits.map((t) => `<span class="status-pill">${esc(t)}</span>`).join(' ')) : '',
+    section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
+    section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted('Carry capacity and encumbrance are not active yet (Phase I5).')}</div>`),
+    taskSection(card.task, card.queued, card.lastTask),
+  ].join('');
 }
 
-function clearSelection() {
-  selectedEntity = null;
-  renderer.clearSelection();
-  $('inspector-card').innerHTML = `
-    <div class="header">
-      <div class="portrait">?</div>
-      <div class="info">
-        <div class="name">—</div>
-        <div class="sub">Select a survivor or building</div>
-      </div>
-    </div>
-  `;
+function taskSection(task, queued = 0, lastTask = null) {
+  if (!task) {
+    const last = lastTask
+      ? `Last: ${esc(lastTask.type)} ${esc(lastTask.status.toLowerCase())}${lastTask.reason ? ` — ${esc(lastTask.reason)}` : ''}${lastTask.gathered ? ` (${lastTask.gathered} gathered)` : ''}`
+      : 'Waiting for command';
+    return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">—</div><div class="task-info"><div class="task-title">No active task</div><div class="task-target">Idle</div><div class="task-progress"><div class="task-progress-fill" style="width:0%"></div></div><div class="task-meta">${last}</div></div></div>`);
+  }
+  const pct = Math.round((task.fraction ?? 0) * 100);
+  const stats = task.stats ? ` · gathered ${task.stats.gathered} in ${task.stats.trips} trip(s)` : '';
+  return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">${TASK_ICON[task.type] ?? '⏳'}</div><div class="task-info"><div class="task-title">${esc(task.type)}</div><div class="task-target">Target: ${esc(task.targetId ?? 'base')}</div><div class="task-progress"><div class="task-progress-fill" style="width:${pct}%"></div></div><div class="task-meta">${esc(task.status)} · ${pct}%${esc(stats)} · queued: ${queued}</div></div></div>`);
+}
+
+function buildingSections(b) {
+  const pct = Math.round((b.health / b.maxHealth) * 100);
+  const storage = b.storageInfo
+    ? Object.entries(b.storageInfo.capacity).map(([k, c]) => bar(k, b.storageInfo.current[k] ?? 0, c, 'good').replace(/<div class="value">\d+<\/div>/, `<div class="value">${b.storageInfo.current[k] ?? 0}/${c}</div>`)).join('')
+    : '';
+  return [
+    section('🏗', 'Building', `<div class="needs-grid">${bar('health', b.health, b.maxHealth, pct < 25 ? 'bad' : pct < 60 ? 'warn' : 'good')}</div><div style="margin-top:6px;font-size:11px;">Condition: <b>${esc(b.condition)}</b> · Level ${b.level}</div>`),
+    storage ? section('📦', 'Storage', `<div class="needs-grid">${storage}</div>`) : '',
+    section('🔧', 'Actions', muted(`Use survivor.repair(${b.id}) from the code panel.`)),
+  ].join('');
 }
 
 function renderInspector() {
-  if (!selectedEntity || !freeSim) return;
-
-  const viewState = freeSim.studentView();
-  const isBuilding = selectedEntity.kind === 'building';
-  const entity = selectedEntity.data;
-
-  const title = isBuilding ? (entity.name || entity.type || 'Building')
-    : (entity.name || entity.identity?.name || 'Survivor');
-  const status = isBuilding ? `${entity.condition || 'repaired'} · Lvl ${entity.level ?? 1}`
-    : (entity.status || 'active');
-
-  const metaHtml = isBuilding
-    ? `<span>ID: ${esc(entity.id)}</span><span>Type: ${esc(entity.type)}</span><span>Lvl: ${entity.level ?? 1}</span>`
-    : `<span>ID: ${esc(entity.id)}</span><span>Pos: ${entity.x},${entity.y}</span><span>Dir: ${entity.direction}</span>`;
-
-  const sections = [];
-  if (!isBuilding) {
-    const s = viewState.survivors.find((x) => x.id === entity.id) || entity;
-    sections.push(renderNeedsSection(s));
-    sections.push(renderAttributesSection(s));
-    sections.push(renderEquipmentSection(s));
-    sections.push(renderCarrySection(s));
+  if (!selected || !freeSim) { $('inspector-card').innerHTML = `<div class="header"><div class="portrait">?</div><div class="info"><div class="name">—</div><div class="sub">Select a survivor, building or resource</div></div></div>`; return; }
+  const view = freeSim.studentView();
+  let header; let body = '';
+  if (selected.kind === 'npc') {
+    const card = freeSim.inspector(selected.id);
+    if (!card) { selected = null; return renderInspector(); }
+    header = { glyph: '👤', name: card.identity.name, sub: `${card.status} · ${card.identity.background}`, meta: `<span>ID: ${esc(card.id)}</span><span>Age: ${card.identity.age}</span><span>Pos: ${card.x},${card.y}</span><span>Dir: ${card.direction}</span>` };
+    body = survivorSections(card);
+  } else if (selected.kind === 'building') {
+    const b = view.buildings.find((x) => x.id === selected.id);
+    if (!b) { selected = null; return renderInspector(); }
+    header = { glyph: '🏗', name: b.name, sub: `${b.condition} · Lvl ${b.level}`, meta: `<span>ID: ${esc(b.id)}</span><span>Type: ${esc(b.type)}</span>` };
+    body = buildingSections(b);
   } else {
-    sections.push(renderBuildingSection(entity));
+    const n = view.nodes.find((x) => x.id === selected.id);
+    if (!n) { selected = null; return renderInspector(); }
+    header = { glyph: n.type === 'tree' ? '🌲' : '🪨', name: cap(n.type), sub: `${n.amount} ${n.resource} left`, meta: `<span>ID: ${esc(n.id)}</span><span>Pos: ${n.x},${n.y}</span>` };
+    body = section('⛏', 'Resource', `<div class="needs-grid">${bar(n.resource, n.amount, Math.max(n.amount, 1), n.amount ? 'good' : 'bad')}</div><div style="margin-top:6px;">${muted(`Use survivor.gather("${n.resource}") to harvest.`)}</div>`);
   }
-  sections.push(renderTaskSection(entity));
-
-  $('inspector-card').innerHTML = `
-    <div class="header">
-      <div class="portrait ${!isBuilding ? 'selected' : ''}">${isBuilding ? '🏗' : '👤'}</div>
-      <div class="info">
-        <div class="name">${esc(title)}</div>
-        <div class="sub">${esc(status)}</div>
-        <div class="meta-row" id="inspector-meta">${metaHtml}</div>
-      </div>
-    </div>
-    ${sections.join('')}
-  `;
+  $('inspector-card').innerHTML = `<div class="header"><div class="portrait selected">${header.glyph}</div><div class="info"><div class="name">${esc(header.name)}</div><div class="sub">${esc(header.sub)}</div><div class="meta-row" id="inspector-meta">${header.meta}</div></div></div>${body}`;
 }
 
-function renderNeedsSection(s) {
-  const needs = s.needs || {};
-  const rows = Object.entries(needs).map(([key, val]) => {
-    const pct = Math.max(0, Math.min(100, val));
-    const cls = val <= 20 ? 'bad' : val <= 40 ? 'warn' : 'good';
-    const label = key.charAt(0).toUpperCase() + key.slice(1);
-    return `
-      <div class="need-row">
-        <div class="label">${label}</div>
-        <div class="bar-flex"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
-        <div class="value">${Math.round(val)}</div>
-      </div>
-    `;
-  }).join('');
-  return `<div class="section"><h3><span class="icon">❤</span>Needs</h3><div class="needs-grid">${rows}</div></div>`;
+function selectEntity(kind, id) {
+  selected = { kind, id };
+  renderer.select(kind, id);
+  refreshUI();
 }
 
-function renderAttributesSection(s) {
-  const attrs = s.attributes || {};
-  const order = ['strength', 'intelligence', 'agility', 'endurance', 'crafting', 'perception'];
-  const cells = order.filter((k) => attrs[k] !== undefined).map((k) => {
-    const label = k.charAt(0).toUpperCase() + k.slice(1);
-    return `
-      <div class="attr-cell">
-        <span class="attr-name">${label}</span>
-        <span class="attr-val">${attrs[k]}</span>
-      </div>
-    `;
-  }).join('');
-  return `<div class="section"><h3><span class="icon">⚡</span>Attributes</h3><div class="attrs-grid">${cells}</div></div>`;
-}
-
-function renderEquipmentSection(s) {
-  const equip = s.equipment || {};
-  const slots = ['PRIMARY', 'CLOTHING', 'BACKPACK'];
-  const cells = slots.map((slot) => {
-    const item = equip[slot.toLowerCase()] || null;
-    if (!item) {
-      return `<div class="equip-slot empty"><span class="slot-label">${slot}</span><span class="slot-val">—</span></div>`;
-    }
-    return `<div class="equip-slot"><span class="slot-label">${slot}</span><span class="slot-val">${esc(item)}</span></div>`;
-  }).join('');
-  return `<div class="section"><h3><span class="icon">🎒</span>Equipment</h3><div class="equip-grid">${cells}</div></div>`;
-}
-
-function renderCarrySection(s) {
-  const inventory = s.inventory || { items: {} };
-  const items = inventory.items || {};
-  let totalWeight = 0;
-  for (const [key, qty] of Object.entries(items)) totalWeight += qty * 2;
-  const maxCarry = 22;
-  const pct = Math.min(100, (totalWeight / maxCarry) * 100);
-  const encumbered = pct > 80;
-  const encState = pct > 80 ? 'Heavy' : pct > 50 ? 'Moderate' : 'Light';
-  const invRows = Object.entries(items).map(([key, qty]) => `
-    <div class="inv-item"><span class="name">${esc(key)} × ${qty}</span><span class="qty">${qty * 2} kg</span></div>
-  `).join('');
-  return `
-    <div class="section"><h3><span class="icon">⚖</span>Carry Load</h3>
-      <div class="carry-row"><div class="carry-bar"><div class="carry-fill ${encumbered ? 'encumbered' : ''}" style="width:${pct}%"></div></div></div>
-      <div class="carry-text">Carry Load ${totalWeight} / ${maxCarry} kg · Encumbrance: ${encState}</div>
-      <div class="inv-list">${invRows || '<span style="color:var(--muted);font-size:11px;">Empty</span>'}</div>
-    </div>`;
-}
-
-const CONDITION_COLOR = { ruined: '#c0504d', damaged: '#d9a441', repaired: '#4f9d5d' };
-
-function renderBuildingSection(b) {
-  const pct = Math.max(0, Math.min(100, ((b.health ?? 0) / (b.maxHealth || 100)) * 100));
-  return `
-    <div class="section"><h3><span class="icon">🏗</span>Building</h3>
-      <div class="bar"><span>Health</span><i style="width:${pct}%;background:var(--good)"></i><b>${b.health ?? 0}/${b.maxHealth || 0}</b></div>
-      <div class="bar" style="margin-top:8px;"><span>Condition</span><i style="width:100%;background:${CONDITION_COLOR[b.condition] || '#d9a441'}"></i><b>${esc(b.condition)}</b></div>
-      <div style="margin-top:10px;font-size:11px;color:var(--muted);">Available actions: Repair (pending Phase 4)</div>
-    </div>`;
-}
-
-function renderTaskSection(entity) {
-  const task = entity.task || null;
-  if (!task) {
-    return `<div id="task-panel">
-      <div class="section"><h3><span class="icon">📋</span>Current Task</h3>
-        <div class="current-task">
-          <div class="task-icon">—</div>
-          <div class="task-info">
-            <div class="task-title">No active task</div>
-            <div class="task-target">Idle</div>
-            <div class="task-progress"><div class="task-progress-fill" style="width:0%"></div></div>
-            <div class="task-meta">Waiting for command</div>
-          </div>
-        </div>
-      </div>
-      <div class="section"><h3><span class="icon">📜</span>Task Queue</h3>
-        <div id="task-queue">
-          <div class="queue-item"><div class="badge q">Q</div><div class="text">No queued tasks</div></div>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  const pct = Math.round((task.progress ?? 0) * 100);
-  const iconMap = { gather: '🌲', move: '🚶', rest: '💤', eat: '🍎', drink: '💧', repair: '🔧' };
-  const icon = iconMap[task.type] || '⏳';
-
-  return `<div id="task-panel">
-    <div class="section"><h3><span class="icon">📋</span>Current Task</h3>
-      <div class="current-task">
-        <div class="task-icon">${icon}</div>
-        <div class="task-info">
-          <div class="task-title">${esc(task.type)}</div>
-          <div class="task-target">Target: ${esc(task.targetId || 'base')}</div>
-          <div class="task-progress"><div class="task-progress-fill" style="width:${pct}%"></div></div>
-          <div class="task-meta">${task.status} · Progress: ${pct}%</div>
-        </div>
-      </div>
-    </div>
-    <div class="section"><h3><span class="icon">📜</span>Task Queue</h3>
-      <div id="task-queue">
-        <div class="queue-item"><div class="badge e">E</div><div class="text">${esc(task.type)} → ${esc(task.targetId || 'base')}</div><div class="fail-reason">${task.status}</div></div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function updateTutor(proj) {
-  const content = $('tutor-content');
-  const empty = $('tutor-empty');
-  if (!content || !proj) return;
-
+// ---------- Tutor (contextual, read-only) ----------
+function updateTutor() {
+  const content = $('tutor-content'); const empty = $('tutor-empty');
+  if (!content) return;
+  if (!selected) { if (empty) empty.style.display = 'block'; content.innerHTML = ''; return; }
   let msg = '';
-  if (selectedEntity && selectedEntity.kind === 'npc') {
-    const s = proj.survivors ? proj.survivors.find((x) => x.id === selectedEntity.id) : null;
-    if (s) {
-      const task = s.task;
-      if (task && task.status === 'EXECUTING') {
-        msg = `<p>${esc(s.name)} is currently <span class="highlight">${esc(task.type)}</span>. Progress: ${Math.round((task.progress ?? 0) * 100)}%.</p>`;
-        if (s.conditions && s.conditions.length > 0) msg += `<p>Conditions: ${s.conditions.join(', ')}.</p>`;
-      } else if (task && task.status === 'FAILED') {
-        msg = `<p>${esc(s.name)}'s action <span class="highlight">failed</span>. Reason: ${task.failureReason || 'unknown'}.</p>`;
-        msg += `<p>Check preconditions: resources, carry capacity, or target availability.</p>`;
-      } else {
-        msg = `<p>${esc(s.name)} is idle. Ready for a command.</p>`;
-        msg += `<div class="example">survivor.gather("wood", 10);</div>`;
-      }
-    }
-  } else if (selectedEntity && selectedEntity.kind === 'building') {
-    msg = `<p>${esc(selectedEntity.data.name || selectedEntity.data.type)} — Level ${selectedEntity.data.level ?? 1}, Condition: ${selectedEntity.data.condition}.</p>`;
-    msg += `<p>Buildings provide storage and training. Condition affects functionality.</p>`;
-  } else {
-    empty.style.display = 'block';
-    content.innerHTML = '';
-    return;
-  }
-
-  empty.style.display = 'none';
+  if (selected.kind === 'npc') {
+    const c = freeSim.inspector(selected.id);
+    if (c?.task?.status === 'EXECUTING') msg = `<p>${esc(c.name)} is <span class="highlight">${esc(c.task.type)}</span> and will keep going until it stops by itself (storage full, nothing left, or too tired).</p>`;
+    else if (c) msg = `<p>${esc(c.name)} is idle.${c.lastTask?.reason ? ` Last job ended: <span class="highlight">${esc(c.lastTask.reason)}</span>.` : ''} Run a command; the world is already running.</p><div class="example">survivor.gather("wood", 20);</div>${c.conditions.length ? `<p>Conditions: ${c.conditions.map(esc).join(', ')}.</p>` : ''}`;
+  } else if (selected.kind === 'building') {
+    const b = freeSim.studentView().buildings.find((x) => x.id === selected.id);
+    if (b) msg = `<p>${esc(b.name)} — Level ${b.level}, ${esc(b.condition)}. Condition changes only through simulation actions such as repair.</p>`;
+  } else msg = '<p>Resource nodes shrink as survivors gather from them.</p>';
+  if (empty) empty.style.display = 'none';
   content.innerHTML = msg;
 }
 
+// ---------- Code panel ----------
 function toggleCodePanel() {
   isCodePanelOpen = !isCodePanelOpen;
-  const panel = $('code-panel');
-  if (panel) panel.classList.toggle('open', isCodePanelOpen);
-  if (isCodePanelOpen) renderCodeAPI();
+  $('code-panel')?.classList.toggle('open', isCodePanelOpen);
+  if (isCodePanelOpen) $('code-editor')?.focus();
 }
 
 function renderCodeAPI() {
   const list = $('code-api-list');
-  if (!list || !app) return;
-  const cmds = app.apiDocs?.commands || [];
-  list.innerHTML = cmds.map((c) => `
-    <div class="api-item">
-      <span class="sig">survivor.${c.signature.replace('survivor.', '')}</span>
-      <span class="doc">${esc(c.doc)}</span>
-    </div>
-  `).join('');
+  if (!list) return;
+  list.innerHTML = app.apiDocs.commands.map((c) => `<div class="api-item"><span class="sig">${esc(c.signature)}</span><span class="doc">${esc(c.doc)}</span></div>`).join('');
 }
 
-function runCode() {
-  const editor = $('code-editor');
-  const result = $('code-execution-result');
-  if (!editor || !freeSim || !app) return;
+function renderHints() {
+  $('cmd-hints').innerHTML = app.apiDocs.commands.map((c) => `<div class="hint-chip"><span class="api-glyph">${esc(c.signature.split('  or')[0])}</span></div>`).join('');
+}
 
-  const code = editor.textContent || editor.innerText || '';
-  const match = code.match(/survivor\.(\w+)\((.*)\)/);
-  if (!match) {
-    result.textContent = 'Use format: survivor.commandName(args)';
-    result.className = 'execution-result fail';
-    return;
-  }
+function friendlyError(res) {
+  const e = res.error;
+  if (e.code === 'SAFETY_VIOLATION' && res.violations?.length) return res.violations.map((v) => v.message).join('\n');
+  const hints = {
+    SYNTAX_ERROR: 'Check brackets, quotes and semicolons.',
+    EXECUTION_TIMEOUT: 'Your code never finished. Look for a loop that does not end.',
+    RUNTIME_ERROR: 'Your code threw an error while running. Survivor data is read-only; use commands to act.',
+    INVALID_ARGUMENT: 'A command received arguments it does not accept. Check the API list.',
+  };
+  return `${e.message}${hints[e.code] ? `\n${hints[e.code]}` : ''}`;
+}
 
-  const [, name, argsStr] = match;
-  let args = [];
-  try { args = argsStr ? JSON.parse(`[${argsStr}]`) : []; } catch {
-    result.textContent = 'Invalid arguments. Use JSON.';
-    result.className = 'execution-result fail';
-    return;
-  }
+const chip = (s) => `<span class="cmd-chip ${s.ok ? 'ok' : 'fail'}">${esc(s.name)}(${s.args.map((a) => JSON.stringify(a)).join(', ')})<small>${s.ok ? (s.mode === 'replace' ? 'now' : 'queued') : esc(s.error?.code ?? 'rejected')}</small></span>`;
 
+async function runCode() {
+  const editor = $('code-editor'); const result = $('code-execution-result'); const list = $('code-commands'); const btn = $('btn-run-code');
+  if (!editor || !freeSim) return;
+  btn.disabled = true; result.className = 'execution-result'; result.textContent = 'Running in sandbox…';
   try {
-    const actorId = selectedEntity?.kind === 'npc' ? selectedEntity.data.id : 'survivor_1';
-    const cmd = buildCommand(actorId, { name, args });
-    if (!cmd) {
-      result.textContent = 'Command not recognized by Game API.';
-      result.className = 'execution-result fail';
+    const res = await app.runCode(freeSim, editor.value, { actorId: selected?.kind === 'npc' ? selected.id : null });
+    if (!res.ok) {
+      result.className = 'execution-result fail'; result.textContent = friendlyError(res); list.innerHTML = '';
       return;
     }
+    const okCount = res.submitted.filter((s) => s.ok).length;
+    const bad = res.submitted.filter((s) => !s.ok);
+    result.className = `execution-result ${bad.length ? 'fail' : 'ok'}`;
+    result.textContent = res.submitted.length === 0
+      ? 'Code ran but issued no commands.'
+      : `${okCount} command(s) sent${bad.length ? `, ${bad.length} rejected: ${bad.map((b) => b.error.message).join(' ')}` : ''}.${okCount && clock.paused ? ' Simulation resumed.' : ' Working now.'}`;
+    list.innerHTML = res.submitted.map(chip).join('') + (res.logs.length ? `<pre>${esc(res.logs.join('\n'))}</pre>` : '');
+    if (okCount && clock.paused) clock.play(); // running code means "let it happen"; PAUSE is always one click away
+  } finally { btn.disabled = false; refreshUI(); }
+}
 
-    freeSim.submit(cmd);
-    freeSim.executeTurn();
-    renderFrame();
+// ---------- Lesson Player ----------
 
-    result.textContent = 'Command accepted → queued → simulation executing';
-    result.className = 'execution-result ok';
+function lessonList() {
+  if (!app || !app.defs || !app.defs.lessons) return [];
+  return Object.values(app.defs.lessons);
+}
+
+function renderLessonList() {
+  const container = $('lesson-list');
+  if (!container) return;
+  const lessons = lessonList();
+  container.innerHTML = lessons.map((l) => {
+    const prog = lessonAttempt && lessonAttempt.lessonId === l.id
+      ? lessonAttempt.passed ? 'passed' : 'attempted'
+      : '';
+    const cls = `lesson-item ${prog}${currentLessonId === l.id ? ' active' : ''}`;
+    return `<button type="button" class="${cls}" onclick="startLesson('${l.id}')" aria-label="Start lesson ${l.title}">
+      <div class="lesson-title">${esc(l.title)}</div>
+      <div class="lesson-brief">${esc(l.brief)}</div>
+      <div class="lesson-progress">${prog === 'passed' ? '✓ Passed' : prog === 'attempted' ? 'Attempted' : 'Not started'}</div>
+    </button>`;
+  }).join('');
+}
+
+function renderLessonInstructions() {
+  const content = $('lesson-instructions');
+  const brief = $('lesson-brief');
+  if (!currentLessonId || !content) return;
+  const l = lessonList().find((x) => x.id === currentLessonId);
+  if (!l) return;
+  content.innerHTML = `
+    <div class=\"lesson-header\">
+      <div class=\"lesson-title\">${esc(l.title)}</div>
+      <div class=\"lesson-id\">Seed ${l.seed} · Max ${l.maxTicks} ticks</div>
+    </div>
+    <div class=\"lesson-brief\">${esc(l.brief)}</div>
+    <div class=\"lesson-goals\">
+      <h4>Goals:</h4>
+      <ul>${l.goals.map((g) => `<li><span class=\"goal-status\" id=\"goal-${g.id}\">○</span> ${esc(g.message)}</li>`).join('')}</ul>
+    </div>
+    <div class=\"lesson-starter\">Starter code:<br><pre>${esc(l.starter)}</pre></div>
+  `;
+  if (brief) brief.textContent = l.brief;
+}
+
+function renderLessonResult() {
+  const result = $('lesson-result');
+  if (!result || !lessonAttempt) return;
+  const l = lessonList().find((x) => x.id === lessonAttempt.lessonId);
+  const passed = lessonAttempt.passed;
+  result.style.display = 'block';
+  result.className = `lesson-result ${passed ? 'passed' : 'failed'}`;
+  result.innerHTML = `
+    <div class="lesson-result-header">${passed ? '✓ Lesson Passed' : '✗ Lesson Not Yet Passed'}</div>
+    <div class="lesson-result-details">
+      ${lessonAttempt.results?.map((r) => `<div class="goal-row"><span class="goal-tag ${r.passed ? 'ok' : 'fail'}">${r.passed ? '✓' : '✗'}</span><span class="goal-msg">${esc(r.message)}</span>${r.detail ? `<span class="goal-detail">(${esc(r.detail)})</span>` : ''}</div>`).join('')}
+      ${lessonAttempt.feedback?.length ? `<div class="lesson-feedback">${lessonAttempt.feedback.join('<br>')}</div>` : ''}
+    </div>
+    <div class="lesson-result-actions">
+      <button type="button" class="btn-small" onclick="restartLesson()">Restart Lesson</button>
+      <button type="button" class="btn-small" onclick="exitLesson()">Exit Lesson Mode</button>
+    </div>
+  `;
+}
+
+function renderProgressScreen() {
+  const container = $('progress-screen');
+  if (!container) return;
+  const completed = lessonList().filter((l) => {
+    const a = lessonAttempt;
+    return a && a.lessonId === l.id && a.passed;
+  }).length;
+  container.innerHTML = `
+    <h3>📊 Progress</h3>
+    <div class="progress-summary">
+      Lessons completed: ${completed} / ${lessonList().length}
+    </div>
+    <div class="progress-list">
+      ${lessonList().map((l) => {
+        const a = lessonAttempt && lessonAttempt.lessonId === l.id ? lessonAttempt : null;
+        const status = a ? (a.passed ? 'passed' : 'failed') : 'not-started';
+        return `<div class="progress-item ${status}"><span>${esc(l.title)}</span><span class="status-badge">${status}</span></div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function startLesson(lessonId) {
+  if (!app || !freeSim) return;
+  currentLessonId = lessonId;
+  isLessonMode = true;
+  stepInspectorActive = false;
+  stepStep = 0;
+  lessonAttempt = null;
+  const el = $('lesson-player-panel');
+  if (el) el.style.display = 'block';
+  const codePanel = $('code-panel');
+  if (codePanel) codePanel.classList.add('open');
+  isCodePanelOpen = true;
+  const editor = $('code-editor');
+  const l = lessonList().find((x) => x.id === lessonId);
+  if (editor && l) editor.value = l.starter;
+  renderLessonList();
+  renderLessonInstructions();
+  renderUI();
+  startScenario();
+}
+
+function restartLesson() {
+  if (currentLessonId) startLesson(currentLessonId);
+}
+
+function exitLesson() {
+  isLessonMode = false;
+  currentLessonId = null;
+  lessonAttempt = null;
+  stepInspectorActive = false;
+  stepStep = 0;
+  const el = $('lesson-player-panel');
+  if (el) el.style.display = 'none';
+  const result = $('lesson-result');
+  if (result) result.style.display = 'none';
+  renderLessonList();
+  renderUI();
+}
+
+async function runLessonAttempt(code) {
+  if (!app || !currentLessonId) return;
+  const l = lessonList().find((x) => x.id === currentLessonId);
+  if (!l) return;
+  try {
+    const res = await app.runLesson(l.id, code);
+    lessonAttempt = {
+      lessonId: l.id,
+      passed: res.evaluation.passed,
+      results: res.evaluation.results,
+      feedback: res.evaluation.feedback,
+      attempt: res.attempt,
+    };
+    renderLessonResult();
+    renderLessonList();
+    renderUI();
   } catch (e) {
-    result.textContent = `Error: ${esc(String(e.message ?? e))}`;
-    result.className = 'execution-result fail';
+    const result = $('lesson-result');
+    if (result) {
+      result.style.display = 'block';
+      result.className = 'lesson-result failed';
+      result.textContent = `Lesson failed to run: ${e.message}`;
+    }
   }
 }
 
+async function handleRunCode() {
+  if (isLessonMode && currentLessonId) {
+    const editor = $('code-editor');
+    if (!editor) return;
+    await runLessonAttempt(editor.value);
+    return;
+  }
+  return runCode();
+}
+const nameOf = (id) => freeSim.studentView().survivors.find((x) => x.id === id)?.name ?? id;
+const SHOWN_EVENTS = {
+  'task.started': (e) => `${nameOf(e.actorId)} started ${e.taskType} ${e.resource}`,
+  'resource.gathered': (e) => `+${e.amount} ${e.resource}`,
+  'task.stopped': (e) => `${nameOf(e.actorId)} stopped ${e.taskType}: ${e.reason} (${e.gathered} gathered in ${e.trips} trip(s))`,
+  'action.failed': (e) => `${nameOf(e.actorId)}: ${e.actionType} failed: ${e.reason}`,
+  'action.cancelled': (e) => `${nameOf(e.actorId)}: ${e.actionType} cancelled (${e.reason})`,
+  'command.rejected': (e) => `${e.name}() rejected: ${e.code}`,
+  'node.depleted': (e) => `${e.nodeId} is empty`,
+  'building.condition_changed': (e) => `${e.buildingId}: ${e.from} → ${e.to}`,
+  'survivor.consumed': (e) => `consumed ${e.item}`,
+  'survivor.downed': () => 'survivor downed',
+};
+
+function collectEvents() {
+  const all = freeSim.log.all();
+  for (const e of all.slice(eventCursor)) if (SHOWN_EVENTS[e.type]) feed.push(`t${e.tick} ${SHOWN_EVENTS[e.type](e)}`);
+  eventCursor = all.length;
+  if (feed.length > 14) feed = feed.slice(-14);
+}
+
+function renderFeed() {
+  $('event-feed').innerHTML = feed.length
+    ? feed.map((l) => `<span class="cmd-chip">${esc(l)}</span>`).join('')
+    : '<span class="hint">The world keeps running. Open CODE, run a command, and watch your survivors work. Events appear here.</span>';
+}
+
+function togglePlay() { clock.toggle(); refreshUI(); }
+function cycleSpeed() { clock.cycleSpeed(); refreshUI(); }
+
 function bindEvents() {
-  $('map-canvas').addEventListener('click', async (e) => {
-    await ensureFreeSim();
-    if (!freeSim) return;
+  $('map-canvas').addEventListener('click', (e) => {
     const rect = $('map-canvas').getBoundingClientRect();
-    const { x, y } = renderer.screenToTile(e.clientX - rect.left, e.clientY - rect.top);
-
-    const proj = freeSim.renderProjection();
-    for (const npc of proj.npcs || []) {
-      if (Math.abs(npc.x - x) < 0.6 && Math.abs(npc.y - y) < 0.6) {
-        const sv = proj.survivors ? proj.survivors.find((s) => s.id === npc.id) : null;
-        if (sv) selectEntity('npc', sv);
-        return;
-      }
-    }
-    for (const b of proj.buildings || []) {
-      if (Math.abs(b.x - x) < 0.6 && Math.abs(b.y - y) < 0.6) {
-        selectEntity('building', b);
-        return;
-      }
-    }
-    for (const n of proj.nodes || []) {
-      if (Math.abs(n.x - x) < 0.6 && Math.abs(n.y - y) < 0.6) {
-        selectEntity('node', n);
-        return;
-      }
-    }
+    const hit = renderer.pick(e.clientX - rect.left, e.clientY - rect.top, freeSim.renderProjection());
+    if (hit) selectEntity(hit.kind, hit.id);
   });
-
   $('inspector-toggle')?.addEventListener('click', () => {
     isInspectorOpen = !isInspectorOpen;
     $('inspector').classList.toggle('collapsed', !isInspectorOpen);
     $('inspector-toggle').textContent = isInspectorOpen ? '◂' : '▸';
   });
-
   $('btn-code')?.addEventListener('click', toggleCodePanel);
   $('code-close')?.addEventListener('click', toggleCodePanel);
-  $('btn-run-code')?.addEventListener('click', runCode);
-
-  $('btn-pause')?.addEventListener('click', () => { simPaused = true; updateSimBtns(); });
-  $('btn-play')?.addEventListener('click', () => { simPaused = false; updateSimBtns(); });
-  $('btn-speed')?.addEventListener('click', () => {
-    simSpeed = simSpeed === 1 ? 2 : simSpeed === 2 ? 4 : 1;
-    $('btn-speed').textContent = `${simSpeed}×`;
-  });
-
+  $('btn-run-code')?.addEventListener('click', handleRunCode);
+  $('btn-play')?.addEventListener('click', togglePlay);
+  $('btn-speed')?.addEventListener('click', cycleSpeed);
+  $('btn-restart')?.addEventListener('click', startScenario);
+  $('btn-lessons')?.addEventListener('click', toggleLessonMode);
+  $('code-editor')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRunCode(); } });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
-  });
-
-  window.addEventListener('resize', () => {
-    const canvas = $('map-canvas');
-    renderer.resize(canvas.clientWidth, canvas.clientHeight);
-    renderFrame();
+    if (e.key === ' ' && !isCodePanelOpen && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
+    if ((e.key === 'd' || e.key === 'D') && e.altKey) renderer.setDebug(!renderer.debug); // Alt+D: optional debug overlay
+    if (e.key === 'l' || e.key === 'L') toggleLessonMode(); // Alt+L: lesson mode toggle
   });
 }
 
-function updateSimBtns() {
-  $('btn-pause')?.classList.toggle('active', simPaused);
-  $('btn-play')?.classList.toggle('active', !simPaused);
+function toggleLessonMode() {
+  if (isLessonMode) exitLesson();
+  else {
+    const lessons = lessonList();
+    if (lessons.length) startLesson(lessons[0].id);
+  }
 }
 
 init();
-

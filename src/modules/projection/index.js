@@ -1,4 +1,4 @@
-import { deepFreeze, API_VERSION } from '../../kernel/index.js';
+import { deepFreeze, API_VERSION, own } from '../../kernel/index.js';
 import { available, stockKey, nodeKey, total, summary } from '../resources/index.js';
 import { deriveConditions } from '../survivors/index.js';
 import { maxHealthOf, assetKey } from '../buildings/index.js';
@@ -19,15 +19,37 @@ function survivorView(state, defs, s) {
     needs: { ...s.needs }, conditions: deriveConditions(s, defs),
     attributes: { ...s.attributes }, skills: { ...s.skills }, traits: [...s.traits],
     inventory: { items: { ...s.inventory.items } },
-    task: a ? { actionId: a.actionId, type: a.actionType, status: a.status, targetId: a.targetId, progress: a.progress } : null,
+    // Weights come from item definitions (never from UI constants). Capacity/encumbrance are NOT projected until the carry system exists.
+    inventoryDetail: Object.entries(s.inventory.items).map(([id, quantity]) => ({
+      id, name: defs.items[id]?.name ?? id, quantity, unitWeight: defs.items[id]?.unitWeight ?? 0, weight: quantity * (defs.items[id]?.unitWeight ?? 0),
+    })),
+    task: a ? {
+      actionId: a.actionId, type: a.actionType, status: a.status, targetId: a.targetId, progress: a.progress,
+      fraction: a.fraction ?? 0, // 0..1 of the current batch (standing actions); presentation only
+      ...(a.stats ? { stats: { gathered: a.stats.gathered, trips: a.stats.trips } } : {}),
+      ...(a.capabilityDetail ? { capabilityDetail: { ...a.capabilityDetail } } : {}),
+    } : null,
+    lastTask: s.lastTask ? { ...s.lastTask } : null,
     queued,
   };
 }
 
-function buildingView(defs, b) {
+/** Capacity / current / remaining for a building type that has a storage table (undefined otherwise). */
+function storageInfoFor(state, defs, type) {
+  const cap = defs.buildings[type]?.storage;
+  if (!cap) return undefined;
+  const current = Object.fromEntries(Object.keys(cap).map((k) => [k, total(state, stockKey(k))]));
+  const remaining = Object.fromEntries(Object.entries(cap).map(([k, c]) => [k, Math.max(0, c - current[k])]));
+  return { capacity: { ...cap }, current, remaining };
+}
+
+function buildingView(state, defs, b) {
+  const def = defs.buildings[b.type];
+  const storageInfo = storageInfoFor(state, defs, b.type);
   return {
-    id: b.id, type: b.type, name: defs.buildings[b.type].name, level: b.level, x: b.x, y: b.y,
+    id: b.id, type: b.type, name: def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
+    ...(storageInfo ? { storageInfo } : {}), ...(def.note ? { note: def.note } : {}),
   };
 }
 
@@ -41,23 +63,7 @@ export function studentView(state, defs) {
     reserved[item] = total(state, stockKey(item)) - base[item];
   }
   base.reserved = reserved;
-  // Add storage capacity from buildings
-  const buildingStorage = {};
-  for (const [bId, b] of Object.entries(defs.buildings)) {
-    if (b.storage) {
-      buildingStorage[bId] = {
-        capacity: b.storage,
-        current: Object.fromEntries(Object.entries(b.storage).map(([k, cap]) => [k, total(state, stockKey(k))])),
-        remaining: Object.fromEntries(Object.entries(b.storage).map(([k, cap]) => [k, Math.max(0, cap - total(state, stockKey(k)))]))
-      };
-    }
-  }
-  const buildings = Object.values(state.buildings).map((b) => buildingView(defs, b));
-  // Attach storage info to HQ and Tent buildings
-  const hq = buildings.find((b) => b.type === 'hq');
-  const tent = buildings.find((b) => b.type === 'tent');
-  if (hq) hq.storageInfo = buildingStorage['hq'];
-  if (tent) tent.storageInfo = buildingStorage['tent'];
+  const buildings = Object.values(state.buildings).map((b) => buildingView(state, defs, b));
   const nodes = Object.values(state.nodes).map((n) => ({
     id: n.id, type: n.type, resource: n.resource, x: n.x, y: n.y, amount: available(state, nodeKey(n.id)),
   }));
@@ -77,6 +83,15 @@ function animationFor(s, a) {
   return { gather: 'GATHER', repair: 'REPAIR', rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
 }
 
+/** Static presentation ground for the scenario (forest zone, outside path). Never affects gameplay. */
+function terrainOf(state, defs) {
+  const t = defs.scenarios[state.scenarioId]?.terrain ?? {};
+  return {
+    zones: (t.zones ?? []).map((z) => ({ id: z.id, label: z.label, x1: z.x1, y1: z.y1, x2: z.x2, y2: z.y2 })),
+    paths: (t.paths ?? []).map((p) => ({ id: p.id, cells: p.cells.map(([x, y]) => [x, y]) })),
+  };
+}
+
 /** What the renderer may read: positions, directions, semantic animation states, building asset keys. */
 export function renderProjection(state, defs) {
   return deepFreeze({
@@ -86,14 +101,11 @@ export function renderProjection(state, defs) {
       animation: animationFor(s, currentAction(state, s.id)), status: s.status,
     })),
     buildings: Object.values(state.buildings).map((b) => ({
-      id: b.id, type: b.type, level: b.level, condition: b.condition, assetKey: assetKey(b), x: b.x, y: b.y,
+      id: b.id, type: b.type, name: defs.buildings[b.type].name, level: b.level, condition: b.condition, assetKey: assetKey(b), x: b.x, y: b.y,
       ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
-      storageInfo: defs.buildings[b.type]?.storage ? {
-        capacity: defs.buildings[b.type].storage,
-        current: Object.fromEntries(Object.entries(defs.buildings[b.type].storage).map(([k, cap]) => [k, total(state, stockKey(k))])),
-        remaining: Object.fromEntries(Object.entries(defs.buildings[b.type].storage).map(([k, cap]) => [k, Math.max(0, cap - total(state, stockKey(k)))]))
-      } : undefined,
+      storageInfo: storageInfoFor(state, defs, b.type),
     })),
+    terrain: terrainOf(state, defs),
     nodes: Object.values(state.nodes).map((n) => {
       const left = total(state, nodeKey(n.id));
       return { id: n.id, type: n.type, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left };
@@ -104,7 +116,7 @@ export function renderProjection(state, defs) {
 
 /** Survivor Card / Inspector: the same underlying record, presented read-only. */
 export function inspectorCard(state, defs, survivorId) {
-  const s = state.survivors[survivorId];
+  const s = own(state.survivors, survivorId);
   if (!s) return null;
   const v = survivorView(state, defs, s);
   return deepFreeze({ identity: { ...s.identity }, ...v, equipment: { ...s.equipment }, occupation: s.occupation, progression: structuredClone(s.progression) });

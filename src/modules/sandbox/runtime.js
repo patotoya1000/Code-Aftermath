@@ -33,7 +33,7 @@ function seededMath(seed) {
 
 const fmt = (v) => { try { return typeof v === 'string' ? v : JSON.stringify(v) ?? String(v); } catch { return String(v); } };
 
-export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET }) {
+export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, actorId = null }) {
   harden();
   const calls = [];
   const logs = [];
@@ -50,13 +50,19 @@ export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET }) {
 
   const survivors = view.survivors.map(withCommands);
   const env = {
-    survivor: survivors[0] ?? null, survivors, base: structuredClone(view.base), fence: view.fence, hq: view.hq,
+    survivor: survivors.find((s) => s.id === actorId) ?? survivors[0] ?? null, survivors, base: structuredClone(view.base), fence: view.fence, hq: view.hq,
     buildings: view.buildings, nodes: view.nodes, world: view.world, tick: view.tick,
     console: Object.freeze({ log: (...a) => { if (logs.length < budget.maxLogs) logs.push(a.map(fmt).join(' ')); } }),
     Math: seededMath(seed),
   };
   for (const k of ['base', 'fence', 'hq', 'buildings', 'nodes', 'world']) deepFreeze(env[k]);
   Object.freeze(survivors);
+  // Every building and resource node is also readable by its id (tent_1, gate, storage_1, tree_1 …), so the hints the
+  // UI shows — survivor.repair(tent_1), survivor.moveTo(tree_1) — are real code. Built-in names always win.
+  const taken = new Set([...Object.keys(env), ...SHADOWED]);
+  for (const e of [...view.buildings, ...view.nodes]) {
+    if (/^[A-Za-z_$][\w$]*$/.test(e.id) && !taken.has(e.id)) { env[e.id] = e; taken.add(e.id); }
+  }
 
   try {
     const names = [...Object.keys(env), ...SHADOWED];
