@@ -10,6 +10,8 @@ export function createEventLog() {
       return e;
     },
     all: () => events.slice(),
+    /** Events from index `from` on (cheap cursor reads for the UI; does not copy the whole log). */
+    since: (from = 0) => events.slice(from),
     ofType: (type) => events.filter((e) => e.type === type),
     get length() {
       return events.length;

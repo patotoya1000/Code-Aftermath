@@ -42,7 +42,10 @@ export function approachThenWork(ctx, a, dest, { range, ticksPerTile, workTicks 
   if (s.needs.energy <= 0) return failTick('EXHAUSTED');
   a.phase = 'work';
   a.progress += 1;
-  if (a.progress % defs.needs.work.energyEvery === 0) s.needs.energy = Math.max(0, s.needs.energy - 1);
+  // Energy is charged on the action's CUMULATIVE work ticks. (Using the per-batch counter let `gather("wood", 1)` — a
+  // 2-tick batch — never reach the "every 10 ticks" mark, so a survivor could work forever without tiring.)
+  a.workTotal = (a.workTotal ?? 0) + 1;
+  if (a.workTotal % defs.needs.work.energyEvery === 0) s.needs.energy = Math.max(0, s.needs.energy - 1);
   return a.progress >= workTicks ? DONE : RUNNING;
 }
 

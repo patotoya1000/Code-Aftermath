@@ -54,9 +54,9 @@ export const lessons = {
   m3_c_condition: {
     id: 'm3_c_condition', version: 1, title: 'Module 3 · When to Gather', scenario: 'stage1_tired', seed: 1006, maxTicks: 800,
     brief: 'If you are tired, rest. If you are not tired, gather wood. Make decisions with if and else.',
-    starter: 'if (survivor.needs.energy < 30) {\n  survivor.rest();\n} else {\n  survivor.gather("wood", 10, 10);\n}\n',
+    starter: '// rest(ticks): every tick of rest restores energy.\nif (survivor.needs.energy < 30) {\n  survivor.rest(40);\n} else {\n  survivor.gather("wood", 10, 10);\n}\n',
     goals: [
-      { id: 'rested', check: 'needAtLeast', args: { need: 'energy', value: 70 }, message: 'Energy is at least 70.' },
+      { id: 'rested', check: 'needAtLeast', args: { need: 'energy', value: 70 }, message: 'Energy is at least 70.', hint: 'rest() lasts 20 ticks by default (+40 energy). Ask for longer: survivor.rest(40).' },
       { id: 'clean', check: 'noActionFailures', args: {}, message: 'No action failed.' },
       { id: 'if', check: 'usesConstruct', args: { construct: 'if' }, message: 'Use an if statement.' },
     ],

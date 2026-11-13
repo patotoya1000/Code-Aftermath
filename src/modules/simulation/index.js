@@ -84,6 +84,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     step(n = 1) { for (let i = 0; i < n; i++) tickOnce(); },
     get tick() { return state.tick; },
     get seed() { return state.seed; },
+    get scenarioId() { return state.scenarioId; },
     isIdle,
     commandTimeline: () => timeline.map((t) => structuredClone(t)),
     stateHash: () => hashValue(state),

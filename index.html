@@ -27,6 +27,8 @@
   <div class="controls" id="sim-controls">
     <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
     <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
+    <button type="button" class="sim-btn" id="btn-save" aria-label="Save this session">💾 SAVE</button>
+    <button type="button" class="sim-btn" id="btn-load" aria-label="Load the saved session">📂 LOAD</button>
     <button type="button" class="sim-btn" id="btn-restart" aria-label="Restart scenario">RESTART</button>
     <button type="button" class="sim-btn" id="btn-lessons" aria-label="Lesson mode">📚 LESSONS</button>
   </div>
@@ -155,13 +157,13 @@
 <div id="lesson-player-panel" style="display:none;">
   <div class="code-header">
     <div class="code-title">Lesson Player</div>
-    <button type="button" class="code-close" onclick="exitLesson()">✕</button>
+    <button type="button" class="code-close" data-action="exit-lesson">✕</button>
   </div>
   <div class="code-body lesson-mode">
     <div id="lesson-brief"></div>
     <div class="lesson-tabs">
-      <button type="button" class="lesson-tab active" onclick="renderLessonList()">📋 Lessons</button>
-      <button type="button" class="lesson-tab" onclick="renderProgressScreen()">📊 Progress</button>
+      <button type="button" class="lesson-tab active" data-action="lesson-list">📋 Lessons</button>
+      <button type="button" class="lesson-tab" data-action="lesson-progress">📊 Progress</button>
     </div>
     <div id="lesson-list"></div>
     <div id="lesson-instructions"></div>

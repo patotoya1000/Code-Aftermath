@@ -54,6 +54,13 @@ survivor.gather(resource, load = 5, total)
 ### Survival is manual
 Hunger, thirst and energy keep draining while survivors work. Nothing eats or rests automatically: the learner writes that logic (this is the teaching point). An unattended survivor works until `EXHAUSTED`, or starves and is downed. Automatic policies and event hooks (`survivor.on(...)`) are planned for R4.
 
+## Rules clarified in the stabilization pass (2026-11-13)
+- **Energy cost of work is cumulative.** 1 energy per `needs.work.energyEvery` work ticks *across all trips of the job* (small trips cannot dodge it).
+- **Output modifiers change the trip size, never the ledger.** A skilled/strong survivor carries `floor(load × bonus)` per trip; the node loses exactly what the base receives.
+- **Modifiers are re-read every trip** (tired / hungry / thirsty slow work as they happen).
+- **`rest` is plain arithmetic:** +`energyPerTick` per tick (rest skill / endurance speed it up; hunger/thirst slow it; tiredness does *not*), capped at 100.
+- **Save / load** stores scenario + seed + command timeline + state hash; loading replays and verifies (`SAVE_CORRUPT`, `SAVE_VERSION_MISMATCH`).
+
 ## Compatibility notes
 - `gather(resource, n)` used to be a one-shot batch of `n`. It now means *trips of n, until done*. Use `gather(resource, n, n)` for the old behaviour. Starter code in the four lessons was updated this way.
 - `API_VERSION` stays 1 (pre-release); `SIM_VERSION` is now `0.2.0`.

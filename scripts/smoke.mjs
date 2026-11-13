@@ -61,6 +61,32 @@ await page.click('#btn-run-code');
 await page.waitForFunction(() => document.querySelector('#code-execution-result')?.textContent.includes('sent'), null, { timeout: 15000 });
 check((await text('#code-execution-result')).includes('1 command(s) sent'), 'repair(gate) runs with a building selected');
 
+// Stabilization pass: shortcuts never eat typing, lesson buttons work under the CSP, save/load round-trips
+const panelOpen = () => page.evaluate(() => document.querySelector('#code-panel')?.classList.contains('open'));
+if (!(await panelOpen())) await page.click('#btn-code');
+await page.focus('#code-editor');
+await page.keyboard.press('End');
+await page.keyboard.type('l L ');
+check(await page.evaluate(() => getComputedStyle(document.querySelector('#lesson-player-panel')).display) === 'none', 'typing the letter "l" in the editor does not open lesson mode');
+await page.click('#code-close');
+await page.click('#btn-lessons');
+await page.waitForSelector('[data-action="start-lesson"]');
+await page.click('[data-action="start-lesson"]'); // first lesson
+await page.waitForFunction(() => document.querySelector('#lesson-instructions')?.textContent.includes('Goals'));
+check(true, 'lesson buttons respond (no inline handlers needed under the CSP)');
+await page.click('#btn-run-code');
+await page.waitForSelector('#lesson-result .lesson-result-header', { timeout: 15000 });
+check((await text('#lesson-result .lesson-result-header')).includes('Passed'), 'the first lesson passes with its starter code');
+await page.click('[data-action="exit-lesson"]');
+check(await page.evaluate(() => getComputedStyle(document.querySelector('#lesson-player-panel')).display) === 'none', 'exit lesson closes the lesson player');
+if (await panelOpen()) await page.click('#code-close');
+await page.click('#btn-save');
+await page.waitForFunction(() => document.querySelector('#event-feed')?.textContent.includes('Saved: tick'));
+await page.click('#btn-restart');
+await page.click('#btn-load');
+await page.waitForFunction(() => document.querySelector('#event-feed')?.textContent.includes('Loaded: tick'));
+check(!(await text('#clock-detail')).includes('TICK 0'), 'LOAD brings the saved session back (restart had reset it to tick 0)');
+
 await browser.close();
 server.close();
 if (problems.length) { console.error('\nProblems:\n- ' + problems.join('\n- ')); process.exit(1); }

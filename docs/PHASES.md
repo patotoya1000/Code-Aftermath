@@ -8,7 +8,9 @@
 ## Real-time pivot (2026-11-12) — replaces the turn model from C2
 - [x] **R1** continuous clock: clock driver (play/pause/1×–4×), strategy points regenerate over time, turns removed, command timeline + `replayTimeline`, `runUntil`
 - [x] **R2** standing actions: looping `gather(resource, load, total)`, stop reasons, `task.*` events, `survivor.lastTask`, replace-vs-queue (+ `survivor.queue()`), storage reserved per batch
-- [ ] **R3** carry + deposit trips · [ ] **R4** needs interrupts/policies + learner event hooks · [ ] **R5** lessons/replay on the timeline model, free-play save
+- [x] **S0–S5 stabilization (2026-11-13)** — engine/lesson/UI bug fixes, free-play save/load, regression + soak tests. See `IMPLEMENTATION_PLAN_2026-11-13.md`
+- [ ] **R4a** needs policies (interrupt → act → resume) · [ ] **R4b** learner event hooks · [ ] **R3** carry + deposit trips · [ ] **R5** lessons on the timeline model (free-play save is already done)
+- Order changed: R4 before R3 — the learner must be able to *react* before the economy gets deeper (reasoning in the plan).
 - Spec: `docs/game/15-realtime-simulation-and-tasks.md`. The C2 line below ("turn-based free play") is historical.
 
 ## Correction status (this session)

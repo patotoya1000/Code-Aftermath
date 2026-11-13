@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CODE: AFTERMATH — modular-monolith game engine (Phases 0-1 + correction)",
+  "description": "CODE: AFTERMATH \u2014 modular-monolith game engine (real-time simulation, standing actions, sandboxed learner code)",
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
     "serve": "node scripts/serve.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "check": "node --check src/app/mainscreen.js && npm test"
   },
   "engines": {
     "node": ">=22"
@@ -15,7 +16,6 @@
   "devDependencies": {
     "playwright": "^1.65.0"
   },
-  "main": "index.js",
   "directories": {
     "doc": "docs",
     "test": "tests"

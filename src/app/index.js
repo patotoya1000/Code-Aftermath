@@ -2,11 +2,14 @@
 import { createDefinitions } from '../modules/definitions/index.js';
 import { createSandbox } from '../modules/sandbox/index.js';
 import { runLesson, listLessons } from '../modules/lessons/index.js';
-import { runAttempt, createFreeSim, runLiveCode, replayTimeline, submitCalls } from '../modules/session/index.js';
+import { runAttempt, createFreeSim, runLiveCode, replayTimeline } from '../modules/session/index.js';
 import { createClockDriver } from '../modules/simulation/index.js';
 import { verifyReplay } from '../modules/replay/index.js';
 import { describeApi } from '../modules/api/index.js';
+import { AftermathError, SIM_VERSION } from '../kernel/index.js';
 import { createSaveStore, createMemoryAdapter, emptyProgress, recordLessonResult } from '../modules/persistence/index.js';
+
+const FREE_PLAY_SLOT = 'freeplay';
 
 export function createApp({ adapter = createMemoryAdapter(), sandbox = createSandbox(), defs = createDefinitions(), clock = () => 0 } = {}) {
   const store = createSaveStore(adapter, { clock });
@@ -44,18 +47,6 @@ export function createApp({ adapter = createMemoryAdapter(), sandbox = createSan
     async runCode(sim, code, { actorId = null } = {}) {
       return runLiveCode({ sim, sandbox, code, actorId });
     },
-    /** Run code through sandbox, submit commands, advance turn, return results. */
-    async runTurnCode(sim, code) {
-      const run = await sandbox.run({ code, view: sim.studentView(), seed: sim.seed, actorId: sim.survivors?.[0]?.id });
-      if (!run.ok) {
-        return { ok: false, error: run.error, violations: run.violations ?? null, submitted: [], turnInfo: sim.getTurnInfo() };
-      }
-      const submitted = submitCalls(sim, run.calls);
-      sim.strategyPoints = sim.defs.clock.strategy.start;
-      sim.turn = (sim.turn ?? 0) + 1;
-      return { ok: true, submitted, turnInfo: sim.getTurnInfo(), events: sim.log.all() };
-    },
-
     /** Rebuild a live session from scenario + seed + its command timeline. */
     replayTimeline: (record) => replayTimeline({ defs, ...record }),
     verifyReplay: (record) => verifyReplay(record, { defs, sandbox }),
@@ -64,6 +55,31 @@ export function createApp({ adapter = createMemoryAdapter(), sandbox = createSan
       await store.save(slot, { state: lastAttempt.finalState, progress });
       return true;
     },
+    /**
+     * Save a free-play session as its RECORD (scenario + seed + the commands with the ticks they were issued at), not as
+     * a raw state dump. The simulation is deterministic, so replaying the record rebuilds the identical world, and the
+     * state hash stored beside it proves it did.
+     */
+    async saveFreePlay(sim, slot = FREE_PLAY_SLOT) {
+      const record = { scenarioId: sim.scenarioId, seed: sim.seed, tick: sim.tick, timeline: sim.commandTimeline(), stateHash: sim.stateHash() };
+      await store.save(slot, { state: record, progress });
+      return { tick: record.tick, commands: record.timeline.length };
+    },
+    /** Rebuild the saved session. Throws SAVE_CORRUPT / SAVE_VERSION_MISMATCH instead of silently loading a different world. */
+    async loadFreePlay(slot = FREE_PLAY_SLOT) {
+      const data = await store.load(slot);
+      if (!data) return null;
+      if (data.simVersion !== SIM_VERSION) throw new AftermathError('SAVE_VERSION_MISMATCH', `Saved with simulation ${data.simVersion}; this build is ${SIM_VERSION}, so the session cannot be rebuilt exactly.`);
+      const rec = data.state;
+      let sim;
+      try { sim = replayTimeline({ defs, scenarioId: rec.scenarioId, seed: rec.seed, timeline: rec.timeline, untilTick: rec.tick }); } catch (e) {
+        throw new AftermathError('SAVE_CORRUPT', `Saved session could not be replayed: ${e.message}`);
+      }
+      if (sim.stateHash() !== rec.stateHash) throw new AftermathError('SAVE_CORRUPT', 'Saved session did not replay to the same world (state hash differs).');
+      progress = data.progress ?? progress;
+      return { sim, initialView: sim.studentView(), savedTick: rec.tick };
+    },
+    async hasFreePlaySave(slot = FREE_PLAY_SLOT) { return (await store.list()).includes(slot); },
     async load(slot = 'autosave') {
       const data = await store.load(slot);
       if (data) progress = data.progress;

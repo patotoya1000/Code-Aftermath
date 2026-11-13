@@ -5,6 +5,7 @@ export function stableStringify(v) {
   return (
     '{' +
     Object.keys(v)
+      .filter((k) => v[k] !== undefined) // same as JSON: undefined-valued keys vanish, so a save round-trip keeps its hash
       .sort()
       .map((k) => JSON.stringify(k) + ':' + stableStringify(v[k]))
       .join(',') +

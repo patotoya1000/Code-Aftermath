@@ -1,6 +1,7 @@
 import { chebyshev, hasOwn } from '../../../kernel/index.js';
 import { available, nodeKey, stockKey, credit, total, reserve, commit, release } from '../../resources/index.js';
 import { StopReason } from '../lifecycle.js';
+import { checkCapability } from '../../capability/index.js';
 import { ok, fail, failTick, RUNNING, approachThenWork, tooTired } from './shared.js';
 
 /**
@@ -39,21 +40,30 @@ function storageSpace(ctx, resource, exceptActionId) {
   return Math.max(0, cap - total(ctx.state, stockKey(resource)) - incoming);
 }
 
-/** Decide the next batch. Returns { qty } (and sets a.targetId / a.batch) or { stop: reason }. */
+/**
+ * Decide the next batch. Returns { qty } (and sets a.targetId / a.batch / a.workTicks) or { stop: reason }.
+ * The survivor's modifiers are re-read for every batch: a standing job can last a long time and the survivor gets
+ * tired / hungry meanwhile. Output modifiers (skill, traits) change HOW MUCH a trip carries — never the amount the node
+ * loses vs. the amount the base receives, so the ledger always balances.
+ */
 function planBatch(ctx, a) {
   const def = ctx.defs.actions.gather;
   const { resource } = a.params;
-  const load = a.params.amount ?? def.defaultAmount;
+  const actor = ctx.state.survivors[a.actorId];
+  const cap = checkCapability(actor, def, ctx.defs, ctx);
+  if (cap.ok) { a.durationModifier = cap.durationModifier; a.outputModifier = cap.outputModifier; }
+  const load = Math.max(1, Math.floor((a.params.amount ?? def.defaultAmount) * (a.outputModifier ?? 1)));
   const remaining = a.params.total === undefined ? Infinity : a.params.total - a.stats.gathered;
   if (remaining <= 0) return { stop: StopReason.TARGET_REACHED };
   if (tooTired(ctx, a.actorId)) return { stop: StopReason.EXHAUSTED };
   const space = storageSpace(ctx, resource, a.actionId);
   if (space <= 0) return { stop: StopReason.STORAGE_FULL };
   const want = Math.min(load, remaining, space);
-  const node = nearestNode(ctx, resource, ctx.state.survivors[a.actorId].position, want);
+  const node = nearestNode(ctx, resource, actor.position, want);
   if (!node) return { stop: StopReason.NO_TARGET };
   a.targetId = node.id;
   a.batch = Math.min(want, available(ctx.state, nodeKey(node.id)));
+  a.workTicks = Math.ceil(a.batch * def.ticksPerUnit * (a.durationModifier ?? 1));
   a.progress = 0;
   a.travelTicks = 0;
   return { qty: a.batch };
@@ -80,8 +90,8 @@ function releaseAll(ctx, a) {
  * Nothing gathered at all → FAILED with the reason; otherwise → COMPLETED with stopReason.
  */
 function stopWith(ctx, a, reason, { partial = false } = {}) {
-  const def = ctx.defs.actions.gather;
-  const units = partial && a.phase === 'work' ? Math.floor(a.progress / def.ticksPerUnit) : 0;
+  // Cut short mid-batch: the units chopped so far = the share of the batch's work ticks already done (always < batch).
+  const units = partial && a.phase === 'work' && a.workTicks > 0 ? Math.min(a.batch - 1, Math.floor((a.progress * a.batch) / a.workTicks)) : 0;
   const node = a.targetId;
   releaseAll(ctx, a);
   if (units > 0) {
@@ -111,15 +121,13 @@ export const gatherHandler = {
       a.stats.started = true;
       ctx.emit('task.started', { actionId: a.actionId, actorId: a.actorId, taskType: 'gather', resource: a.params.resource });
     }
-    const r = approachThenWork(ctx, a, ctx.state.nodes[a.targetId], {
-      range: def.range, ticksPerTile: def.ticksPerTile, workTicks: Math.ceil(a.batch * def.ticksPerUnit * (a.durationModifier ?? 1)),
-    });
-    a.fraction = a.phase === 'work' ? Math.min(1, a.progress / Math.ceil(a.batch * def.ticksPerUnit * (a.durationModifier ?? 1))) : 0;
+    const r = approachThenWork(ctx, a, ctx.state.nodes[a.targetId], { range: def.range, ticksPerTile: def.ticksPerTile, workTicks: a.workTicks });
+    a.fraction = a.phase === 'work' ? Math.min(1, a.progress / a.workTicks) : 0;
     if (r.status === 'fail') return stopWith(ctx, a, r.reason, { partial: true });
     if (r.status !== 'done') return RUNNING;
 
     // Batch finished: commit what was reserved, credit stock, then decide whether to keep going.
-    const qty = Math.floor(a.batch * (a.outputModifier ?? 1));
+    const qty = a.batch; // exactly what was reserved from the node
     for (const id of a.reservationIds) commit(ctx.state, id);
     a.reservationIds = [];
     deposit(ctx, a, qty);

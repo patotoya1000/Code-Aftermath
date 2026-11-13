@@ -41,7 +41,7 @@ export function createActionEngine(defs) {
     state.actions[actionId] = {
       actionId, actorId: command.actorId, actionType: command.type, targetId: command.params?.targetId ?? null,
       params: { ...command.params }, requestedAtTick: state.tick, status: Status.QUEUED, failureReason: null,
-      reservationIds: [], progress: 0, travelTicks: 0, phase: null, startedAtTick: null, endedAtTick: null,
+      reservationIds: [], progress: 0, workTotal: 0, travelTicks: 0, phase: null, startedAtTick: null, endedAtTick: null,
     };
     state.activeActions.push(actionId);
     ctx.emit('action.queued', { actionId, actorId: command.actorId, actionType: command.type });

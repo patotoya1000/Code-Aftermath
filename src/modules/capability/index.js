@@ -79,8 +79,8 @@ function computeDurationModifier(survivor, actionDef, defs) {
   const attrMod = attributeDurationModifier(survivor.attributes, actionDef.handler);
   mod *= attrMod;
 
-  // Tired survivors work slower
-  if (survivor.needs.energy < defs.needs.thresholds.tired) {
+  // Tired survivors work slower. Resting is the cure, so it must never be slowed by the very tiredness it fixes.
+  if (actionDef.handler !== 'rest' && survivor.needs.energy < defs.needs.thresholds.tired) {
     mod *= 1.3; // 30% slower when tired
   }
   if (survivor.needs.hunger < defs.needs.thresholds.hungry) {

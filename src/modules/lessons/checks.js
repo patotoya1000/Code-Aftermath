@@ -6,6 +6,9 @@ const CONSTRUCTS = {
   for: /\bfor\s*\(/,
   while: /\bwhile\s*\(/,
   function: /\bfunction\b|=>/,
+  const: /\bconst\s+[A-Za-z_$]/,
+  let: /\blet\s+[A-Za-z_$]/,
+  variable: /\b(const|let|var)\s+[A-Za-z_$]/,
 };
 
 const survivor = (a) => a.finalView.survivor;

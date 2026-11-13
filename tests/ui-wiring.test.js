@@ -81,6 +81,35 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   assert.equal(/22 ?kg|Encumbrance: (Light|Heavy|Moderate)/.test(card), false);
   assert.equal(/Crafting/.test(card), false, 'crafting is not an attribute');
 
+  // Shortcuts never eat typing: the letter "l" in the editor must not open lesson mode; Alt+L does (it used to be bare "l")
+  globalThis.document.activeElement = { tagName: 'TEXTAREA' };
+  for (const fn of docListeners.keydown) await fn({ key: 'l', altKey: false, preventDefault() {} });
+  for (const fn of docListeners.keydown) await fn({ key: ' ', altKey: false, preventDefault() {} });
+  assert.notEqual(els['lesson-player-panel'].style.display, 'block', 'typing "l" did not open lesson mode');
+  assert.match(els['clock-label'].textContent, /PAUSED/, 'typing a space in the editor did not toggle the clock');
+  globalThis.document.activeElement = null;
+  for (const fn of docListeners.keydown) await fn({ key: 'l', altKey: true, preventDefault() {} });
+  assert.equal(els['lesson-player-panel'].style.display, 'block', 'Alt+L opens lesson mode');
+  // lesson buttons are plain data-action elements (inline onclick is blocked by the CSP) handled by one delegated listener
+  const click = (action, extra = {}) => ({ target: { closest: () => ({ dataset: { action, ...extra } }) } });
+  for (const fn of docListeners.click) await fn(click('start-lesson', { lesson: 'm1_rest_first' }));
+  assert.match(els['lesson-instructions'].innerHTML, /Rest First/);
+  assert.match(els['clock-detail'].textContent, /TICK \d+/, 'free-play world was not reset by opening a lesson');
+  for (const fn of docListeners.click) await fn(click('exit-lesson'));
+  assert.equal(els['lesson-player-panel'].style.display, 'none');
+
+  // save / load buttons round-trip the live session
+  els['code-editor'].value = 'survivor.rest(5);';
+  await els['btn-run-code'].fire('click');
+  const tickBeforeSave = els['clock-detail'].textContent.match(/TICK (\d+)/)[1];
+  await els['btn-save'].fire('click');
+  assert.match(els['event-feed'].innerHTML, /Saved: tick/);
+  await els['btn-restart'].fire('click');
+  assert.match(els['clock-detail'].textContent, /TICK 0\b/);
+  await els['btn-load'].fire('click');
+  assert.match(els['event-feed'].innerHTML, /Loaded: tick/);
+  assert.equal(els['clock-detail'].textContent.match(/TICK (\d+)/)[1], tickBeforeSave, 'loaded world is back at the saved tick');
+
   // restart gives a fresh scenario
   await els['btn-restart'].fire('click');
   assert.match(els['clock-detail'].textContent, /STRATEGY 10\/10 · TICK 0/);

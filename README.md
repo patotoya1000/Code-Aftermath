@@ -4,7 +4,8 @@ A **modular monolith**: one deployable app (static files, offline-first, no buil
 enforced boundaries. Vanilla ES modules; Node ≥ 22 for tests.
 
 ```
-npm test          # 94 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer
+npm test          # 122 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
+SOAK_SEEDS=300 npm test   # deep randomized soak (invariants after every 50 ticks)
 npm run serve     # http://localhost:8080  (ES modules need http://, not file://)
 npm run smoke     # real-browser check (needs Playwright + Chromium) — (C9 gate: passing)
 ```
@@ -57,6 +58,7 @@ Learner code → Sandbox (Worker, Clock A) → Game API v1 → Command → Actio
 - **CODE** opens the editor. **Run Code** sends your JavaScript through `Safety Validator → Worker → Game API → Command Builder` straight into the live world. Commands start working at once and the clock resumes if it was paused.
 - **Standing commands:** `survivor.gather("wood", 20)` keeps gathering in trips of 20 until storage is full, nothing is left, or the survivor is too tired. Add a total to stop earlier: `gather("wood", 20, 60)`. `survivor.lastTask` says why a survivor stopped (`TARGET_REACHED`, `STORAGE_FULL`, `NO_TARGET`, `EXHAUSTED`).
 - **Replace vs queue:** the first command a program gives a survivor replaces what it was doing; the rest queue behind it in order. `survivor.queue()` appends instead.
+- **Save / load:** SAVE stores the session *record* (scenario + seed + commands with the ticks they were issued); LOAD replays it and refuses to continue if the world does not come out identical (hash check).
 - **Strategy points:** each command costs 1; start 10, max 10, +1 every 20 ticks.
 - Commands: `moveTo`, `gather`, `rest`, `eat`, `drink`, `repair`, `stop` (+ the free `queue` marker). Survival is manual: nothing eats or rests for you. Buttons for systems that do not exist yet are disabled and labelled with their phase.
 - Run the screen with `npm run serve`; `?debug` (or Alt+D) shows the debug overlay. Details: `docs/game/15-realtime-simulation-and-tasks.md`.
@@ -74,4 +76,4 @@ only — it is not a security boundary.
 - **New building / node / item / lesson**: edit the data files; `validateDefinitions` tells you what's inconsistent.
 - **New lesson check**: add a function to `lessons/checks.js`, reference it by name in lesson data.
 
-See `docs/PHASES.md` for the roadmap and acceptance gates.
+See `docs/PHASES.md` for the roadmap and acceptance gates, and `docs/IMPLEMENTATION_PLAN_2026-11-13.md` for the latest analysis, bug list and revised plan.

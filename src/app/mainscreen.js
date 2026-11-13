@@ -33,7 +33,8 @@ const TASK_ICON = { gather: '🌲', move: '🚶', rest: '💤', eat: '🍎', dri
 
 async function init() {
   let adapter;
-  try { adapter = createIndexedDbAdapter(); } catch { adapter = undefined; }
+  // IndexedDB can be missing or blocked (some private-browsing modes); then saves live in memory for this page only.
+  try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
   renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
   await startScenario();
@@ -47,7 +48,7 @@ async function startScenario() {
   const { sim } = await app.createFreeSim({ scenarioId: 'stage1', seed: 1 });
   freeSim = sim;
   clock = app.createClock(sim);
-  feed = []; eventCursor = 0;
+  feed = []; eventCursor = 0; projKey = '';
   const first = freeSim.studentView().survivors[0];
   selected = first ? { kind: 'npc', id: first.id } : null;
   if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
@@ -60,10 +61,18 @@ function loop(now) {
   if (freeSim) {
     const dt = lastFrame ? now - lastFrame : 0; lastFrame = now;
     const ran = clock.update(dt);
-    renderer.draw(freeSim.renderProjection());
+    renderer.draw(currentProjection());
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
+}
+
+// The render projection is deep-frozen on every call; rebuild it only when the world actually changed.
+let proj = null; let projKey = '';
+function currentProjection() {
+  const key = `${freeSim.tick}:${freeSim.log.length}`;
+  if (key !== projKey) { proj = freeSim.renderProjection(); projKey = key; }
+  return proj;
 }
 
 function refreshUI() {
@@ -92,7 +101,7 @@ function renderUI() {
 
 // ---------- Top bar (projection data only) ----------
 function updateTopBar() {
-  const proj = freeSim.renderProjection();
+  const proj = currentProjection();
   const view = freeSim.studentView();
   const info = freeSim.getClockInfo();
 
@@ -263,6 +272,13 @@ async function runCode() {
 
 // ---------- Lesson Player ----------
 
+// The lesson drawer sits on the left; while it is open the code panel is pushed right (body class) so nothing is covered.
+function setLessonPanel(open) {
+  const el = $('lesson-player-panel');
+  if (el) el.style.display = open ? 'block' : 'none';
+  document.body?.classList?.toggle('lesson-open', open);
+}
+
 function lessonList() {
   if (!app || !app.defs || !app.defs.lessons) return [];
   return Object.values(app.defs.lessons);
@@ -277,7 +293,7 @@ function renderLessonList() {
       ? lessonAttempt.passed ? 'passed' : 'attempted'
       : '';
     const cls = `lesson-item ${prog}${currentLessonId === l.id ? ' active' : ''}`;
-    return `<button type="button" class="${cls}" onclick="startLesson('${l.id}')" aria-label="Start lesson ${l.title}">
+    return `<button type="button" class="${cls}" data-action="start-lesson" data-lesson="${esc(l.id)}" aria-label="Start lesson ${l.title}">
       <div class="lesson-title">${esc(l.title)}</div>
       <div class="lesson-brief">${esc(l.brief)}</div>
       <div class="lesson-progress">${prog === 'passed' ? '✓ Passed' : prog === 'attempted' ? 'Attempted' : 'Not started'}</div>
@@ -313,6 +329,7 @@ function renderLessonResult() {
   const passed = lessonAttempt.passed;
   result.style.display = 'block';
   result.className = `lesson-result ${passed ? 'passed' : 'failed'}`;
+  queueMicrotask(() => result.scrollIntoView?.({ block: 'nearest' })); // the drawer scrolls; keep the verdict in view
   result.innerHTML = `
     <div class="lesson-result-header">${passed ? '✓ Lesson Passed' : '✗ Lesson Not Yet Passed'}</div>
     <div class="lesson-result-details">
@@ -320,8 +337,8 @@ function renderLessonResult() {
       ${lessonAttempt.feedback?.length ? `<div class="lesson-feedback">${lessonAttempt.feedback.join('<br>')}</div>` : ''}
     </div>
     <div class="lesson-result-actions">
-      <button type="button" class="btn-small" onclick="restartLesson()">Restart Lesson</button>
-      <button type="button" class="btn-small" onclick="exitLesson()">Exit Lesson Mode</button>
+      <button type="button" class="btn-small" data-action="restart-lesson">Restart Lesson</button>
+      <button type="button" class="btn-small" data-action="exit-lesson">Exit Lesson Mode</button>
     </div>
   `;
 }
@@ -329,10 +346,8 @@ function renderLessonResult() {
 function renderProgressScreen() {
   const container = $('progress-screen');
   if (!container) return;
-  const completed = lessonList().filter((l) => {
-    const a = lessonAttempt;
-    return a && a.lessonId === l.id && a.passed;
-  }).length;
+  const done = app.progress.completed; // the app's record: only ever grows, survives switching lessons
+  const completed = lessonList().filter((l) => done[l.id]).length;
   container.innerHTML = `
     <h3>📊 Progress</h3>
     <div class="progress-summary">
@@ -341,7 +356,7 @@ function renderProgressScreen() {
     <div class="progress-list">
       ${lessonList().map((l) => {
         const a = lessonAttempt && lessonAttempt.lessonId === l.id ? lessonAttempt : null;
-        const status = a ? (a.passed ? 'passed' : 'failed') : 'not-started';
+        const status = done[l.id] ? 'passed' : a ? 'failed' : 'not-started';
         return `<div class="progress-item ${status}"><span>${esc(l.title)}</span><span class="status-badge">${status}</span></div>`;
       }).join('')}
     </div>
@@ -355,8 +370,7 @@ async function startLesson(lessonId) {
   stepInspectorActive = false;
   stepStep = 0;
   lessonAttempt = null;
-  const el = $('lesson-player-panel');
-  if (el) el.style.display = 'block';
+  setLessonPanel(true);
   const codePanel = $('code-panel');
   if (codePanel) codePanel.classList.add('open');
   isCodePanelOpen = true;
@@ -366,7 +380,6 @@ async function startLesson(lessonId) {
   renderLessonList();
   renderLessonInstructions();
   renderUI();
-  startScenario();
 }
 
 function restartLesson() {
@@ -379,8 +392,7 @@ function exitLesson() {
   lessonAttempt = null;
   stepInspectorActive = false;
   stepStep = 0;
-  const el = $('lesson-player-panel');
-  if (el) el.style.display = 'none';
+  setLessonPanel(false);
   const result = $('lesson-result');
   if (result) result.style.display = 'none';
   renderLessonList();
@@ -437,9 +449,9 @@ const SHOWN_EVENTS = {
 };
 
 function collectEvents() {
-  const all = freeSim.log.all();
-  for (const e of all.slice(eventCursor)) if (SHOWN_EVENTS[e.type]) feed.push(`t${e.tick} ${SHOWN_EVENTS[e.type](e)}`);
-  eventCursor = all.length;
+  const fresh = freeSim.log.since(eventCursor);
+  for (const e of fresh) if (SHOWN_EVENTS[e.type]) feed.push(`t${e.tick} ${SHOWN_EVENTS[e.type](e)}`);
+  eventCursor += fresh.length;
   if (feed.length > 14) feed = feed.slice(-14);
 }
 
@@ -449,13 +461,33 @@ function renderFeed() {
     : '<span class="hint">The world keeps running. Open CODE, run a command, and watch your survivors work. Events appear here.</span>';
 }
 
+function flash(msg) { // short status line in the event feed (presentation only)
+  feed.push(msg); if (feed.length > 14) feed = feed.slice(-14); renderFeed();
+}
+async function saveSession() {
+  if (!freeSim) return;
+  try { const r = await app.saveFreePlay(freeSim); flash(`Saved: tick ${r.tick}, ${r.commands} command(s)`); } catch (e) { flash(`Save failed: ${e.message}`); }
+}
+async function loadSession() {
+  try {
+    const r = await app.loadFreePlay();
+    if (!r) { flash('No saved session yet'); return; }
+    freeSim = r.sim; clock = app.createClock(freeSim);
+    feed = []; eventCursor = 0; projKey = '';
+    const first = freeSim.studentView().survivors[0];
+    selected = first ? { kind: 'npc', id: first.id } : null;
+    if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
+    refreshUI(); flash(`Loaded: tick ${r.savedTick}`);
+  } catch (e) { flash(`Load failed: ${e.message}`); }
+}
+
 function togglePlay() { clock.toggle(); refreshUI(); }
 function cycleSpeed() { clock.cycleSpeed(); refreshUI(); }
 
 function bindEvents() {
   $('map-canvas').addEventListener('click', (e) => {
     const rect = $('map-canvas').getBoundingClientRect();
-    const hit = renderer.pick(e.clientX - rect.left, e.clientY - rect.top, freeSim.renderProjection());
+    const hit = renderer.pick(e.clientX - rect.left, e.clientY - rect.top, currentProjection());
     if (hit) selectEntity(hit.kind, hit.id);
   });
   $('inspector-toggle')?.addEventListener('click', () => {
@@ -472,11 +504,26 @@ function bindEvents() {
   $('btn-lessons')?.addEventListener('click', toggleLessonMode);
   $('code-editor')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRunCode(); } });
   document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement?.tagName;
+    const typing = tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT'; // shortcuts must never eat what the learner types
     if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
-    if (e.key === ' ' && !isCodePanelOpen && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
+    if (e.key === ' ' && !isCodePanelOpen && !typing && tag !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
     if ((e.key === 'd' || e.key === 'D') && e.altKey) renderer.setDebug(!renderer.debug); // Alt+D: optional debug overlay
-    if (e.key === 'l' || e.key === 'L') toggleLessonMode(); // Alt+L: lesson mode toggle
+    if ((e.key === 'l' || e.key === 'L') && e.altKey) toggleLessonMode(); // Alt+L: lesson mode toggle
   });
+  // Delegated clicks for lesson buttons built as HTML strings (inline onclick is blocked by the CSP).
+  document.addEventListener('click', (e) => {
+    const el = e.target?.closest?.('[data-action]');
+    if (!el) return;
+    const action = el.dataset?.action;
+    if (action === 'start-lesson') startLesson(el.dataset.lesson);
+    else if (action === 'restart-lesson') restartLesson();
+    else if (action === 'exit-lesson') exitLesson();
+    else if (action === 'lesson-list') { renderLessonList(); }
+    else if (action === 'lesson-progress') renderProgressScreen();
+  });
+  $('btn-save')?.addEventListener('click', saveSession);
+  $('btn-load')?.addEventListener('click', loadSession);
 }
 
 function toggleLessonMode() {
