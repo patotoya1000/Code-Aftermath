@@ -1,6 +1,6 @@
 import { AftermathError, deepFreeze } from '../../kernel/index.js';
 import { items } from './data/items.js';
-import { actions, needs, clock } from './data/actions.js';
+import { actions, needs, clock, policies } from './data/actions.js';
 import { survivorTemplates, SKILLS, TRAITS } from './data/survivors.js';
 import { nodeTypes, buildings, scenarios } from './data/world.js';
 import { lessons } from './data/lessons.js';
@@ -54,6 +54,17 @@ export function validateDefinitions(d) {
     need(KNOWN_HANDLERS.includes(a.handler), `action ${id}: unknown handler "${a.handler}"`);
     if (a.item) need(d.items[a.item], `action ${id}: unknown item "${a.item}"`);
   }
+  const pr = d.policies;
+  need(pr?.rules && Number.isInteger(pr.rules.minBelow) && Number.isInteger(pr.rules.maxBelow) && pr.rules.minBelow >= 1 && pr.rules.maxBelow <= d.needs.max && pr.rules.minBelow <= pr.rules.maxBelow, 'policies: rules need integer minBelow <= maxBelow within 1..needs.max');
+  need(pr?.rules?.retryAfter >= 1, 'policies: rules.retryAfter must be >= 1');
+  const priorities = new Set();
+  for (const [id, p] of Object.entries(pr?.list ?? {})) {
+    need(d.actions[p.action] && ['rest', 'consume'].includes(d.actions[p.action].handler), `policy ${id}: action \"${p.action}\" must be a rest/eat/drink survival action`);
+    need(d.actions[p.action] && d.actions[p.action].interruptible !== true, `policy ${id}: its action must not be interruptible (a policy action is never paused)`);
+    need(Object.hasOwn(d.needs.decay, p.need), `policy ${id}: unknown need \"${p.need}\"`);
+    need(Number.isInteger(p.priority) && !priorities.has(p.priority), `policy ${id}: priority must be a unique integer`);
+    priorities.add(p.priority);
+  }
   for (const [id, b] of Object.entries(d.buildings)) {
     need(b.levels?.[1]?.maxHealth > 0, `building ${id}: level 1 needs maxHealth`);
     need(b.visual?.ruinedBelow < b.visual?.damagedBelow, `building ${id}: visual thresholds must be ruinedBelow < damagedBelow`);
@@ -89,13 +100,20 @@ export function validateDefinitions(d) {
     need(d.scenarios[l.scenario], `lesson ${id}: unknown scenario "${l.scenario}"`);
     need(Array.isArray(l.goals) && l.goals.length > 0, `lesson ${id}: needs goals`);
     for (const g of l.goals ?? []) need(typeof g.check === 'string', `lesson ${id}: goal ${g.id} missing check`);
+    if (l.solution !== undefined) need(typeof l.solution === 'string' && l.solution, `lesson ${id}: solution must be non-empty code`);
+    for (const h of l.hidden ?? []) {
+      need(d.scenarios[h.scenario], `lesson ${id}: hidden scenario ${h.id} uses unknown scenario \"${h.scenario}\"`);
+      need(Number.isInteger(h.seed) && h.seed !== l.seed, `lesson ${id}: hidden scenario ${h.id} needs its own integer seed`);
+      need(Array.isArray(h.goals) && h.goals.length > 0 && h.goals.every((g) => typeof g.check === 'string'), `lesson ${id}: hidden scenario ${h.id} needs goals with a check`);
+      need(typeof h.title === 'string' && h.title, `lesson ${id}: hidden scenario ${h.id} needs a title`);
+    }
   }
   if (errors.length) throw new AftermathError('INVALID_DEFINITIONS', `Invalid definitions:\n- ${errors.join('\n- ')}`, { errors });
 }
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, actions, needs, clock, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, actions, needs, clock, policies, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

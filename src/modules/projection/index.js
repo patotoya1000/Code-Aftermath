@@ -30,6 +30,7 @@ function survivorView(state, defs, s) {
       ...(a.capabilityDetail ? { capabilityDetail: { ...a.capabilityDetail } } : {}),
     } : null,
     lastTask: s.lastTask ? { ...s.lastTask } : null,
+    policies: Object.fromEntries(Object.entries(s.policies ?? {}).map(([name, p]) => [name, { below: p.below }])),
     queued,
   };
 }

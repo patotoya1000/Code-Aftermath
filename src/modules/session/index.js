@@ -1,7 +1,7 @@
 import { hashValue, SIM_VERSION, API_VERSION, REPLAY_FORMAT } from '../../kernel/index.js';
 import { createInitialState } from '../world/index.js';
 import { createSimulation } from '../simulation/index.js';
-import { buildCommand, isMarker } from '../api/index.js';
+import { buildCommand, isMarker, isConfig } from '../api/index.js';
 
 /**
  * Create a fresh simulation for continuous free play. Returns { sim, initialView }.
@@ -30,7 +30,8 @@ export function submitCalls(sim, calls = []) {
     try {
       const command = { ...buildCommand(call.actorId, { name: call.name, args: call.args }), mode: touched.has(call.actorId) || appendOnly.has(call.actorId) ? 'queue' : 'replace' };
       const actionId = sim.submitCommand(command);
-      touched.add(call.actorId);
+      if (!isConfig(call.name)) touched.add(call.actorId);
+      // Policies are standing rules, not work: they must not make the NEXT command queue instead of replace.
       submitted.push({ ok: true, actionId, name: call.name, actorId: call.actorId, args: call.args, mode: command.mode });
     } catch (e) {
       submitted.push(rejectedEntry(call, e));
@@ -61,6 +62,7 @@ export async function runLiveCode({ sim, sandbox, code, actorId = null }) {
  */
 export function replayTimeline({ defs, scenarioId = 'stage1', seed = 1, timeline, untilTick }) {
   const { sim } = createFreeSim({ defs, scenarioId, seed });
+  sim.setReplaying(true); // hooks replay from the timeline; they must not re-fire live during replay
   for (const { tick, command } of timeline) {
     if (tick > sim.tick) sim.step(tick - sim.tick);
     sim.submitCommand(command);

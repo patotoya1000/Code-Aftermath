@@ -11,7 +11,11 @@ const NODES = ['tree_1', 'tree_2', 'tree_3', 'rock_1'];
 
 function randomCommand(rng) {
   const pick = (arr) => arr[rng.int(arr.length)];
+<<<<<<< HEAD
   switch (rng.int(8)) {
+=======
+  switch (rng.int(10)) {
+>>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
     case 0: return { type: 'gather', params: { resource: pick(['wood', 'stone']), amount: 1 + rng.int(20), ...(rng.int(2) ? { total: 1 + rng.int(60) } : {}) } };
     case 1: return { type: 'rest', params: rng.int(2) ? { ticks: 1 + rng.int(60) } : {} };
     case 2: return { type: 'eat', params: {} };
@@ -19,12 +23,33 @@ function randomCommand(rng) {
     case 4: return { type: 'repair', params: { targetId: pick(BUILDINGS) } };
     case 5: return { type: 'move', params: rng.int(2) ? { x: rng.int(24), y: rng.int(16) } : { targetId: pick([...BUILDINGS, ...NODES]) } };
     case 6: return { type: 'stop', params: {} };
+<<<<<<< HEAD
+=======
+    case 8: return { type: 'policy', params: { name: pick(['eat', 'drink', 'rest']), below: 1 + rng.int(100) } }; // R4a
+    case 9: return { type: 'clearPolicy', params: { name: pick(['eat', 'drink', 'rest']) } };
+>>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
     default: return { type: 'gather', params: { resource: 'food' } }; // no such nodes → must fail cleanly
   }
 }
 
 function assertInvariants(sim, label, start) {
   const st = sim.snapshot();
+<<<<<<< HEAD
+=======
+  // wood is gathered from trees and spent only by committed repairs: trees + stock + spent never changes (catches any
+  // duplicated or lost units, e.g. from banking a partial batch when a policy interrupts a gather)
+  const spent = sim.log.all().filter((e) => e.type === 'building.repaired').reduce((t, e) => t + (defs.buildings[st.buildings[e.buildingId].type].repair.cost.wood ?? 0), 0);
+  const woodAll = Object.values(st.nodes).filter((n) => n.resource === 'wood').reduce((t, n) => t + st.ledger[nodeKey(n.id)].total, 0) + st.ledger[stockKey('wood')].total;
+  assert.equal(woodAll + spent, start.woodAll, `${label}: wood conserved (trees + stock + spent)`);
+  // R4a structure: one running action per survivor, at most one live policy action, resumes point at real actions
+  for (const sv of Object.keys(st.survivors)) {
+    const mine = st.activeActions.map((id) => st.actions[id]).filter((a) => a.actorId === sv);
+    assert.ok(mine.filter((a) => a.status === 'EXECUTING').length <= 1, `${label}: two running actions`);
+    assert.ok(mine.filter((a) => a.origin?.startsWith('policy:')).length <= 1, `${label}: two live policy actions`);
+    for (const rule of Object.values(st.survivors[sv].policies)) assert.ok(Number.isInteger(rule.below) && rule.below >= 1 && rule.below <= 100 && rule.retryAt >= 0, `${label}: policy rule shape`);
+  }
+  for (const a of Object.values(st.actions)) if (a.resumeOf) assert.ok(st.actions[a.resumeOf], `${label}: ${a.actionId} resumes a missing action`);
+>>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
   assert.deepEqual(ledgerViolations(st), [], `${label}: ledger`);
   for (const [k, a] of Object.entries(st.ledger)) assert.ok(a.total >= 0 && a.reserved >= 0 && a.reserved <= a.total, `${label}: ${k} ${JSON.stringify(a)}`);
   const cap = defs.buildings.hq.storage;
@@ -51,6 +76,10 @@ for (const seed of SEEDS) {
     const st0 = sim.snapshot();
     const start = {
       ...Object.fromEntries(Object.keys(defs.items).map((i) => [i, st0.ledger[stockKey(i)].total])),
+<<<<<<< HEAD
+=======
+      woodAll: Object.values(st0.nodes).filter((n) => n.resource === 'wood').reduce((t, n) => t + st0.ledger[nodeKey(n.id)].total, 0) + st0.ledger[stockKey('wood')].total,
+>>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
       stoneAll: Object.values(st0.nodes).filter((n) => n.resource === 'stone').reduce((t, n) => t + st0.ledger[nodeKey(n.id)].total, 0) + st0.ledger[stockKey('stone')].total,
     };
     for (let slice = 0; slice < 60; slice++) {

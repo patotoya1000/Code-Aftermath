@@ -101,3 +101,9 @@ that fails on the old behaviour, (2) an invariant added to `soak.test.js`, (3) a
 
 Not measured here: real touch devices, Firefox/Safari, and performance on a low-end phone (the projection cache should
 help; profile before R3 adds more per-frame work).
+<<<<<<< HEAD
+=======
+
+## 6. Addendum (session 2, 2026-11-13)
+The zip this plan shipped in did **not** match its own claims: `tests/turns.test.js` (B18 said "removed") was still present and 8 of its tests failed (132 run / 124 pass), `node_modules` was still tracked in git (183 files) and the scratch scripts were still in the repository root. All three are now actually fixed, R4a is implemented, and the current numbers are in `docs/ANALYSIS_2026-11-13_R4A.md`.
+>>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)

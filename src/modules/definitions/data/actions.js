@@ -1,16 +1,18 @@
 // Action definitions: numbers live here, behaviour lives in the actions module's handlers.
+// `interruptible: true` = a needs policy may pause this action, run a survival action, then resume it (R4a).
+// Survival actions (rest/eat/drink) are NOT interruptible: the learner chose them explicitly.
 // Each action can declare a `capability` block: minimum attribute/skill levels needed to attempt it.
 // When capability is insufficient the action FAILS with FailureReason.CAPABILITY_INSUFFICIENT
 // before any resources are reserved.
 export const actions = {
   move: {
-    handler: 'move', ticksPerTile: 1,
+    handler: 'move', ticksPerTile: 1, interruptible: true,
     capability: { attributes: { agility: 1 }, skills: { move: 0 } },
   },
   // gather is a STANDING action: it repeats batches of `amount` (the load per trip, default 5) until a stop reason fires
   // (storage full, nothing left to gather, too tired) or the optional `total` is reached.
   gather: {
-    handler: 'gather', ticksPerUnit: 2, defaultAmount: 5, maxAmount: 20, maxTotal: 500, range: 1, ticksPerTile: 1,
+    handler: 'gather', ticksPerUnit: 2, defaultAmount: 5, maxAmount: 20, maxTotal: 500, range: 1, ticksPerTile: 1, interruptible: true,
     capability: { attributes: { strength: 1, agility: 1 }, skills: { gathering: 0 } },
   },
   rest: { handler: 'rest', defaultTicks: 20, maxTicks: 200, energyPerTick: 2,
@@ -22,7 +24,7 @@ export const actions = {
   drink: { handler: 'consume', item: 'water', need: 'thirst', restore: 30, ticks: 3,
     capability: { attributes: { intelligence: 1 }, skills: { consume: 0 } },
   },
-  repair: { handler: 'repair', range: 1, ticksPerTile: 1,
+  repair: { handler: 'repair', range: 1, ticksPerTile: 1, interruptible: true,
     capability: { attributes: { agility: 1, intelligence: 1 }, skills: { repair: 0 } },
   },
 };
@@ -47,4 +49,19 @@ export const clock = {
   speeds: [1, 2, 4],
   maxTicksPerFrame: 30, // safety cap so a slow frame never causes a huge catch-up burst
   strategy: { start: 10, max: 10, regenEvery: 20 }, // each command costs 1; +1 point every `regenEvery` ticks
+};
+
+// R4a — needs policies. `survivor.policy(name, { below })` makes the survivor react by itself: when the need drops BELOW
+// the threshold, the policy interrupts an interruptible job, runs its survival action, then resumes the job.
+//  - `priority`: lower number wins when several policies trigger on the same tick (explicit, never implicit).
+//  - A running policy action is never interrupted by another policy; the rest wait their turn.
+//  - `rules.retryAfter`: when a policy action FAILS (no food, no capability …) the policy is silent for this many ticks,
+//    so a failing policy can never thrash the survivor's real work.
+export const policies = {
+  rules: { minBelow: 1, maxBelow: 100, retryAfter: 20 },
+  list: {
+    drink: { action: 'drink', need: 'thirst', priority: 1, params: {} },
+    eat: { action: 'eat', need: 'hunger', priority: 2, params: {} },
+    rest: { action: 'rest', need: 'energy', priority: 3, params: {} },
+  },
 };

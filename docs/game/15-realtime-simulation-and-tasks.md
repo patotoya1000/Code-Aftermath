@@ -51,8 +51,40 @@ survivor.gather(resource, load = 5, total)
 - `survivor.queue()` is a free marker: commands after it are appended to the end of the queue instead.
 - An endless job blocks the commands queued behind it until it stops — that is intentional ("gather until done, then eat").
 
-### Survival is manual
-Hunger, thirst and energy keep draining while survivors work. Nothing eats or rests automatically: the learner writes that logic (this is the teaching point). An unattended survivor works until `EXHAUSTED`, or starves and is downed. Automatic policies and event hooks (`survivor.on(...)`) are planned for R4.
+### Survival is manual — unless the learner sets a policy (R4a, below)
+Hunger, thirst and energy keep draining while survivors work. Nothing eats or rests automatically: the learner writes that logic (this is the teaching point) — either by hand in the program, or by giving the survivor a *policy*. An unattended survivor works until `EXHAUSTED`, or starves and is downed. Automatic policies and event hooks (`survivor.on(...)`) are planned for R4.
+
+## Rules clarified in the stabilization pass (2026-11-13)
+- **Energy cost of work is cumulative.** 1 energy per `needs.work.energyEvery` work ticks *across all trips of the job* (small trips cannot dodge it).
+- **Output modifiers change the trip size, never the ledger.** A skilled/strong survivor carries `floor(load × bonus)` per trip; the node loses exactly what the base receives.
+- **Modifiers are re-read every trip** (tired / hungry / thirsty slow work as they happen).
+- **`rest` is plain arithmetic:** +`energyPerTick` per tick (rest skill / endurance speed it up; hunger/thirst slow it; tiredness does *not*), capped at 100.
+- **Save / load** stores scenario + seed + command timeline + state hash; loading replays and verifies (`SAVE_CORRUPT`, `SAVE_VERSION_MISMATCH`).
+
+## R4a — Needs policies (2026-11-13)
+`survivor.policy("eat", { below: 30 })` — when hunger drops **below** 30 the survivor reacts by itself: it pauses the current job, eats, then resumes the job. Names: `eat` (hunger), `drink` (thirst), `rest` (energy). `survivor.clearPolicy(name)` removes one. `survivor.policies` is the read-only view.
+
+**Owner and data.** The simulation owns it (`actions/policies.js`, run once per tick before actions advance). Names, needs, priorities and `rules { minBelow, maxBelow, retryAfter }` are data in `definitions/data/actions.js → policies`; `interruptible` is a flag on the action definition. State: `survivor.policies = { name: { below, retryAt } }`.
+
+**Per survivor, per tick, at most one policy fires**, in priority order (`drink` 1, `eat` 2, `rest` 3 — lower first). A policy is *due* when the need is below its threshold and it is not in its post-failure silence. Then, looking at the survivor's FIFO head action:
+
+| Head action | What happens |
+|---|---|
+| none (idle) | the survival action runs; nothing to resume |
+| same action as the policy (learner is already eating) | nothing |
+| waiting (`QUEUED`) | the survival action is inserted in front of it |
+| running and `interruptible` (gather, repair, move) | the job is paused (**gather banks the units already chopped**), the survival action runs, then a *resume action* continues the job (gather resumes with only the missing `total`) |
+| running and not interruptible (learner-chosen rest/eat/drink) | the policy waits; nothing may pause a survival action the learner chose |
+
+**Rules.**
+- Policy and resume actions are created by the simulation: no strategy points, not in the command timeline. Only `policy()` / `clearPolicy()` cost 1 point and are recorded, so replay reproduces every reaction.
+- A running policy action is never interrupted by another policy; later ones wait their turn.
+- **Cancellation:** a new program's first work command (*replace*), `stop()`, or the survivor going down cancels the whole chain — the policy action *and* its resume action. Rules (`policies`) persist until cleared. `clearPolicy` does not cancel a meal that already started.
+- **Failure:** if the policy action fails (no food, capability…) it emits `policy.failed` and that policy is silent for `retryAfter` ticks, so a failing policy can never thrash the survivor's real work; the resume action runs as normal.
+- `policy()`/`clearPolicy()` are *configuration*: they do not use up the program's "first command" slot, so `policy(...)` followed by `gather(...)` still *replaces* the old job.
+- The API validates shapes; the **simulation** validates names and ranges from definitions (`INVALID_POLICY`) before any change, so a rejected policy costs nothing.
+- Events: `policy.set`, `policy.cleared`, `policy.triggered`, `policy.completed`, `policy.failed`, `task.interrupted`, `task.resumed`. The interrupted action ends `CANCELLED` with reason `INTERRUPTED`.
+- Known limit: finished actions are still kept in state (O1). A policy chain adds two actions per reaction; pruning arrives in R5.
 
 ## Rules clarified in the stabilization pass (2026-11-13)
 - **Energy cost of work is cumulative.** 1 energy per `needs.work.energyEvery` work ticks *across all trips of the job* (small trips cannot dodge it).
@@ -63,11 +95,12 @@ Hunger, thirst and energy keep draining while survivors work. Nothing eats or re
 
 ## Compatibility notes
 - `gather(resource, n)` used to be a one-shot batch of `n`. It now means *trips of n, until done*. Use `gather(resource, n, n)` for the old behaviour. Starter code in the four lessons was updated this way.
-- `API_VERSION` stays 1 (pre-release); `SIM_VERSION` is now `0.2.0`.
+- `API_VERSION` stays 1 (pre-release); `SIM_VERSION` is now `0.3.0` (R4a changed the state shape and rules; older saves are refused with `SAVE_VERSION_MISMATCH`).
 
 ## Still to come
 | Phase | Scope |
 |---|---|
+| R4a | ✅ Needs policies (this document, above) |
+| R4b | Learner event hooks (`survivor.on("hungry", fn)`) — handlers in the Worker, frozen view, command budget, replay timeline |
 | R3 | Carry capacity and deposit trips (gather → carry → walk to HQ → deposit), tent/HQ storage pooling |
-| R4 | Needs interrupts and policies, learner event hooks |
 | R5 | Lessons and replay records moved fully to the timeline model; saving free-play sessions |

@@ -79,4 +79,12 @@ const stage1Tired = structuredClone(stage1);
 stage1Tired.name = 'Stage 1 — Exhausted';
 stage1Tired.survivors[0].needs = { energy: 3 };
 
-export const scenarios = { stage1, stage1_tired: stage1Tired };
+// R4a: a survivor whose hunger is just above the danger line, and one that is already well below it.
+const stage1Hungry = structuredClone(stage1);
+stage1Hungry.name = 'Stage 1 — Hungry';
+stage1Hungry.survivors[0].needs = { hunger: 31 };
+const stage1Starving = structuredClone(stage1);
+stage1Starving.name = 'Stage 1 — Starving';
+stage1Starving.survivors[0].needs = { hunger: 12 };
+
+export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_hungry: stage1Hungry, stage1_starving: stage1Starving };

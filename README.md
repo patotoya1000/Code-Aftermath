@@ -1,10 +1,14 @@
-# CODE: AFTERMATH — engine (Phases 0–1 + correction C0–C8)
+# CODE: AFTERMATH — engine (Phases 0–1, correction C0–C8, real-time R1–R2, stabilization S0–S5, needs policies R4a)
 
 A **modular monolith**: one deployable app (static files, offline-first, no build step), split into modules with
 enforced boundaries. Vanilla ES modules; Node ≥ 22 for tests.
 
 ```
+<<<<<<< HEAD
 npm test          # 122 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
+=======
+npm test          # 154 tests incl. needs policies, curriculum/hidden scenarios, architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
+>>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
 SOAK_SEEDS=300 npm test   # deep randomized soak (invariants after every 50 ticks)
 npm run serve     # http://localhost:8080  (ES modules need http://, not file://)
 npm run smoke     # real-browser check (needs Playwright + Chromium) — (C9 gate: passing)
@@ -60,8 +64,11 @@ Learner code → Sandbox (Worker, Clock A) → Game API v1 → Command → Actio
 - **Replace vs queue:** the first command a program gives a survivor replaces what it was doing; the rest queue behind it in order. `survivor.queue()` appends instead.
 - **Save / load:** SAVE stores the session *record* (scenario + seed + commands with the ticks they were issued); LOAD replays it and refuses to continue if the world does not come out identical (hash check).
 - **Strategy points:** each command costs 1; start 10, max 10, +1 every 20 ticks.
-- Commands: `moveTo`, `gather`, `rest`, `eat`, `drink`, `repair`, `stop` (+ the free `queue` marker). Survival is manual: nothing eats or rests for you. Buttons for systems that do not exist yet are disabled and labelled with their phase.
+- Commands: `moveTo`, `gather`, `rest`, `eat`, `drink`, `repair`, `stop` (+ the free `queue` marker) and, new in R4a, `policy(name, { below })` / `clearPolicy(name)`. Survival is manual unless you set a policy: `survivor.policy("eat", { below: 30 })` pauses the current job when hunger drops below 30, eats, then resumes it (see `docs/game/15-realtime-simulation-and-tasks.md`). Buttons for systems that do not exist yet are disabled and labelled with their phase.
 - Run the screen with `npm run serve`; `?debug` (or Alt+D) shows the debug overlay. Details: `docs/game/15-realtime-simulation-and-tasks.md`.
+
+## Documentation
+Start at `docs/README.md`. Active tracker and rules: `docs/active/`. Everything in `docs/correction/` is HISTORICAL.
 
 ## Design docs
 `docs/game/` holds the former .docx files as chunked Markdown (architecture, design flow, NPC, buildings, assets, …). `docs/correction/` holds the audit, correction phases (C0–C9), implementation phases (I0–I15) and the C0 baseline, with completed items ticked.

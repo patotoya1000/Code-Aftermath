@@ -60,6 +60,17 @@ export const lessons = {
       { id: 'clean', check: 'noActionFailures', args: {}, message: 'No action failed.' },
       { id: 'if', check: 'usesConstruct', args: { construct: 'if' }, message: 'Use an if statement.' },
     ],
+    // Hidden scenario: the SAME program must make the OTHER decision when the survivor is already rested.
+    // A program that always rests (or always gathers) passes one world and fails the other.
+    hidden: [
+      {
+        id: 'rested', title: 'the survivor is already rested', scenario: 'stage1', seed: 1008, maxTicks: 800,
+        goals: [
+          { id: 'wood10', check: 'stockAtLeast', args: { resource: 'wood', amount: 10 }, message: 'A rested survivor gathers instead of resting.', hint: 'Check survivor.needs.energy first: rest only when it is low, otherwise gather.' },
+          { id: 'clean', check: 'noActionFailures', args: {}, message: 'Resting a full survivor is not needed.', hint: 'Use else to do the other thing when the condition is false.' },
+        ],
+      },
+    ],
   },
   m3_d_function: {
     id: 'm3_d_function', version: 1, title: 'Module 3 · A Task Explained', scenario: 'stage1', seed: 1007, maxTicks: 1200,
@@ -69,6 +80,30 @@ export const lessons = {
       { id: 'wood10', check: 'stockAtLeast', args: { resource: 'wood', amount: 10 }, message: 'Base has at least 10 wood.' },
       { id: 'clean', check: 'noActionFailures', args: {}, message: 'No action failed.' },
       { id: 'function', check: 'usesConstruct', args: { construct: 'function' }, message: 'Define a function.' },
+    ],
+  },
+  // R4a (module 7 · policies): react to a changing need without writing the reaction into every job.
+  m7_a_dont_starve: {
+    id: 'm7_a_dont_starve', version: 1, title: 'Module 7 · Don\'t Starve', scenario: 'stage1_hungry', seed: 1009, maxTicks: 600,
+    brief: 'Gather 30 wood, but hunger is already close to the danger line and the job is long. Keep your survivor fed (hunger 40 or more at the end) without stopping the job for good.',
+    starter: '// Gather 30 wood. Hunger will drop below 30 while the survivor works.\n// Idea: a policy makes the survivor react by itself, then carry on:\n//   survivor.policy("eat", { below: 30 });\nsurvivor.gather("wood", 10, 30);\n',
+    solution: 'survivor.policy("eat", { below: 30 });\nsurvivor.gather("wood", 10, 30);\n',
+    goals: [
+      { id: 'wood30', check: 'stockAtLeast', args: { resource: 'wood', amount: 30 }, message: 'Base has at least 30 wood.', hint: 'The job must still finish after the survivor eats.' },
+      { id: 'fed', check: 'needAtLeast', args: { need: 'hunger', value: 40 }, message: 'Hunger is at least 40 at the end.', hint: 'Hunger fell while working. Eat when it gets low, or let survivor.policy("eat", { below: 30 }) do it.' },
+      { id: 'alive', check: 'survivorActive', args: {}, message: 'The survivor is still active.' },
+      { id: 'clean', check: 'noActionFailures', args: {}, message: 'No action failed.' },
+    ],
+    // Hidden scenario: the survivor starts already hungry, so the reaction must happen straight away.
+    hidden: [
+      {
+        id: 'starving', title: 'the survivor starts already hungry', scenario: 'stage1_starving', seed: 1010, maxTicks: 600,
+        goals: [
+          { id: 'wood30', check: 'stockAtLeast', args: { resource: 'wood', amount: 30 }, message: 'The job still finishes when the survivor starts hungry.' },
+          { id: 'fed', check: 'needAtLeast', args: { need: 'hunger', value: 30 }, message: 'A hungry survivor ends the job no longer hungry (hunger 30 or more).', hint: 'The reaction must not depend on the exact starting hunger.' },
+          { id: 'clean', check: 'noActionFailures', args: {}, message: 'No action failed.' },
+        ],
+      },
     ],
   },
 };
