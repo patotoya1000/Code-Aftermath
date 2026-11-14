@@ -11,7 +11,7 @@ export const MODULES = {
   world: ['resources', 'survivors', 'buildings'],
   projection: ['resources', 'survivors', 'buildings'],
   actions: ['resources', 'buildings', 'capability'],
-  simulation: ['survivors', 'actions', 'projection', 'capability', 'api'],
+  simulation: ['survivors', 'actions', 'projection', 'capability'],
   api: [],
   sandbox: ['api'],
   session: ['world', 'simulation', 'api'],

@@ -87,22 +87,6 @@ await page.click('#btn-load');
 await page.waitForFunction(() => document.querySelector('#event-feed')?.textContent.includes('Loaded: tick'));
 check(!(await text('#clock-detail')).includes('TICK 0'), 'LOAD brings the saved session back (restart had reset it to tick 0)');
 
-<<<<<<< HEAD
-=======
-// R4a: a policy set from the editor shows on the survivor card and reacts in the live world (interrupt → eat → resume)
-await page.click('#btn-restart');
-if (!(await panelOpen())) await page.click('#btn-code');
-await page.fill('#code-editor', 'survivor.policy("eat", { below: 100 });\nsurvivor.gather("wood", 5, 15);');
-await page.click('#btn-run-code');
-await page.waitForFunction(() => document.querySelector('#code-execution-result')?.textContent.includes('2 command(s) sent'), null, { timeout: 15000 });
-await page.click('#code-close');
-if ((await text('#clock-label')).includes('PAUSED')) await page.click('#btn-play');
-await page.waitForFunction(() => /policy eat fired/.test(document.querySelector('#event-feed')?.textContent ?? ''), null, { timeout: 45000 });
-check((await text('#inspector-card')).includes('eat: below 100'), 'the survivor card lists the active policy');
-await page.waitForFunction(() => /resumed gather|TARGET_REACHED/.test(document.querySelector('#event-feed')?.textContent ?? ''), null, { timeout: 60000 });
-check(true, 'the policy fired in the live world and the job carried on');
-
->>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
 await browser.close();
 server.close();
 if (problems.length) { console.error('\nProblems:\n- ' + problems.join('\n- ')); process.exit(1); }

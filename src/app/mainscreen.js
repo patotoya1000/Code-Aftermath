@@ -143,9 +143,6 @@ function survivorSections(card) {
     card.traits.length ? section('🏷', 'Traits', card.traits.map((t) => `<span class="status-pill">${esc(t)}</span>`).join(' ')) : '',
     section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
     section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted('Carry capacity and encumbrance are not active yet (Phase I5).')}</div>`),
-    section('🧭', 'Policies', Object.keys(card.policies ?? {}).length
-      ? Object.entries(card.policies).map(([k, p]) => `<span class="status-pill" style="margin-right:6px;">${esc(k)}: below ${p.below}</span>`).join('')
-      : muted('None. Try survivor.policy("eat", { below: 30 }) in the code panel.')),
     taskSection(card.task, card.queued, card.lastTask),
   ].join('');
 }
@@ -443,14 +440,7 @@ const SHOWN_EVENTS = {
   'resource.gathered': (e) => `+${e.amount} ${e.resource}`,
   'task.stopped': (e) => `${nameOf(e.actorId)} stopped ${e.taskType}: ${e.reason} (${e.gathered} gathered in ${e.trips} trip(s))`,
   'action.failed': (e) => `${nameOf(e.actorId)}: ${e.actionType} failed: ${e.reason}`,
-  // A policy pause is reported by task.interrupted below, so the generic cancelled line is skipped for it.
-  'action.cancelled': (e) => (e.reason === 'INTERRUPTED' ? null : `${nameOf(e.actorId)}: ${e.actionType} cancelled (${e.reason})`),
-  'policy.set': (e) => `${nameOf(e.actorId)}: policy ${e.policy} set (${e.need} below ${e.below})`,
-  'policy.cleared': (e) => `${nameOf(e.actorId)}: policy ${e.policy} cleared`,
-  'policy.triggered': (e) => `${nameOf(e.actorId)}: policy ${e.policy} fired (${e.need} ${e.value} < ${e.below})`,
-  'policy.failed': (e) => `${nameOf(e.actorId)}: policy ${e.policy} failed: ${e.reason}`,
-  'task.interrupted': (e) => `${nameOf(e.actorId)} paused ${e.taskType} (${e.gathered ?? 0} banked)`,
-  'task.resumed': (e) => `${nameOf(e.actorId)} resumed ${e.taskType}`,
+  'action.cancelled': (e) => `${nameOf(e.actorId)}: ${e.actionType} cancelled (${e.reason})`,
   'command.rejected': (e) => `${e.name}() rejected: ${e.code}`,
   'node.depleted': (e) => `${e.nodeId} is empty`,
   'building.condition_changed': (e) => `${e.buildingId}: ${e.from} → ${e.to}`,
@@ -460,11 +450,7 @@ const SHOWN_EVENTS = {
 
 function collectEvents() {
   const fresh = freeSim.log.since(eventCursor);
-<<<<<<< HEAD
   for (const e of fresh) if (SHOWN_EVENTS[e.type]) feed.push(`t${e.tick} ${SHOWN_EVENTS[e.type](e)}`);
-=======
-  for (const e of fresh) { const line = SHOWN_EVENTS[e.type]?.(e); if (line) feed.push(`t${e.tick} ${line}`); }
->>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
   eventCursor += fresh.length;
   if (feed.length > 14) feed = feed.slice(-14);
 }

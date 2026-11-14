@@ -1,7 +1,3 @@
-> **HISTORICAL — DO NOT USE AS ACTIVE IMPLEMENTATION REQUIREMENT**
-> Written for the turn-based / correction phase. It may describe removed mechanics (turns, NEXT TURN, per-turn command caps).
-> Active sources of truth: [`docs/game/15-realtime-simulation-and-tasks.md`](../game/15-realtime-simulation-and-tasks.md) and [`docs/active/`](../active/).
-
 # C0 — Baseline (recorded before the correction work)
 
 **Status:** the screen that existed before this correction pass is a **prototype shell**, not final UI. No gameplay feature was added during C0–C9.

@@ -83,15 +83,9 @@ test('gather: modifiers are re-read each trip, so a standing job slows down as t
 
 // ------------------------------------------------------------- lessons ----
 
-<<<<<<< HEAD
 test('every lesson can be passed with its own starter code (no unwinnable lesson)', async () => {
   for (const l of Object.values(defs.lessons)) {
     const { evaluation } = await runLesson({ defs, sandbox, lessonId: l.id, code: l.starter, captureFrames: false });
-=======
-test('every lesson can be passed with its reference solution or starter (no unwinnable lesson)', async () => {
-  for (const l of Object.values(defs.lessons)) {
-    const { evaluation } = await runLesson({ defs, sandbox, lessonId: l.id, code: l.solution ?? l.starter, captureFrames: false });
->>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
     assert.equal(evaluation.passed, true, `${l.id}: ${JSON.stringify(evaluation.results.filter((r) => !r.passed))}`);
   }
 });

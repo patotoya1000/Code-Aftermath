@@ -113,17 +113,4 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   // restart gives a fresh scenario
   await els['btn-restart'].fire('click');
   assert.match(els['clock-detail'].textContent, /STRATEGY 10\/10 · TICK 0/);
-
-  // R4a: a policy set through the editor shows on the survivor card, and its reactions reach the event feed
-  assert.match(els['inspector-card'].innerHTML, /Policies/);
-  els['code-editor'].value = 'survivor.policy("eat", { below: 100 });\nsurvivor.gather("wood", 5, 10);';
-  await els['btn-run-code'].fire('click');
-  assert.match(els['code-execution-result'].textContent, /2 command\(s\) sent/);
-  assert.match(els['clock-detail'].textContent, /STRATEGY 8\/10/, 'each policy costs a strategy point');
-  run(20_000);
-  assert.match(els['inspector-card'].innerHTML, /eat: below 100/);
-  assert.match(els['event-feed'].innerHTML, /policy eat fired/);
-  assert.match(els['event-feed'].innerHTML, /paused gather/);
-  assert.match(els['event-feed'].innerHTML, /resumed gather/);
-  assert.equal(/gather cancelled \(INTERRUPTED\)/.test(els['event-feed'].innerHTML), false, 'one line per pause, not two');
 });

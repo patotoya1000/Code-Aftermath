@@ -1,7 +1,5 @@
 # Build phases & tracker
 
-> **Active tracker:** [`docs/active/CODE_AFTERmath_ACTIVE_PHASES_2026-11-13.md`](active/CODE_AFTERmath_ACTIVE_PHASES_2026-11-13.md). This file is the long-form history; where it disagrees with the active tracker, the active tracker wins. Lines that mention turns are HISTORICAL.
-
 > **Correction pass (C0–C9) comes first.** Detailed checklists with status live in
 > [`docs/correction/`](correction/). Major gameplay stays frozen until C9 is fully green.
 > The old “Phase 2…9” list below is kept for history; the dependency-ordered plan is
@@ -11,11 +9,7 @@
 - [x] **R1** continuous clock: clock driver (play/pause/1×–4×), strategy points regenerate over time, turns removed, command timeline + `replayTimeline`, `runUntil`
 - [x] **R2** standing actions: looping `gather(resource, load, total)`, stop reasons, `task.*` events, `survivor.lastTask`, replace-vs-queue (+ `survivor.queue()`), storage reserved per batch
 - [x] **S0–S5 stabilization (2026-11-13)** — engine/lesson/UI bug fixes, free-play save/load, regression + soak tests. See `IMPLEMENTATION_PLAN_2026-11-13.md`
-<<<<<<< HEAD
 - [ ] **R4a** needs policies (interrupt → act → resume) · [ ] **R4b** learner event hooks · [ ] **R3** carry + deposit trips · [ ] **R5** lessons on the timeline model (free-play save is already done)
-=======
-- [x] **R4a** needs policies (interrupt → act → resume) — implemented 2026-11-13 (browser smoke pending) · 🟡 **R4b** learner event hooks — implemented, verification pending · [ ] **R3** carry + deposit trips · [ ] **R5** lessons on the timeline model (free-play save is already done)
->>>>>>> 29b1943 (docs: document real-time policies, save/load, and phase tracker)
 - Order changed: R4 before R3 — the learner must be able to *react* before the economy gets deeper (reasoning in the plan).
 - Spec: `docs/game/15-realtime-simulation-and-tasks.md`. The C2 line below ("turn-based free play") is historical.
 

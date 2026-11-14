@@ -21,8 +21,6 @@ export function createSurvivor(defs, spec) {
     direction: 'DOWN',
     status: 'active', // 'active' | 'downed'
     progression: { xp: {}, specialization: null },
-    policies: {}, // R4a: { [name]: { below, retryAt } } — standing reactions to needs, set through the Game API only
-    hooks: {}, // R4b: { [event]: [{ id, event, handlerSource }] } — learner event hooks, set through the Game API only
   };
 }
 

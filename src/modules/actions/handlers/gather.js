@@ -136,16 +136,6 @@ export const gatherHandler = {
     a.reservationIds.push(reserve(ctx.state, { owner: a.actionId, account: nodeKey(a.targetId), qty: a.batch }));
     return RUNNING;
   },
-  /**
-   * A needs policy paused this job. Units already chopped in the unfinished batch are banked (same arithmetic as running
-   * out of energy), the reservation is released, and the job resumes later with only what is still wanted.
-   */
-  onInterrupt(ctx, a) {
-    stopWith(ctx, a, 'INTERRUPTED', { partial: true }); // banks the partial batch; its return value is irrelevant here
-    const left = a.params.total === undefined ? undefined : a.params.total - a.stats.gathered;
-    if (left !== undefined && left < 1) return null; // the target was effectively reached
-    return { type: 'gather', params: { resource: a.params.resource, ...(a.params.amount !== undefined ? { amount: a.params.amount } : {}), ...(left !== undefined ? { total: left } : {}) } };
-  },
   complete(ctx, a) {
     ctx.emit('task.stopped', { actionId: a.actionId, actorId: a.actorId, taskType: 'gather', reason: a.stopReason, gathered: a.stats.gathered, trips: a.stats.trips });
   },

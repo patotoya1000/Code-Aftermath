@@ -29,7 +29,6 @@ export const FailureReason = Object.freeze({
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',
   REPLACED: 'REPLACED', // a newer command from the same program took over this survivor
-  INTERRUPTED: 'INTERRUPTED', // a needs policy paused this job; a resume action carries it on afterwards
 });
 
 // Why a STANDING action (e.g. gather) ended on its own. If it ended having done some work the action COMPLETES with
