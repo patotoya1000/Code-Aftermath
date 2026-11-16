@@ -32,11 +32,7 @@ Every spendable quantity (base stock, node contents) is a ledger account with `t
 
 # Events
 
-<<<<<<< HEAD
 `resource.gathered { actorId, resource, amount, nodeId }` (picked up into her hands), `resource.deposited { actorId, depotId, resource, amount }` (unloaded into base stock), `node.depleted { nodeId }`.
-=======
-`resource.gathered { actorId, resource, amount, nodeId }`, `node.depleted { nodeId }`.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Dependencies
 
@@ -73,11 +69,7 @@ kernel only.
 
 # Current Status
 
-<<<<<<< HEAD
 IMPLEMENTED: ledger, reservation, node gathering, depletion. NOT IMPLEMENTED: regeneration, food/water production (food and water are stock only; there are no food or water nodes). Carry trips: IMPLEMENTED (R3) — see INVENTORY_INDEX.
-=======
-IMPLEMENTED: ledger, reservation, node gathering, depletion. NOT IMPLEMENTED: regeneration, food/water production (food and water are stock only; there are no food or water nodes), carry trips.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Known Problems
 
@@ -85,11 +77,7 @@ A gather of `food`/`water` fails with `NO_TARGET` because no node yields them (i
 
 # Planned Changes
 
-<<<<<<< HEAD
 Production/environment later.
-=======
-Carry + deposit (R3); production/environment later.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Forbidden Changes
 

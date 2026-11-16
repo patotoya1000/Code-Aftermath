@@ -64,19 +64,11 @@ PARTIALLY IMPLEMENTED: resource items only. PLANNED: tools/weapons/consumables, 
 
 # Known Problems
 
-<<<<<<< HEAD
-The `strong` trait now raises carry capacity (`defs.carry.traits`); the `gathering` skill text promises "carry more per trip" but skill level does not change capacity (it only changes the batch size through the output modifier).
+The `strong` trait now raises carry capacity (`defs.carry.traits`); skill level does not change carry capacity or the load of a trip (since O4 the requested `gather` amount is a hard cap; the Gathering skill only makes work faster).
 
 # Planned Changes
 
 Equipment effects on capacity with Skills/Capability phases. `unitWeight` is used for carry load (R3).
-=======
-The skills/traits text in `src/modules/definitions/data/survivors.js` mentions carry capacity that does not exist yet.
-
-# Planned Changes
-
-Weight → carry capacity with R3; equipment with Skills/Capability phases.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Forbidden Changes
 

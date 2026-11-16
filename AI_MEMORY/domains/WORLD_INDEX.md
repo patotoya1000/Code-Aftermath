@@ -15,7 +15,7 @@ Builds the authoritative initial GameState from `defs + scenarioId + seed` (same
 # Does NOT Own
 
 - Gameplay rules (simulation/actions).
-- Collision, pathing, environment (day/night/weather) — not implemented.
+- Environment (day/night/weather) — not implemented. Pathing/collision of buildings + fence: implemented (O3).
 
 # Core Data
 

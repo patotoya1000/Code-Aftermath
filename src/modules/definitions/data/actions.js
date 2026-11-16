@@ -20,6 +20,11 @@ export const actions = {
   deposit: { handler: 'deposit', range: 1, ticksPerTile: 1, unloadTicks: 2,
     capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
   },
+  // upgrade: walk to a fully repaired building and raise it one level (cost/time come from the building's `upgrade` table).
+  // Needs a little practised Repair skill: advanced work unlocks through experience, not through a level counter.
+  upgrade: { handler: 'upgrade', range: 1, ticksPerTile: 1,
+    capability: { attributes: { agility: 1, intelligence: 1, strength: 1 }, skills: { repair: 1 } },
+  },
   rest: { handler: 'rest', defaultTicks: 20, maxTicks: 200, energyPerTick: 2,
     capability: { attributes: { endurance: 1 }, skills: { rest: 0 } },
   },

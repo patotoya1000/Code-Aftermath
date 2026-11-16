@@ -27,7 +27,10 @@ export const FailureReason = Object.freeze({
   NOT_NEEDED: 'NOT_NEEDED',
   NOTHING_TO_REPAIR: 'NOTHING_TO_REPAIR',
   NOTHING_TO_DEPOSIT: 'NOTHING_TO_DEPOSIT', // deposit() while carrying nothing
+  MAX_LEVEL: 'MAX_LEVEL', // upgrade: no higher level exists for this building
+  NEEDS_REPAIR: 'NEEDS_REPAIR', // upgrade: repair the building first
   NO_DEPOT: 'NO_DEPOT', // nothing that still works can store what she carries
+  NO_PATH: 'NO_PATH', // walls/buildings leave no way to the destination
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',
   REPLACED: 'REPLACED', // a newer command from the same program took over this survivor
@@ -42,4 +45,5 @@ export const StopReason = Object.freeze({
   NO_TARGET: 'NO_TARGET',           // no node of that resource has anything left
   EXHAUSTED: 'EXHAUSTED',           // the survivor is too tired to keep working
   NO_DEPOT: 'NO_DEPOT',             // no working storage building accepts what she carries
+  NO_PATH: 'NO_PATH',               // she cannot walk to where the work is
 });

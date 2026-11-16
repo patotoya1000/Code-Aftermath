@@ -1,5 +1,6 @@
 import { AftermathError, createEventLog, hashValue, hasOwn, SUPPORTED_API_VERSIONS } from '../../kernel/index.js';
 import { applyNeedsDecay } from '../survivors/index.js';
+import { timeOf, weatherForDay } from '../environment/index.js';
 import { createActionEngine } from '../actions/index.js';
 import { studentView, renderProjection, inspectorCard } from '../projection/index.js';
 
@@ -47,8 +48,23 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
 
   const isIdle = () => engine.isIdle(state);
 
+  /** Log the moments the clock/calendar crosses (dawn, dusk, a new weather phase, a new season). Pure derivation: no state. */
+  function announceTime() {
+    const before = timeOf(defs, state.tick - 1);
+    const now = timeOf(defs, state.tick);
+    if (before.isNight && !now.isNight) ctx.emit('time.dawn', { day: now.day });
+    if (!before.isNight && now.isNight) ctx.emit('time.dusk', { day: now.day });
+    if (now.day !== before.day) {
+      const from = weatherForDay(defs, before.day);
+      const to = weatherForDay(defs, now.day);
+      if (from !== to) ctx.emit('weather.changed', { from, to, day: now.day });
+      if (now.season !== before.season) ctx.emit('season.changed', { season: now.season, day: now.day, year: now.year });
+    }
+  }
+
   function tickOnce() {
     state.tick += 1;
+    announceTime();
     for (const id of applyNeedsDecay(ctx)) engine.cancelFor(ctx, id, 'ACTOR_DOWNED');
     if (state.tick % cfg.regenEvery === 0 && state.strategyPoints < cfg.max) state.strategyPoints += 1;
     engine.applyPolicies(ctx);

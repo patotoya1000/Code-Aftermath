@@ -89,6 +89,36 @@ Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with
 - `survivor.deposit()` fails with `NOTHING_TO_DEPOSIT` when her hands are empty. New stop reason `NO_DEPOT` (nothing that works accepts what she carries).
 - Not in R3: encumbrance (load does not slow her), equipment effects, field eating from her hands, learner-chosen depot, pathing.
 
+## O3 — Walking: collision and pathing (2026-11-16)
+- Survivors no longer walk in a straight line through the world. Every walking action (`moveTo`, the walk leg of `gather`, `repair`, `deposit`) follows a **deterministic A\* route** (`src/modules/buildings/pathing.js`, 8 directions, cost 1 per step, no cutting the corner of a blocked tile, ties broken by tile order).
+- **Blocked:** a building whose definition does not say `blocks: false` (HQ, tent, storehouse) blocks its tile; a fence blocks every tile of its perimeter. **Open:** the gate tile (`blocks: false`), the interior, and everything outside. Resource nodes do not block.
+- The destination tile is always enterable, so `moveTo("hq")` still ends on the HQ.
+- Routes are cached on the action (`route`, `routeGoal`) and replanned when the goal changes or the next tile becomes blocked.
+- No way to the destination → the action fails with **`NO_PATH`** (a gather that already did work ends `COMPLETED` with stopReason `NO_PATH`, like the other stop reasons). Hint: "The gate is the only opening in the fence."
+- `SIM_VERSION` is `0.7.0` (old saves are refused). Not in O3: unit-vs-unit collision, a closed/ruined gate (the gate always opens), choosing a depot by walking distance, terrain costs.
+
+## O4 — Skill XP (2026-11-16)
+- Skills grow only by **practice the simulation observes** (`defs.progression`, data in `definitions/data/survivors.js`): gather = 1 XP per unit picked up, repair = 6 per repair, move = 0.2 per tile walked (any walking), rest = 0.1 per tick, eat/drink = 1 per meal (Consume). Attributes never change from work; idle time teaches nothing; failure grants nothing yet.
+- Levels 0–10 at total XP `0, 20, 50, 100, 170, 260, 380, 530, 720, 950, 1250`. `skill.levelup` is logged; a skill never exceeds the top level and stops earning there.
+- **Diminishing returns:** full XP below `fullUntil`, falling linearly to `floor` (10%) at `teachesUpTo`, and `floor` after — trivial loops teach little.
+- Effects are unchanged (capability module): −5% work time per level, floor 50%. **Gathering no longer raises the load above the amount asked** (`gather("wood", 5, 5)` always yields 5); skill speeds gathering up instead.
+- Learner reads `survivor.skillProgress[skill] = { level, xp, next }`; the Survivor Card shows an XP bar per skill. `SIM_VERSION` 0.8.0.
+- Not in O4: training actions/buildings, specialization, attribute training, failure XP, XP from hooks/policies beyond the actions they run.
+
+## O5 — Building upgrades (2026-11-16)
+- **Design decision:** the game has no free construction. Buildings are placed by the scenario as ruins; learners **repair** them and then **upgrade** them. This keeps the world fixed (good for lessons and replay) and reuses the repair loop.
+- `survivor.upgrade(building)`: walk to the building, work `upgrade[level].ticks`, spend `upgrade[level].cost` (reserved up front, released if cancelled), then `level + 1`, full health at the new maximum, `levels[n].storage` replaces the building's storage table when present. Event `building.upgraded`.
+- Preconditions (failures): `UNKNOWN_TARGET`, `MAX_LEVEL` (no higher level / no upgrade table), `NEEDS_REPAIR` (not fully repaired — ruined or damaged buildings are fixed with `repair` first), `INSUFFICIENT_RESOURCE`, `CAPABILITY_INSUFFICIENT` (needs Repair skill ≥ 1: advanced work unlocks through practice).
+- Data: HQ 1→2 (wood 30, stone 15, 60 ticks; storage 150→300 per item, food/water 100→200) and fence 1→2 (wood 20, stone 10, 50 ticks). Upgrading earns Repair XP (12). The learner reads `building.upgrade` = `{ level, cost, ticks }` or `null`.
+- Next: farming tiers (field → greenhouse → hydroponic) are planned as building *levels* using this mechanism; cooking needs a kitchen building; see the design notes in the project conversation / PHASES.
+
+## O6 — Environment: day/night and the weather calendar (2026-11-16)
+- **The weather is a calendar, not dice.** Every day's weather is written in `definitions/data/environment.js`, so a learner can read the future and plan (stock up before the storm, harvest before the cold snap). Time and weather are pure functions of the tick: nothing is saved, nothing is random, replays cannot disagree.
+- Clock: 240 ticks/day (24 h, 10 ticks/hour); tick 0 = 06:00 of day 1; night = outside 06:00–18:00. Year = spring, summer, autumn, winter, 8 days each; each season is a list of phases (clear / rain / storm / heat wave / cold snap).
+- Learner reads: `world.time`, `world.weather`, `world.weatherInfo` (`rainfall`, `hazard`), `world.forecast` (7 days, today first), `world.nextChange` (`{weather, day, inDays, inTicks}`), `world.calendar` (this season).
+- Events: `time.dawn`, `time.dusk`, `weather.changed`, `season.changed`. UI: HUD line, 📅 calendar panel, night/weather tint on the map.
+- **No gameplay effect yet** — this phase only publishes the information. Hazards (`storm`, `heat`, `cold`) and `rainfall` are consumed by farming: open fields are exposed, greenhouses block hazards, hydroponics ignore weather (see `16-farming-cooking-power-design.md`).
+
 ## Compatibility notes
 - `gather(resource, n)` used to be a one-shot batch of `n`. It now means *trips of n, until done*. Use `gather(resource, n, n)` for the old behaviour. Starter code in the four lessons was updated this way.
 - `API_VERSION` stays 1 (pre-release); `SIM_VERSION` is now `0.2.0`.
@@ -99,4 +129,5 @@ Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with
 | R3 ✅ | Carry capacity and deposit trips (gather → carry → walk to storage → unload), tent/HQ/storehouse storage pooling — see §R3 |
 | R4a ✅ | Needs policies |
 | R4b ✅ | Learner event hooks |
-| R5 | Lessons and replay records moved fully to the timeline model; saving free-play sessions |
+| R5 ✅ | Lessons and replay records moved fully to the timeline model; saving free-play sessions |
+| O3 ✅ | Collision and pathing — see §O3 |

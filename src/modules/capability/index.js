@@ -130,6 +130,7 @@ function actionSkillOf(handler) {
     rest: 'rest',
     consume: 'consume',
     repair: 'repair',
+    upgrade: 'repair',
   };
   return map[handler] ?? null;
 }
@@ -140,7 +141,7 @@ function attributeDurationModifier(attributes, handler) {
     const agi = attributes.agility ?? 5;
     mod *= Math.max(0.7, 1.0 - (agi - 5) * 0.02); // -2% per agility point above 5
   }
-  if (handler === 'gather' || handler === 'repair') {
+  if (handler === 'gather' || handler === 'repair' || handler === 'upgrade') {
     const str = attributes.strength ?? 5;
     mod *= Math.max(0.7, 1.0 - (str - 5) * 0.02); // -2% per strength point above 5
   }

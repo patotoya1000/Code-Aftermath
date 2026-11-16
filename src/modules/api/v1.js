@@ -64,6 +64,13 @@ export const COMMANDS = {
       return { targetId: args[0] };
     },
   },
+  upgrade: {
+    type: 'upgrade', signature: 'survivor.upgrade(building)', doc: 'Walk to a fully repaired building and raise it one level (costs materials, needs some Repair skill). Check building.upgrade for the cost.',
+    params(args) {
+      if (args.length !== 1 || !entityId(args[0])) throw bad('upgrade', 'pass a building, e.g. survivor.upgrade(hq)');
+      return { targetId: args[0] };
+    },
+  },
   policy: {
     type: 'policy', instant: true, options: true, signature: 'survivor.policy(name, { below, until })',
     doc: 'A standing rule: when the need drops below `below`, pause the current job, do it (\"eat\", \"drink\" or \"rest\"), then go back to the job. rest also takes `until` (stop resting at that energy). Example: survivor.policy(\"eat\", { below: 30 }).',
@@ -113,6 +120,7 @@ export const READ_SURFACE = [
   'survivor.x, survivor.y, survivor.direction, survivor.task, survivor.lastTask   (why the survivor stopped: { type, status, reason, gathered })',
   'survivor.hooks   (event names, e.g. ["hungry"])',
   'survivor.policies   (e.g. { eat: { below: 30 } })',
+  'survivor.skillProgress   (per skill: { level, xp, next } - skills grow by practice)',
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory   (what she carries)',
   'survivor.carry   ({ load, capacity } in weight units)',
   'survivors   (array of all survivors)',
@@ -122,6 +130,11 @@ export const READ_SURFACE = [
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
   'world.width, world.height, tick',
+  'world.time   ({ day, hour, minute, isNight, season, seasonDay, year })',
+  'world.weather   ("clear", "rain", "storm", "heatwave" or "cold"), world.weatherInfo   ({ name, rainfall, hazard })',
+  'world.forecast   (the next 7 days, today first: [{ day, inDays, season, weather }] - the calendar is public, plan with it)',
+  'world.nextChange   (when the weather next changes: { weather, day, inDays, inTicks })',
+  'world.calendar   (this season: { name, days: [{ day, seasonDay, weather, today }] })',
 ];
 
 /**

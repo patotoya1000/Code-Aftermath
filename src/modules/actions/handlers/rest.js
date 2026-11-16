@@ -1,3 +1,4 @@
+import { awardSkillXp } from '../../survivors/index.js';
 import { ok, fail, RUNNING, DONE } from './shared.js';
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -22,6 +23,7 @@ export const restHandler = {
   tick(ctx, a) {
     const s = ctx.state.survivors[a.actorId];
     const def = ctx.defs.actions.rest;
+    awardSkillXp(ctx, s, 'rest');
     a.phase = 'rest';
     a.progress += 1;
     s.needs.energy = Math.min(ctx.defs.needs.max, round2(s.needs.energy + def.energyPerTick / (a.durationModifier ?? 1)));

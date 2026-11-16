@@ -16,6 +16,10 @@ Purpose: stop future agents from following stale documentation. When an old docu
 | 2026-11-14 (R4a) | survival fully manual | **Needs policies** (interrupt → act → resume) |
 | 2026-11-14 (R4b) | no reaction to events | **Learner event hooks** (source text stored in state, run in the sandbox by the session) |
 | 2026-11-16 (R3) | gathered units went straight into base stock; HQ-only capacity; storehouse a decoration | **Carry + deposit**: units move node → survivor's hands → base stock via a walk to the nearest working storage building; `survivor.deposit()`; capacity pooled over working buildings (HQ + tent + repaired storehouse); `SIM_VERSION` 0.5.0 |
+| 2026-11-16 (O3) | survivors walked in a straight line through buildings and the fence (`stepToward`; its `_state` collision check was dead code) | **Pathing**: deterministic A* (`buildings/pathing.js`); buildings and the fence perimeter block, the gate is the only opening; routes cached on the action; no way → `NO_PATH`; `SIM_VERSION` 0.7.0 |
+| 2026-11-16 (O4) | skills were fixed numbers; gather skill added +3%/level to the trip load (could exceed the requested amount) | **Skill XP**: simulation awards XP from work (gather per unit, repair, tiles walked, rest ticks, meals); levels 0–10; `skill.levelup`; skills only speed work up — a requested gather amount is a hard cap; `SIM_VERSION` 0.8.0 |
+| 2026-11-16 (O5) | upgrades existed only as level-2 data | **`survivor.upgrade(building)`**: repaired building → next level (materials reserved, Repair ≥ 1, `building.upgraded`); per-level `storage`; `building.upgrade` offer in the learner view; `SIM_VERSION` 0.9.0. Design decision: no free construction — buildings are ruins to repair, then upgrade |
+| 2026-11-16 (O6) | no time or weather | **Environment**: `environment` module — day/night clock and a fixed, public 4-season weather calendar (pure function of the tick, no saved state, no randomness); learner reads `world.time/weather/forecast/nextChange/calendar`; HUD + calendar panel; `time.dawn/dusk`, `weather.changed`, `season.changed` events |
 | 2026-11-15 | no project memory layer | **`AI_MEMORY/`** navigation layer + `tests/invariants.test.js` (turn-model guard, projection purity, terminal-action finality, event/state agreement, AI_MEMORY accuracy) |
 
 ## Historical-only material (do not treat as requirements)
@@ -27,4 +31,4 @@ Purpose: stop future agents from following stale documentation. When an old docu
 
 ## Upcoming (not done)
 
-R5 lessons on the timeline model · collision/pathing · skills/XP · production · environment · events · combat · enemies · buildings (BUILD/upgrade) · final assets · offline/release. See `AI_MEMORY/IMPLEMENTATION_STATUS.md`.
+production · environment · events · combat · enemies · buildings (BUILD/upgrade) · final assets · offline/release. See `AI_MEMORY/IMPLEMENTATION_STATUS.md`.

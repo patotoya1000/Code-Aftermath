@@ -87,7 +87,7 @@ IMPLEMENTED (move, gather standing with carry trips, deposit, rest, eat, drink, 
 
 - O1: terminal actions are kept forever; long sessions grow state, hashes and saves.
 - Capability check passes for every current action on the only template; the failure path is covered by tests using modified survivors only.
-- No collision or pathing: `stepToward` moves in a straight 8-direction line.
+- Pathing (O3): `walkStep` follows an A* route (`buildings/pathing.js`), cached in `a.route`/`a.routeGoal`; no way → `NO_PATH`. No unit-vs-unit collision.
 
 # Planned Changes
 

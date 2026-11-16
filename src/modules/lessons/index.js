@@ -7,9 +7,12 @@ export { CHECKS };
 export const FAILURE_HINTS = {
   EXHAUSTED: 'Your survivor was too tired to work. Check survivor.needs.energy and call survivor.rest() first.',
   INSUFFICIENT_RESOURCE: 'There was not enough of something in base stock. Gather more first.',
+  NO_PATH: 'There is no way to walk there: buildings and the fence are in the way. The gate is the only opening in the fence.',
   NO_TARGET: 'There is no resource of that type left to gather.',
   INVALID_PARAMS: 'A command had an invalid value. Check the API reference.',
   NOT_NEEDED: 'That action was not needed right now (the need is already full).',
+  MAX_LEVEL: 'That building cannot be upgraded any further (or has no upgrade).',
+  NEEDS_REPAIR: 'Repair the building completely before upgrading it.',
   NOTHING_TO_REPAIR: 'That building is already at full health.',
   UNKNOWN_TARGET: 'The target does not exist.',
   OUT_OF_BOUNDS: 'That tile is outside the map.',

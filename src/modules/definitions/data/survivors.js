@@ -1,11 +1,31 @@
 // Survivor templates. Attributes/skills/traits are present in the schema now; they gain effects in Phase 4.
 // Skill names: gathering, repair, rest, consume, move. Trait names: strong, fast, tireless, observant, hardy.
 export const SKILLS = {
-  gathering: { name: 'Gathering', description: 'Gather resources faster and carry more per trip.' },
+  gathering: { name: 'Gathering', description: 'Gather resources faster.' },
   repair: { name: 'Repair', description: 'Repair buildings faster and with less material.' },
   rest: { name: 'Rest', description: 'Recover energy faster when resting.' },
   consume: { name: 'Consume', description: 'Extract more benefit from food and water.' },
   move: { name: 'Movement', description: 'Walk between tiles faster.' },
+};
+
+// Skill progression (O4). Skills improve ONLY through simulation-awarded XP from real work (docs/game/07 §NPC skill learning).
+// `thresholds[n]` = total XP needed to REACH level n (index 0 = level 0), so the highest level is thresholds.length - 1.
+// Each award says which skill a piece of work teaches, how much XP, and how fast it stops being useful: full XP while the skill
+// is below `fullUntil`, falling linearly to `floor` x XP at `teachesUpTo`, and `floor` x XP beyond - easy repetition
+// teaches less, it never teaches nothing and it can never push a skill past the top level. Failure grants no XP (yet).
+// What a level DOES (shorter work, more output) lives in the capability module.
+export const progression = {
+  thresholds: [0, 20, 50, 100, 170, 260, 380, 530, 720, 950, 1250],
+  floor: 0.1,
+  awards: {
+    gather: { skill: 'gathering', xp: 1,    fullUntil: 3, teachesUpTo: 8 }, // per unit picked up from a node
+    repair: { skill: 'repair',    xp: 6,    fullUntil: 2, teachesUpTo: 6 }, // per completed repair action
+    upgrade: { skill: 'repair',   xp: 12,   fullUntil: 3, teachesUpTo: 8 }, // per completed upgrade
+    move:   { skill: 'move',      xp: 0.2,  fullUntil: 2, teachesUpTo: 4 }, // per tile walked
+    rest:   { skill: 'rest',      xp: 0.1,  fullUntil: 2, teachesUpTo: 5 }, // per tick rested
+    eat:    { skill: 'consume',   xp: 1,    fullUntil: 1, teachesUpTo: 4 }, // per meal
+    drink:  { skill: 'consume',   xp: 1,    fullUntil: 1, teachesUpTo: 4 }, // per drink
+  },
 };
 
 export const TRAITS = {

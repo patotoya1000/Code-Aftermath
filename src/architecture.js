@@ -5,13 +5,14 @@
 // tests/architecture.test.js enforces this on every run. src/app/* (composition root) may import any module index.
 export const MODULES = {
   definitions: [],
+  environment: [],
   resources: [],
   survivors: [],
   buildings: [],
   world: ['resources', 'survivors', 'buildings'],
-  projection: ['resources', 'survivors', 'buildings'],
+  projection: ['resources', 'survivors', 'buildings', 'environment'],
   actions: ['resources', 'survivors', 'buildings', 'capability'],
-  simulation: ['survivors', 'actions', 'projection', 'capability'],
+  simulation: ['survivors', 'actions', 'projection', 'capability', 'environment'],
   api: [],
   sandbox: ['api'],
   session: ['world', 'simulation', 'api'],

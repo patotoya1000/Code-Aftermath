@@ -1,4 +1,5 @@
 import { stockKey } from '../../resources/index.js';
+import { awardSkillXp } from '../../survivors/index.js';
 import { ok, fail, RUNNING, DONE } from './shared.js';
 
 // eat / drink: one data-driven handler. The item is reserved first, so two survivors can't eat the same ration.
@@ -19,6 +20,7 @@ export const consumeHandler = {
     const def = ctx.defs.actions[a.actionType];
     const s = ctx.state.survivors[a.actorId];
     s.needs[def.need] = Math.min(ctx.defs.needs.max, s.needs[def.need] + def.restore);
+    awardSkillXp(ctx, s, a.actionType);
     ctx.emit('survivor.consumed', { survivorId: s.id, item: def.item, need: def.need, value: s.needs[def.need] });
   },
 };

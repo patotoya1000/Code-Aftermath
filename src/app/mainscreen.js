@@ -120,6 +120,13 @@ function updateTopBar() {
 
   $('clock-label').textContent = `${clock.paused ? 'PAUSED' : 'RUNNING'} · ${clock.speed}×`;
   $('clock-detail').textContent = `STRATEGY ${info.strategyPoints}/${info.maxStrategyPoints} · TICK ${info.tick}`;
+  const w = view.world;
+  if (w?.time) {
+    const hh = String(w.time.hour).padStart(2, '0'); const mm = String(w.time.minute).padStart(2, '0');
+    const next = w.nextChange ? ` · next: ${w.nextChange.weatherInfo?.icon ?? ''}${cap(w.nextChange.weather)} in ${w.nextChange.inDays}d` : '';
+    $('env-label').textContent = `DAY ${w.time.day} · ${cap(w.time.season)} · ${hh}:${mm} ${w.time.isNight ? '🌙' : '☀'} · ${w.weatherInfo.icon} ${w.weatherInfo.name}${next}`;
+    renderCalendar(w);
+  }
   $('btn-play').textContent = clock.paused ? '▶ PLAY' : '⏸ PAUSE';
   $('btn-speed').textContent = `${clock.speed}×`;
 }
@@ -142,7 +149,7 @@ function survivorSections(card) {
     section('❤', 'Needs', `<div class="needs-grid">${needs}</div>`),
     card.conditions.length ? section('⚠', 'Conditions', card.conditions.map((c) => `<span class="status-pill" style="margin-right:6px;">${esc(c)}</span>`).join('')) : '',
     section('⚡', 'Attributes', `<div class="attrs-grid">${attrs}</div>`),
-    section('🎓', 'Skills', skills.length ? `<div class="attrs-grid">${skills.map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('')}</div>` : muted('No skills tracked yet (Phase I4).')),
+    section('🎓', 'Skills', skills.length ? `<div class="attrs-grid">${skills.map(([k, v]) => { const pr = card.skillProgress?.[k]; const pct = pr && pr.next ? Math.min(100, Math.round((pr.xp / pr.next) * 100)) : 100; return `<div class="attr-cell" title="${pr ? `${pr.xp} XP${pr.next ? ` / ${pr.next} for level ${v + 1}` : ' (max level)'}` : ''}"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span><span class="skill-xp"><i style="width:${pct}%"></i></span></div>`; }).join('')}</div>` : muted('No skills tracked.')),
     card.traits.length ? section('🏷', 'Traits', card.traits.map((t) => `<span class="status-pill">${esc(t)}</span>`).join(' ')) : '',
     section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
     section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted(`Carrying ${card.carry.load} / ${card.carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>`),
@@ -448,6 +455,19 @@ async function handleRunCode() {
   }
   return runCode();
 }
+// The weather calendar: the whole current season, today highlighted. The forecast is public on purpose - plan with it.
+const WEATHER_ICON = { clear: '☀', rain: '🌧', storm: '⛈', heatwave: '🔥', cold: '❄' };
+let calKey = '';
+function renderCalendar(w) {
+  const panel = $('calendar-panel');
+  if (!panel) return;
+  const key = `${w.calendar.season}:${w.time.day}`;
+  if (key === calKey) return;
+  calKey = key;
+  panel.innerHTML = `<div class="cal-title">${esc(w.calendar.name)} · year ${w.time.year}</div><div class="cal-grid">${w.calendar.days.map((d) =>
+    `<div class="cal-day${d.today ? ' today' : ''}" title="${esc(cap(d.weather))}"><span class="cal-n">${d.seasonDay}</span><span class="cal-w">${WEATHER_ICON[d.weather] ?? '?'}</span></div>`).join('')}</div>`;
+}
+
 const nameOf = (id) => freeSim.studentView().survivors.find((x) => x.id === id)?.name ?? id;
 const SHOWN_EVENTS = {
   'task.started': (e) => `${nameOf(e.actorId)} started ${e.taskType} ${e.resource}`,
@@ -525,6 +545,7 @@ function bindEvents() {
   $('btn-speed')?.addEventListener('click', cycleSpeed);
   $('btn-restart')?.addEventListener('click', startScenario);
   $('btn-lessons')?.addEventListener('click', toggleLessonMode);
+  $('btn-calendar')?.addEventListener('click', () => { const p = $('calendar-panel'); if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none'; });
   $('code-editor')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRunCode(); } });
   document.addEventListener('keydown', (e) => {
     const tag = document.activeElement?.tagName;

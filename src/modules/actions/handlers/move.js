@@ -1,4 +1,4 @@
-import { ok, fail, RUNNING, DONE, positionOfEntity, inBounds, stepToward } from './shared.js';
+import { ok, fail, RUNNING, DONE, positionOfEntity, inBounds, failTick, walkStep } from './shared.js';
 
 export const moveHandler = {
   validate(ctx, a) {
@@ -16,7 +16,7 @@ export const moveHandler = {
     a.phase = 'travel';
     a.progress += 1;
     const ticksPerTile = Math.ceil(ctx.defs.actions.move.ticksPerTile * (a.durationModifier ?? 1));
-    if (a.progress % ticksPerTile === 0) stepToward(s, dest);
+    if (a.progress % ticksPerTile === 0 && !walkStep(ctx, a, dest)) return failTick('NO_PATH');
     return s.position.x === dest.x && s.position.y === dest.y ? DONE : RUNNING;
   },
   complete(ctx, a) {

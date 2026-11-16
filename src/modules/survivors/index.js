@@ -102,3 +102,42 @@ export function removeCarried(s, item, qty) {
   if (!Number.isInteger(qty) || qty <= 0 || qty > have) throw new AftermathError('INVALID_QUANTITY', `${s.id} carries ${have} ${item}, cannot remove ${qty}`);
   if (have === qty) delete s.inventory.items[item]; else s.inventory.items[item] = have - qty;
 }
+
+// ---- Skill progression (O4). The simulation awards XP for real work; nothing else changes a skill level. ----
+
+const round3 = (n) => Math.round(n * 1000) / 1000;
+
+/** XP multiplier for a skill at `level`: 1 below `fullUntil`, linear down to `floor` at `teachesUpTo`, `floor` after. */
+export function xpMultiplier(defs, award, level) {
+  const { floor } = defs.progression;
+  if (level < award.fullUntil) return 1;
+  if (level >= award.teachesUpTo) return floor;
+  return 1 - (1 - floor) * ((level - award.fullUntil) / (award.teachesUpTo - award.fullUntil));
+}
+
+/** Award XP for `awardId` (a key of defs.progression.awards), `times` units of it. Emits `skill.levelup` on level changes. */
+export function awardSkillXp(ctx, s, awardId, times = 1) {
+  const award = ctx.defs.progression.awards[awardId];
+  if (!award || times <= 0) return;
+  const th = ctx.defs.progression.thresholds;
+  const maxLevel = th.length - 1;
+  const skill = award.skill;
+  let level = s.skills[skill] ?? 0;
+  if (level >= maxLevel) return;
+  const xp = round3((s.progression.xp[skill] ?? 0) + award.xp * times * xpMultiplier(ctx.defs, award, level));
+  s.progression.xp[skill] = xp;
+  while (level < maxLevel && xp >= th[level + 1]) level += 1;
+  if (level !== s.skills[skill]) {
+    s.skills[skill] = level;
+    ctx.emit('skill.levelup', { survivorId: s.id, skill, level, xp });
+  }
+}
+
+/** Read-only progress per skill: { level, xp, next } where `next` is the total XP of the next level (null at the top). */
+export function skillProgress(defs, s) {
+  const th = defs.progression.thresholds;
+  return Object.fromEntries(Object.keys(s.skills).map((k) => {
+    const level = s.skills[k];
+    return [k, { level, xp: s.progression.xp[k] ?? 0, next: level + 1 < th.length ? th[level + 1] : null }];
+  }));
+}

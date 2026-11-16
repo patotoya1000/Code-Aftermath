@@ -1,6 +1,7 @@
 import { own } from '../../../kernel/index.js';
 import { stockKey } from '../../resources/index.js';
 import { maxHealthOf, applyHealth } from '../../buildings/index.js';
+import { awardSkillXp } from '../../survivors/index.js';
 import { ok, fail, approachThenWork, tooTired } from './shared.js';
 
 export const repairHandler = {
@@ -27,6 +28,7 @@ export const repairHandler = {
     const b = ctx.state.buildings[a.targetId];
     const healthPerAction = Math.floor(ctx.defs.buildings[b.type].repair.healthPerAction * (a.outputModifier ?? 1));
     const { from, to } = applyHealth(ctx.defs, b, healthPerAction);
+    awardSkillXp(ctx, ctx.state.survivors[a.actorId], 'repair');
     ctx.emit('building.repaired', { actorId: a.actorId, buildingId: b.id, health: b.health, condition: to });
     if (from !== to) ctx.emit('building.condition_changed', { buildingId: b.id, from, to });
   },

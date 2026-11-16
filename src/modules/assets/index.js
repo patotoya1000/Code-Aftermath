@@ -14,7 +14,7 @@ const FRAME_COUNT = { idle: 1, walk: 2, gather: 2, repair: 2, rest: 1, eat: 1, d
 const FPS = { walk: 6, gather: 4, repair: 4 };
 
 // Step 3 of the fallback chain: if an action has no frames, a compatible generic action may stand in.
-const GENERIC_ACTION = { gather: 'work', repair: 'work', craft: 'work', eat: 'consume', drink: 'consume', rest: 'idle', guard: 'idle', attack: 'idle', hit: 'idle', dead: 'downed' };
+const GENERIC_ACTION = { gather: 'work', repair: 'work', upgrade: 'work', craft: 'work', eat: 'consume', drink: 'consume', rest: 'idle', guard: 'idle', attack: 'idle', hit: 'idle', dead: 'downed' };
 
 const dirName = (d) => String(d).toLowerCase();
 export const npcKey = (action, direction, variant = NPC_VARIANT) => `npc_${variant}_${dirName(action)}_${dirName(direction)}`;

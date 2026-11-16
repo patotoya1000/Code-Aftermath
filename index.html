@@ -23,11 +23,13 @@
   <div class="time" id="time-block">
     <div class="day" id="clock-label">PAUSED · 1×</div>
     <div class="clock" id="clock-detail">STRATEGY 10/10 · TICK 0</div>
+    <div class="clock" id="env-label" title="Day, season, time and weather">DAY 1</div>
   </div>
 
   <div class="controls" id="sim-controls">
     <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
     <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
+    <button type="button" class="sim-btn" id="btn-calendar" aria-label="Show the weather calendar">📅 CALENDAR</button>
     <button type="button" class="sim-btn" id="btn-save" aria-label="Save this session">💾 SAVE</button>
     <button type="button" class="sim-btn" id="btn-load" aria-label="Load the saved session">📂 LOAD</button>
     <button type="button" class="sim-btn" id="btn-restart" aria-label="Restart scenario">RESTART</button>
@@ -35,6 +37,7 @@
   </div>
 </header>
 
+<div id="calendar-panel" class="calendar-panel" style="display:none;" role="dialog" aria-label="Weather calendar"></div>
 <div id="app-shell">
   <div id="world-region">
     <h2>WORLD SIMULATION</h2>

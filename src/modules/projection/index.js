@@ -1,7 +1,8 @@
 import { deepFreeze, API_VERSION, own } from '../../kernel/index.js';
 import { available, stockKey, nodeKey, total, summary } from '../resources/index.js';
-import { deriveConditions, carriedLoad, carryCapacity } from '../survivors/index.js';
-import { maxHealthOf, assetKey, storageCapacity, isOperational } from '../buildings/index.js';
+import { deriveConditions, carriedLoad, carryCapacity, skillProgress } from '../survivors/index.js';
+import { environmentView } from '../environment/index.js';
+import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade } from '../buildings/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
 // the Inspector/Survivor Card and the renderer all consume these and can never mutate the simulation.
@@ -17,7 +18,7 @@ function survivorView(state, defs, s) {
   return {
     id: s.id, name: s.identity.name, x: s.position.x, y: s.position.y, direction: s.direction, status: s.status,
     needs: { ...s.needs }, conditions: deriveConditions(s, defs),
-    attributes: { ...s.attributes }, skills: { ...s.skills }, traits: [...s.traits],
+    attributes: { ...s.attributes }, skills: { ...s.skills }, skillProgress: skillProgress(defs, s), traits: [...s.traits],
     hooks: Object.values(state.hooks ?? {}).filter((h) => h.actorId === s.id).map((h) => h.event),
     policies: Object.fromEntries(Object.entries(s.policies ?? {}).map(([k, p]) => [k, { below: p.below, ...(p.until !== undefined ? { until: p.until } : {}), blocked: p.blocked ?? null }])),
     inventory: { items: { ...s.inventory.items } },
@@ -57,6 +58,7 @@ function buildingView(state, defs, b) {
   return {
     id: b.id, type: b.type, name: def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
+    upgrade: nextUpgrade(defs, b), // { level, cost, ticks } or null
     ...(storageInfo ? { storageInfo } : {}), ...(def.note ? { note: def.note } : {}),
   };
 }
@@ -77,7 +79,7 @@ export function studentView(state, defs) {
     id: n.id, type: n.type, resource: n.resource, x: n.x, y: n.y, amount: available(state, nodeKey(n.id)),
   }));
   return deepFreeze({
-    apiVersion: API_VERSION, tick: state.tick, world: { ...state.map },
+    apiVersion: API_VERSION, tick: state.tick, world: { ...state.map, ...environmentView(defs, state.tick) },
     survivor: survivors[0] ?? null, survivors, base,
     buildings, fence: buildings.find((b) => b.type === 'fence') ?? null, hq: buildings.find((b) => b.type === 'hq') ?? null,
     nodes,
@@ -89,7 +91,7 @@ function animationFor(s, a) {
   if (s.status === 'downed') return 'DOWNED';
   if (!a || a.status !== 'EXECUTING') return 'IDLE';
   if (a.actionType === 'move' || a.phase === 'travel') return 'WALK';
-  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
+  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
 }
 
 /** Static presentation ground for the scenario (forest zone, outside path). Never affects gameplay. */
@@ -105,6 +107,7 @@ function terrainOf(state, defs) {
 export function renderProjection(state, defs) {
   return deepFreeze({
     tick: state.tick, map: { ...state.map },
+    environment: (({ time, weather }) => ({ isNight: time.isNight, hour: time.hour, weather }))(environmentView(defs, state.tick)),
     npcs: Object.values(state.survivors).map((s) => ({
       id: s.id, name: s.identity.name, x: s.position.x, y: s.position.y, direction: s.direction,
       animation: animationFor(s, currentAction(state, s.id)), status: s.status,

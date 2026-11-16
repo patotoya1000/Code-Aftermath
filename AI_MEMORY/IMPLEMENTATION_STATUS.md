@@ -1,6 +1,6 @@
 # Implementation status
 
-Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`: 162 tests, 0 failing). Legend: IMPLEMENTED · PARTIALLY IMPLEMENTED · PLANNED · BLOCKED · OBSOLETE · NEEDS REFACTOR · NEEDS TESTS · NEEDS DOCUMENTATION. Nothing is listed IMPLEMENTED without source evidence.
+Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`: 203 tests, 0 failing). Legend: IMPLEMENTED · PARTIALLY IMPLEMENTED · PLANNED · BLOCKED · OBSOLETE · NEEDS REFACTOR · NEEDS TESTS · NEEDS DOCUMENTATION. Nothing is listed IMPLEMENTED without source evidence.
 
 ## Systems and domains
 
@@ -23,13 +23,17 @@ Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`
 | Carry capacity, inventory items, gather→carry→unload trips, `deposit()` (R3) | IMPLEMENTED (no equipment/encumbrance) | `src/modules/actions/handlers/gather.js`, `carry.js`, `deposit.js`, `src/modules/survivors/index.js`, `tests/carry.test.js` |
 | Pooled storage (HQ + tent + repaired storehouse) | IMPLEMENTED | `src/modules/buildings/index.js` `storageCapacity` |
 | Buildings: health, condition, repair | IMPLEMENTED | `src/modules/buildings/index.js` |
-| Buildings: construction, upgrades, occupancy | PLANNED | level-2 data exists, no code path |
+| Buildings: upgrade (`survivor.upgrade(building)`, level 1→2 for HQ and fence; needs a fully repaired building, materials, Repair skill 1) | IMPLEMENTED | `actions/handlers/upgrade.js`, `buildings` `nextUpgrade`, `tests/upgrade.test.js` |
+| Buildings: free placement / construction from scratch | OBSOLETE by design — buildings start as ruins in the scenario and are repaired (decision 2026-11-16) | — |
+| Buildings: occupancy | PLANNED | — |
 | Buildings: storage effect (storehouse adds capacity when repaired) | IMPLEMENTED | `world.js` `storage` table, `storageCapacity` |
 | World: one map, three scenarios, layout validation | IMPLEMENTED | `src/modules/world/index.js`, `definitions/index.js` |
-| Collision / pathing | PLANNED (O3) | `stepToward` is a straight line |
-| Skills: modifiers from levels/traits | PARTIALLY IMPLEMENTED | no XP/training/specialization; `observant`, `hardy` have no effect |
+| Collision / pathing (O3): A* routes, buildings + fence perimeter block, gate is the opening, `NO_PATH` | IMPLEMENTED (no unit-vs-unit collision; nodes do not block; depot choice still by straight-line distance) | `src/modules/buildings/pathing.js`, `actions/handlers/shared.js` `walkStep`, `tests/pathing.test.js` |
+| Skills: XP from work, levels 0–10, diminishing returns, `skill.levelup`, `survivor.skillProgress`, card XP bars (O4) | IMPLEMENTED | `definitions/data/survivors.js` `progression`, `survivors/index.js` `awardSkillXp`, `tests/skills.test.js` |
+| Skills: training buildings, specialization, failure-XP, attribute training; `observant`, `hardy` have no effect | PLANNED | — |
 | Equipment, occupation, progression | PLANNED | empty fields in the survivor schema |
-| Production, environment (day/night, weather) | PLANNED | none |
+| Environment: day/night clock, 4-season weather CALENDAR, public forecast, `time.*`/`weather.changed`/`season.changed` events, HUD + calendar panel, night/weather tint (O6) | IMPLEMENTED (information only — weather has no gameplay effect until farming/hazards use it) | `src/modules/environment/index.js`, `definitions/data/environment.js`, `tests/environment.test.js` |
+| Production (farming, cooking, crafting), power (generator → advanced generator / solar panel) | PLANNED | design in `docs/game/16-farming-cooking-power-design.md` |
 | Events framework / risk events | PLANNED | log exists; no risk events |
 | Zombies, combat, enemies | PLANNED / NOT IMPLEMENTED | no code (`AI_MEMORY/domains/ZOMBIE_INDEX.md`) |
 | Projections (student, render, inspector) | IMPLEMENTED | `src/modules/projection/index.js` |
@@ -63,7 +67,7 @@ Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`
 
 ## Priority (master prompt §19)
 
-S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4b Learner Event Hooks — done. R3 Carry + Deposit — done (2026-11-16). **R5 Timeline Lessons — next.** Then collision/pathing, skills, production, environment, events, combat, enemies, buildings, final assets, offline/release. Do not start combat or final art while core foundations are unstable.
+S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4b Learner Event Hooks — done. R3 Carry + Deposit — done (2026-11-16). R5 Timeline Lessons — done. Collision/pathing (O3) — done (2026-11-16). Skills/XP (O4) — done (2026-11-16). Building upgrade (O5) — done (2026-11-16). Environment (O6) — done (2026-11-16). **Next: farming (field → greenhouse → hydroponic as ruined buildings repaired + upgraded), cooking (kitchen building), crafting (workshop).** Then production, environment, events, combat, enemies, buildings, final assets, offline/release. Do not start combat or final art while core foundations are unstable.
 
 ## Tests (every file in `tests/`)
 
@@ -82,6 +86,10 @@ S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4
 | `tests/sandbox-api.test.js` | API contract, sandbox isolation, budgets, determinism |
 | `tests/gate-phase0.test.js` | end-to-end pipeline, replay, lessons |
 | `tests/persistence.test.js` | save/load integrity, progress only grows |
+| `tests/pathing.test.js` | O3: blocked tiles, A* determinism/no corner cutting, gate route, `NO_PATH`, replanning, gather through the gate |
+| `tests/skills.test.js` | O4 XP awards, level-ups, diminishing returns, top-level cap, speed effect, no attribute growth, `skillProgress`, determinism, progression validation |
+| `tests/upgrade.test.js` | upgrade: cost, levels, storage growth, NEEDS_REPAIR / MAX_LEVEL / capability / resources failures, cancel, API, determinism |
+| `tests/environment.test.js` | O6 clock, calendar determinism, forecast vs reality, nextChange, season calendar, views, events, replay, learner reads forecast, validation |
 | `tests/carry.test.js` | R3 carry capacity, per-tick conservation (node + hands + stock), trip caps, stop-while-carrying, `deposit()`, storehouse pooling, storage never overfilled, determinism |
 | `tests/world-i2.test.js` | stage layout, storage info, gate/storehouse repair, ids in learner code |
 | `tests/assets-render.test.js` | asset keys, fallback chain, renderer is projection-only |

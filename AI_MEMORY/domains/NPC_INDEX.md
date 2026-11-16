@@ -76,15 +76,11 @@ IMPLEMENTED for one survivor type with full schema; multi-survivor works in test
 
 - `morale` is displayed but never changes (O5 in `docs/IMPLEMENTATION_PLAN_2026-11-13.md`).
 - The learner `survivor` is simply the first survivor unless `actorId` is given (`src/modules/sandbox/runtime.js`).
-- Survivors walk through buildings (no collision, O3).
+- Survivors cannot walk through buildings or the fence; the gate is the opening (O3). No unit-vs-unit collision.
 
 # Planned Changes
 
-<<<<<<< HEAD
 Equipment/occupation/progression with the Skills phase (carry capacity itself is derived since R3: `carryCapacity`). Survivor selection for multi-survivor programs.
-=======
-Equipment/occupation/progression with Skills and Carry phases (R3, later). Survivor selection for multi-survivor programs.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Forbidden Changes
 

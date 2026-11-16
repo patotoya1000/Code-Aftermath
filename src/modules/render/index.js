@@ -145,6 +145,12 @@ export function mountRenderer(canvas, {
     for (const ev of events || []) if (ev.x !== undefined && ev.y !== undefined) {
       ctx.fillStyle = COLORS.event; ctx.beginPath(); ctx.arc(tileCenterX(ev.x), offsetY + ev.y * t + t / 2, t * 0.25, 0, Math.PI * 2); ctx.fill();
     }
+    // 6b time of day and weather: a tint over the world (presentation only, read from the projection)
+    const env = frame.environment;
+    if (env) {
+      const tint = (env.isNight ? 0.34 : 0) + (env.weather === 'storm' ? 0.18 : env.weather === 'rain' ? 0.08 : 0);
+      if (tint > 0) { ctx.fillStyle = `rgba(8,16,40,${Math.min(0.6, tint)})`; ctx.fillRect(offsetX, offsetY, mw * t, mh * t); }
+    }
     // 7 selection
     drawSelection(frame);
     // 8 optional debug overlay

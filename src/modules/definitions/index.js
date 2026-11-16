@@ -1,11 +1,12 @@
 import { AftermathError, deepFreeze } from '../../kernel/index.js';
 import { items, carry } from './data/items.js';
 import { actions, needs, clock, policies, hooks } from './data/actions.js';
-import { survivorTemplates, SKILLS, TRAITS } from './data/survivors.js';
+import { survivorTemplates, SKILLS, TRAITS, progression } from './data/survivors.js';
 import { nodeTypes, buildings, scenarios } from './data/world.js';
 import { lessons } from './data/lessons.js';
+import { environment } from './data/environment.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -90,6 +91,21 @@ export function validateDefinitions(d) {
     need(typeof skill.name === 'string' && skill.name, `skill ${skillId}: name must be non-empty text`);
     need(typeof skill.description === 'string', `skill ${skillId}: description must be text`);
   }
+  const en = d.environment;
+  need(en && Number.isInteger(en.ticksPerDay) && en.ticksPerDay >= 24 && en.ticksPerDay % 24 === 0, 'environment: ticksPerDay must be a multiple of 24');
+  need(en && en.dawnHour >= 0 && en.duskHour <= 24 && en.dawnHour < en.duskHour && en.startHour >= 0 && en.startHour < 24, 'environment: dawnHour < duskHour within 0..24 and startHour within 0..23');
+  for (const s of en?.seasons ?? []) {
+    need(s.days >= 1 && (s.phases ?? []).reduce((n, p) => n + p.days, 0) === s.days, `environment season ${s.id}: phase lengths must add up to ${s.days} days`);
+    for (const p of s.phases ?? []) need(en.weather[p.weather] && p.days >= 1, `environment season ${s.id}: unknown weather "${p.weather}" or empty phase`);
+  }
+  need((en?.seasons ?? []).length > 0, 'environment: needs at least one season');
+  const pr = d.progression;
+  need(pr && Array.isArray(pr.thresholds) && pr.thresholds[0] === 0 && pr.thresholds.every((t, i) => i === 0 || t > pr.thresholds[i - 1]), 'progression: thresholds must start at 0 and strictly increase');
+  need(pr && pr.floor >= 0 && pr.floor <= 1, 'progression: floor must be between 0 and 1');
+  for (const [id, aw] of Object.entries(pr?.awards ?? {})) {
+    need(d.skills[aw.skill], `progression award ${id}: unknown skill "${aw.skill}"`);
+    need(aw.xp > 0 && aw.fullUntil >= 0 && aw.teachesUpTo > aw.fullUntil, `progression award ${id}: needs xp > 0 and teachesUpTo > fullUntil >= 0`);
+  }
   for (const [traitId, trait] of Object.entries(d.traits)) {
     need(typeof trait.name === 'string' && trait.name, `trait ${traitId}: name must be non-empty text`);
     need(typeof trait.description === 'string', `trait ${traitId}: description must be text`);
@@ -108,7 +124,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

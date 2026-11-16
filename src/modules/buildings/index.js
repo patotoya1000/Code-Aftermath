@@ -7,6 +7,7 @@ export function createBuilding(defs, spec) {
     id: spec.id, type: spec.type, level: spec.level ?? 1, x: spec.x, y: spec.y,
     health: spec.health ?? def.levels[spec.level ?? 1].maxHealth,
     condition: 'repaired',
+    blocks: def.blocks !== false, // survivors cannot walk through it (see pathing.js); the gate opts out
     ...(def.storage ? { storage: { ...def.storage } } : {}),
   };
   if (spec.bounds) b.bounds = { ...spec.bounds };
@@ -61,3 +62,13 @@ export function nearestDepot(state, item, from) {
 }
 
 export const depotAccepts = accepts;
+
+/** The next level's upgrade offer for a building ({ level, cost, ticks }) or null at the top / when none is defined. */
+export function nextUpgrade(defs, b) {
+  const def = defs.buildings[b.type];
+  const level = b.level + 1;
+  const spec = def.upgrade?.[level];
+  return def.levels[level] && spec ? { level, cost: { ...spec.cost }, ticks: spec.ticks } : null;
+}
+
+export { findPath, blockedTiles } from './pathing.js';

@@ -18,7 +18,7 @@ Columns: Purpose · Owns · Does not own · Used by · Depends on · Tests · Me
 | `src/modules/actions/handlers/gather.js` | Standing gather (trips) | node → hands → depot, stop reasons, room accounting | node amounts (ledger) | engine | resources, survivors, buildings, capability | realtime, hardening, stabilization, carry | RESOURCE_INDEX, INVENTORY_INDEX, TASK_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/carry.js` | Unloading leg (`stepDeposit`) | walk to nearest working depot, unload, retarget | — | gather, deposit | resources, survivors, buildings, shared | carry | INVENTORY_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/deposit.js` | `deposit()` | unload everything carried | — | engine | carry, shared | carry | INVENTORY_INDEX, TASK_INDEX | IMPLEMENTED |
-| `src/modules/actions/handlers/move.js` | Move | stepping to a tile/entity | pathing | engine | shared | simulation | TASK_INDEX | IMPLEMENTED (no pathing) |
+| `src/modules/actions/handlers/move.js` | Move | stepping to a tile/entity | pathing | engine | shared | simulation | TASK_INDEX | IMPLEMENTED (walks A* routes via `walkStep`) |
 | `src/modules/actions/handlers/rest.js` | Rest | energy gain per tick | — | engine | shared | stabilization | NEEDS_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/consume.js` | Eat/drink | restore need, reserve item | — | engine | resources | simulation | NEEDS_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/repair.js` | Repair buildings | health gain, wood cost | construction | engine | buildings | simulation, world-i2 | BUILDING_INDEX | IMPLEMENTED |

@@ -11,9 +11,11 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300 } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
+    // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
+    upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
     storage: { wood: 150, stone: 150, food: 100, water: 100 },
   },
   fence: {
@@ -21,6 +23,7 @@ export const buildings = {
     levels: { 1: { maxHealth: 100 }, 2: { maxHealth: 160 } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 20, stone: 10 }, ticks: 50 } },
   },
   tent: {
     name: 'Survivor Tent',
@@ -43,6 +46,7 @@ export const buildings = {
   gate: {
     name: 'Gate',
     perimeter: true,
+    blocks: false, // the opening in the fence: survivors walk through it
     levels: { 1: { maxHealth: 80 } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 4 }, healthPerAction: 20, ticks: 20 },

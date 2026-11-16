@@ -508,3 +508,14 @@ body::before {
 .progress-item.passed .status-badge { color:var(--good); } .progress-item.failed .status-badge { color:var(--bad); }
 body.lesson-open #code-panel { left:min(380px, 92vw); }
 @media (max-width: 600px) { body.lesson-open #code-panel { left:0; } } /* phones: the drawer simply covers the editor; close it with ✕ */
+
+.attr-cell .skill-xp { display:block; height:4px; margin-top:6px; border-radius:2px; background:color-mix(in srgb, var(--line) 60%, transparent); overflow:hidden; }
+.attr-cell .skill-xp i { display:block; height:100%; background:var(--good); }
+
+.calendar-panel { position:absolute; top:56px; right:16px; z-index:30; background:var(--panel, #1c2230); border:1px solid var(--line); border-radius:8px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+.calendar-panel .cal-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+.calendar-panel .cal-grid { display:grid; grid-template-columns:repeat(4, 56px); gap:6px; }
+.calendar-panel .cal-day { border:1px solid var(--line); border-radius:6px; padding:4px; text-align:center; }
+.calendar-panel .cal-day.today { border-color:var(--good); outline:1px solid var(--good); }
+.calendar-panel .cal-n { display:block; font-size:10px; color:var(--muted); font-family:var(--font-mono); }
+.calendar-panel .cal-w { display:block; font-size:18px; }

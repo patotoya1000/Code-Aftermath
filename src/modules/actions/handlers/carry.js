@@ -2,7 +2,7 @@ import { chebyshev } from '../../../kernel/index.js';
 import { credit, stockKey, total } from '../../resources/index.js';
 import { carriedOf, removeCarried } from '../../survivors/index.js';
 import { nearestDepot, depotAccepts, storageCapacity } from '../../buildings/index.js';
-import { DONE, RUNNING, failTick, stepToward } from './shared.js';
+import { DONE, RUNNING, failTick, walkStep } from './shared.js';
 
 /**
  * The unloading leg shared by gather (after every trip) and deposit (on request). One call = one tick of it:
@@ -33,7 +33,7 @@ export function stepDeposit(ctx, a, def) {
     if (s.needs.energy <= 0) return failTick('EXHAUSTED');
     a.phase = 'travel';
     a.travelTicks += 1;
-    if (a.travelTicks % def.ticksPerTile === 0) stepToward(s, depot);
+    if (a.travelTicks % def.ticksPerTile === 0 && !walkStep(ctx, a, depot)) return failTick('NO_PATH');
     return RUNNING;
   }
 

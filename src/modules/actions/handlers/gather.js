@@ -2,7 +2,7 @@ import { chebyshev, hasOwn } from '../../../kernel/index.js';
 import { available, nodeKey, stockKey, credit, total, reserve, commit, release } from '../../resources/index.js';
 import { StopReason } from '../lifecycle.js';
 import { checkCapability } from '../../capability/index.js';
-import { addCarried, carriedOf, carryRoom } from '../../survivors/index.js';
+import { addCarried, carriedOf, carryRoom, awardSkillXp } from '../../survivors/index.js';
 import { storageCapacity } from '../../buildings/index.js';
 import { ok, fail, failTick, RUNNING, approachThenWork, tooTired } from './shared.js';
 import { stepDeposit } from './carry.js';
@@ -62,7 +62,9 @@ function planBatch(ctx, a) {
   const actor = ctx.state.survivors[a.actorId];
   const cap = checkCapability(actor, def, ctx.defs, ctx);
   if (cap.ok) { a.durationModifier = cap.durationModifier; a.outputModifier = cap.outputModifier; }
-  const wanted = Math.max(1, Math.floor((a.params.amount ?? def.defaultAmount) * (a.outputModifier ?? 1)));
+  // The requested amount is a hard cap: skill makes gathering FASTER (durationModifier), it never delivers more than the
+  // learner asked for per trip - `gather("wood", 5, 5)` must never yield 6.
+  const wanted = Math.max(1, a.params.amount ?? def.defaultAmount);
   const load = Math.min(wanted, carryRoom(actor, ctx.defs, resource)); // a trip never carries more than she can hold
   const remaining = a.params.total === undefined ? Infinity : a.params.total - a.stats.gathered;
   if (remaining <= 0) return { stop: StopReason.TARGET_REACHED };
@@ -88,6 +90,7 @@ function pickUp(ctx, a, qty) {
   const node = ctx.state.nodes[a.nodeId];
   addCarried(ctx.state.survivors[a.actorId], ctx.defs, node.resource, qty);
   a.stats.picked += qty;
+  awardSkillXp(ctx, ctx.state.survivors[a.actorId], 'gather', qty);
   ctx.emit('resource.gathered', { actorId: a.actorId, resource: node.resource, amount: qty, nodeId: node.id });
   if (total(ctx.state, nodeKey(node.id)) === 0) ctx.emit('node.depleted', { nodeId: node.id });
 }

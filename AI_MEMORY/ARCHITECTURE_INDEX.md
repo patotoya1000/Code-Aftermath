@@ -33,6 +33,7 @@ Frame pacing: animation frame → `createClockDriver.update(dt)` → `sim.step(n
 | Building health/condition | `buildings` |
 | Initial state from scenario + seed | `world` |
 | Data tables (items, actions, policies, hooks, needs, clock, buildings, scenarios, lessons) and their validation | `definitions` |
+| Day/night clock, season calendar, weather and forecast (pure functions of the tick) | `environment` |
 | Read-only views (student, render, inspector) | `projection` |
 | Semantic asset key → atlas frame, fallback chain, animation timing | `assets` |
 | Drawing, picking, selection (no gameplay) | `render` |
@@ -53,13 +54,10 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `survivors` | — |
 | `buildings` | — |
 | `world` | `resources`, `survivors`, `buildings` |
-| `projection` | `resources`, `survivors`, `buildings` |
-<<<<<<< HEAD
+| `projection` | `resources`, `survivors`, `buildings`, `environment` |
 | `actions` | `resources`, `survivors`, `buildings`, `capability` |
-=======
-| `actions` | `resources`, `buildings`, `capability` |
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
-| `simulation` | `survivors`, `actions`, `projection`, `capability` |
+| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment` |
+| `environment` | — |
 | `api` | — |
 | `sandbox` | `api` |
 | `session` | `world`, `simulation`, `api` |
@@ -72,11 +70,7 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 
 ## Trace maps (implemented flows only)
 
-<<<<<<< HEAD
 **GATHER** — learner `survivor.gather("wood", 10, 30)` → Worker records a call (`src/modules/sandbox/runtime.js`) → `normalizeCall`/`COMMANDS.gather.params` (`src/modules/api/v1.js`) → `buildCommand` + replace/queue mode (`submitCalls`, `src/modules/session/index.js`) → `sim.submitCommand` charges 1 strategy point after `sim.submit` → `engine.submit` creates the action (QUEUED) → each tick `advance`: VALIDATING (`gatherHandler.validate`: if she still carries something the job starts with the unloading leg; otherwise `planBatch` picks the nearest node able to fill the batch, caps the load at what she can carry (`carryRoom`) and at the room left in pooled storage) → capability check (`src/modules/capability/index.js`) → reservation of the node units (`reserve`) → RESERVED → EXECUTING, leg `node`: `approachThenWork` walks then works `batch × ticksPerUnit` ticks (energy drains) → batch end: `commit` the node units and `pickUp` puts them in `survivor.inventory.items`, emits `resource.gathered` (and `node.depleted`) → leg `depot`: `stepDeposit` (`handlers/carry.js`) walks to the nearest working storage building that accepts the item, unloads for `unloadTicks`, credits `stock.<item>`, emits `resource.deposited` → `planBatch` again; a stop reason ends the job (COMPLETED with `stopReason`, or FAILED if no work was done) → `task.stopped` event + `survivor.lastTask` → `studentView`/`renderProjection`/`inspectorCard` → renderer animates WALK/GATHER; UI feed; lesson checks (`stockAtLeast`) read the final view. A job cut off while she carries something leaves the load in her hands; `survivor.deposit()` (handler `deposit.js`, same `stepDeposit`) or the next gather unloads it.
-=======
-**GATHER** — learner `survivor.gather("wood", 10, 30)` → Worker records a call (`src/modules/sandbox/runtime.js`) → `normalizeCall`/`COMMANDS.gather.params` (`src/modules/api/v1.js`) → `buildCommand` + replace/queue mode (`submitCalls`, `src/modules/session/index.js`) → `sim.submitCommand` charges 1 strategy point after `sim.submit` → `engine.submit` creates the action (QUEUED) → each tick `advance`: VALIDATING (`gatherHandler.validate` → `planBatch` picks the nearest node able to fill the batch and room in storage) → capability check (`src/modules/capability/index.js`) → reservation of the node units (`reserve`) → RESERVED → EXECUTING: `approachThenWork` walks then works `batch × ticksPerUnit` ticks (energy drains) → batch end: `commit` + `deposit` credits `stock.wood`, emits `resource.gathered` (and `node.depleted`) → `planBatch` again; a stop reason ends the job (COMPLETED with `stopReason`, or FAILED if no work was done) → `task.stopped` event + `survivor.lastTask` → `studentView`/`renderProjection`/`inspectorCard` → renderer animates GATHER; UI feed; lesson checks (`stockAtLeast`) read the final view. *Carry and deposit trips do not exist: units go straight to base stock.*
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 **REST** — `survivor.rest(ticks)` → API → action `rest` → `restHandler.tick` adds `energyPerTick` (2) per tick until `ticks` or `until`/max → `survivor.rested` event.
 
