@@ -19,11 +19,7 @@ Each event states something that already happened in authoritative state. Consum
 
 - `action.queued|validating|reserved|executing|completed|failed|cancelled { actionId, actorId, actionType, targetId, reason?, ...stats }`
 - `task.started { actionId, actorId, taskType, resource }`, `task.stopped { …, reason, gathered, trips }`, `task.resumed { …, resumedFrom }`
-<<<<<<< HEAD
 - `resource.gathered { actorId, resource, amount, nodeId }` (picked up at a node), `resource.deposited { actorId, depotId, resource, amount }` (unloaded into base stock), `node.depleted { nodeId }`
-=======
-- `resource.gathered { actorId, resource, amount, nodeId }`, `node.depleted { nodeId }`
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 - `survivor.moved`, `survivor.rested`, `survivor.consumed { survivorId, item, need, value }`, `survivor.conditions_changed { survivorId, conditions[] }`, `survivor.damaged { survivorId, cause, health }`, `survivor.downed`
 - `building.repaired { actorId, buildingId, health, condition }`, `building.condition_changed { buildingId, from, to }`
 - `policy.set|cleared|triggered|blocked`, `hook.set|cleared` (simulation); `hook.ran|hook.failed`, `command.rejected` (session); `command.stop` (simulation)

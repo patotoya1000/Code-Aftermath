@@ -81,11 +81,7 @@ None (animation is derived from the task by projection: `animationFor`).
 
 # Current Status
 
-<<<<<<< HEAD
 IMPLEMENTED (move, gather standing with carry trips, deposit, rest, eat, drink, repair, stop, policy interrupt/resume). NOT IMPLEMENTED: build, craft, attack.
-=======
-IMPLEMENTED (move, gather standing, rest, eat, drink, repair, stop, policy interrupt/resume). NOT IMPLEMENTED: build, deposit/carry, craft, attack.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Known Problems
 
@@ -95,11 +91,7 @@ IMPLEMENTED (move, gather standing, rest, eat, drink, repair, stop, policy inter
 
 # Planned Changes
 
-<<<<<<< HEAD
 R5 prune finished actions. Pathing in I6.
-=======
-R3 carry + deposit as new handlers (gather → carry → deposit). R5 prune finished actions. Pathing in I6.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Forbidden Changes
 

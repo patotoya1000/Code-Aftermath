@@ -15,10 +15,30 @@ export function positionOfEntity(state, id) {
 export const inBounds = (state, p) =>
   Number.isInteger(p.x) && Number.isInteger(p.y) && p.x >= 0 && p.y >= 0 && p.x < state.map.width && p.y < state.map.height;
 
-/** One tile toward dest, 8-directional. Simulation owns direction; the renderer only reads it. */
+/** One tile toward dest, with simple building collision avoidance.
+ *  Moves around buildings by not moving into them. Simulation owns direction;
+ *  the renderer only reads it. */
 export function stepToward(survivor, dest) {
+  if (survivor.position.x === dest.x && survivor.position.y === dest.y) return;
+
   const dx = Math.sign(dest.x - survivor.position.x);
   const dy = Math.sign(dest.y - survivor.position.y);
+  const nextX = survivor.position.x + dx;
+  const nextY = survivor.position.y + dy;
+
+  // Check if next tile is inside any building's bounds
+  const state = survivor._state;
+  if (state) {
+    for (const b of Object.values(state.buildings)) {
+      if (b.bounds) {
+        if (nextX >= b.bounds.x1 && nextX <= b.bounds.x2 && nextY >= b.bounds.y1 && nextY <= b.bounds.y2) {
+          // Next tile is inside a building - don't move
+          return;
+        }
+      }
+    }
+  }
+
   survivor.position.x += dx;
   survivor.position.y += dy;
   const dir = directionFromDelta(dx, dy);

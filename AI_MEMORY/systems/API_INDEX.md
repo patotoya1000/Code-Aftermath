@@ -68,11 +68,7 @@ None.
 
 # Current Status
 
-<<<<<<< HEAD
 IMPLEMENTED (13 learner commands, `deposit` added in R3). PLANNED: build commands with their phase.
-=======
-IMPLEMENTED (12 learner commands). PLANNED: carry/deposit/build commands with their phases.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Known Problems
 
@@ -81,11 +77,7 @@ IMPLEMENTED (12 learner commands). PLANNED: carry/deposit/build commands with th
 
 # Planned Changes
 
-<<<<<<< HEAD
 New commands only together with their domain phase (build).
-=======
-New commands only together with their domain phase (R3 carry, build).
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Forbidden Changes
 

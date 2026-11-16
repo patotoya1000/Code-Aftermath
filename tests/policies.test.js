@@ -103,11 +103,7 @@ test('policy: same timeline => same world (replay + hash), and the lesson passes
 test('policy: soak — random policies + commands keep every ledger invariant and the node/stock balance', () => {
   for (let seed = 1; seed <= 8; seed++) {
     const sim = newSim('stage1', seed);
-<<<<<<< HEAD
     const woodAll = () => { const st = sim.snapshot(); return Object.values(st.nodes).filter((n) => n.resource === 'wood').reduce((t, n) => t + st.ledger[nodeKey(n.id)].total, 0) + st.ledger[stockKey('wood')].total + Object.values(st.survivors).reduce((t, sv) => t + (sv.inventory.items.wood ?? 0), 0); }; // node + carried + stock
-=======
-    const woodAll = () => { const st = sim.snapshot(); return Object.values(st.nodes).filter((n) => n.resource === 'wood').reduce((t, n) => t + st.ledger[nodeKey(n.id)].total, 0) + st.ledger[stockKey('wood')].total; };
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
     const w0 = woodAll();
     sim.submit(cmd('policy', { action: 'eat', below: 20 + seed * 5 }));
     sim.submit(cmd('policy', { action: 'drink', below: 50 }));

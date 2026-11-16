@@ -34,10 +34,6 @@ Authoritative for: rules every change must respect. Why they exist → `AI_MEMOR
 | Obsolete turn model absent from active code | `tests/invariants.test.js`, `tests/stabilization.test.js` |
 | AI_MEMORY matches the repository (files exist, modules/tests listed, template complete) | `tests/invariants.test.js` |
 
-<<<<<<< HEAD
 Also enforced since R3: a unit is in exactly one place (node, hands or base stock) — `tests/carry.test.js`, `tests/soak.test.js`, `tests/policies.test.js`; load never exceeds carry capacity; stock never exceeds pooled capacity.
 
 Not yet covered (honest gaps): encumbrance/equipment effects (not implemented); a runtime check that no handler writes outside a tick.
-=======
-Not yet covered (honest gaps): inventory/carry capacity (carry does not exist); a runtime check that no handler writes outside a tick.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e

@@ -133,6 +133,20 @@ export function replayTimeline({ defs, scenarioId = 'stage1', seed = 1, timeline
 }
 
 /**
+ * R5: Replay a lesson from its recorded timeline. Uses sim.submit (no strategy-point charging) because lessons
+ * run in an isolated simulation. Returns the sim so callers can compare stateHash() with the original attempt.
+ */
+export function replayLesson({ defs, scenarioId = 'stage1', seed = 1, timeline, untilTick }) {
+  const { sim } = createFreeSim({ defs, scenarioId, seed });
+  for (const { tick, command } of timeline) {
+    if (tick > sim.tick) sim.step(tick - sim.tick);
+    sim.submit(command);
+  }
+  if (untilTick > sim.tick) sim.step(untilTick - sim.tick);
+  return sim;
+}
+
+/**
  * One learner attempt, end to end:
  *   code → Sandbox (Clock A) → Game API → Command Builder → Action Queue → Simulation ticks (Clock B)
  *   → Event Log → result for the Lesson Validator.
@@ -148,6 +162,7 @@ export async function runAttempt({
   const frames = captureFrames ? [sim.renderProjection()] : [];
   const checkpoints = [{ tick: 0, view: sim.studentView() }];
   const commands = [];
+  const lessonTimeline = []; // R5: lesson commands in (tick, command) format for replay
 
   const run = await sandbox.run({ code, view: sim.studentView(), seed });
   const sandboxResult = { ok: run.ok, error: run.error, logs: run.logs, violations: run.violations ?? null };
@@ -164,6 +179,7 @@ export async function runAttempt({
         const command = buildCommand(call.actorId, call);
         const actionId = sim.submit(command);
         commands.push({ accepted: true, actionId, name: call.name, actorId: call.actorId, args: call.args });
+        lessonTimeline.push({ tick: sim.tick, command: structuredClone(command) }); // R5: record for timeline replay
       } catch (e) {
         commands.push({ accepted: false, name: call.name, actorId: call.actorId, args: call.args, error: { code: e.code ?? 'ERROR', message: e.message } });
         sim.log.append(sim.tick, 'command.rejected', { actorId: call.actorId, name: call.name, code: e.code ?? 'ERROR' });
@@ -180,7 +196,7 @@ export async function runAttempt({
   if (checkpoints[checkpoints.length - 1].tick !== sim.tick) checkpoints.push({ tick: sim.tick, view: finalView });
 
   const result = {
-    ok: run.ok, sandbox: sandboxResult, commands, ticks: sim.tick, timedOut: run.ok && !sim.isIdle(),
+    ok: run.ok, sandbox: sandboxResult, commands, lessonTimeline, ticks: sim.tick, timedOut: run.ok && !sim.isIdle(),
     events: sim.log.all(), finalView, checkpoints, frames, finalState: sim.snapshot(),
     eventLogHash: sim.log.hash(), stateHash: sim.stateHash(), initialStateHash, code,
   };

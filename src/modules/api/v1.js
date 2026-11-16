@@ -113,12 +113,8 @@ export const READ_SURFACE = [
   'survivor.x, survivor.y, survivor.direction, survivor.task, survivor.lastTask   (why the survivor stopped: { type, status, reason, gathered })',
   'survivor.hooks   (event names, e.g. ["hungry"])',
   'survivor.policies   (e.g. { eat: { below: 30 } })',
-<<<<<<< HEAD
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory   (what she carries)',
   'survivor.carry   ({ load, capacity } in weight units)',
-=======
-  'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory',
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
   'survivors   (array of all survivors)',
   'base.wood, base.stone, base.food, base.water   (available amounts in storage, not what survivors carry)',
   'base.capacity.wood …   (how much the working storage buildings hold in total)',

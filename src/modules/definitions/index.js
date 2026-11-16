@@ -1,9 +1,5 @@
 import { AftermathError, deepFreeze } from '../../kernel/index.js';
-<<<<<<< HEAD
 import { items, carry } from './data/items.js';
-=======
-import { items } from './data/items.js';
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 import { actions, needs, clock, policies, hooks } from './data/actions.js';
 import { survivorTemplates, SKILLS, TRAITS } from './data/survivors.js';
 import { nodeTypes, buildings, scenarios } from './data/world.js';
@@ -112,11 +108,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-<<<<<<< HEAD
   const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
-=======
-  const defs = structuredClone({ items, actions, needs, clock, policies, hooks, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

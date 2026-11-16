@@ -78,7 +78,6 @@ Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with
 - **Commands from a hook** follow the program rule (first task command replaces, the rest queue) and go through `submitCalls`, so they cost points and are recorded in the timeline. **Replay and save/load never run hooks**; they replay the commands the hooks produced. After loading, a new runner takes over from the end of the log.
 - **Failure:** an error, timeout or budget overrun emits `hook.failed` and switches that hook off until it is registered again (not persisted across load). `survivor.on` inside a hook is refused (`HOOK_NOT_ALLOWED`).
 - **Lessons:** rejected with `HOOKS_FREE_PLAY_ONLY` until R5 puts lessons on the live timeline.
-<<<<<<< HEAD
 - Events: `hook.set`, `hook.cleared`, `hook.ran`, `hook.failed`. `SIM_VERSION` is `0.5.0` (after R3).
 
 ## R3 — Carry and deposit (2026-11-16)
@@ -89,9 +88,6 @@ Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with
 - **Interruptions never lose units:** `stop()`, a policy interruption, exhaustion or `replace` leave the load in her hands. `survivor.deposit()` walks it to storage; so does the next `gather`, before its first trip. A policy that interrupts a carrying job resumes it and the load is unloaded on the way.
 - `survivor.deposit()` fails with `NOTHING_TO_DEPOSIT` when her hands are empty. New stop reason `NO_DEPOT` (nothing that works accepts what she carries).
 - Not in R3: encumbrance (load does not slow her), equipment effects, field eating from her hands, learner-chosen depot, pathing.
-=======
-- Events: `hook.set`, `hook.cleared`, `hook.ran`, `hook.failed`. `SIM_VERSION` is `0.4.0`.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 ## Compatibility notes
 - `gather(resource, n)` used to be a one-shot batch of `n`. It now means *trips of n, until done*. Use `gather(resource, n, n)` for the old behaviour. Starter code in the four lessons was updated this way.
@@ -100,11 +96,7 @@ Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with
 ## Still to come
 | Phase | Scope |
 |---|---|
-<<<<<<< HEAD
 | R3 ✅ | Carry capacity and deposit trips (gather → carry → walk to storage → unload), tent/HQ/storehouse storage pooling — see §R3 |
-=======
-| R3 | Carry capacity and deposit trips (gather → carry → walk to HQ → deposit), tent/HQ storage pooling |
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 | R4a ✅ | Needs policies |
 | R4b ✅ | Learner event hooks |
 | R5 | Lessons and replay records moved fully to the timeline model; saving free-play sessions |

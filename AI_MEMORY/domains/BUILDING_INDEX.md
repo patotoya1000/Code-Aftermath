@@ -20,11 +20,7 @@ Buildings as data with level, health and a meaningful condition (`ruined | damag
 
 # Core Data
 
-<<<<<<< HEAD
 Types in `src/modules/definitions/data/world.js`: `hq` (levels 1–2), `fence` (1–2, with `bounds`), `tent`, `storage` (storehouse), `gate` (`perimeter: true`). Stage 1 starts them damaged/ruined: fence 20/100, storehouse 15/120, gate 30/80. Storage tables: HQ, tent, storehouse; a ruined building contributes no capacity and cannot be unloaded at (R3).
-=======
-Types in `src/modules/definitions/data/world.js`: `hq` (levels 1–2), `fence` (1–2, with `bounds`), `tent`, `storage` (storehouse), `gate` (`perimeter: true`). Stage 1 starts them damaged/ruined: fence 20/100, storehouse 15/120, gate 30/80.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # State
 
@@ -74,11 +70,7 @@ PARTIALLY IMPLEMENTED: repairable objects with health/condition. PLANNED: constr
 
 # Known Problems
 
-<<<<<<< HEAD
 Level-2 entries for `hq` and `fence` are data only; no code path produces level 2. The storehouse's `storage` table (wood/stone 100) is live since R3: it counts once the building is no longer ruined.
-=======
-Level-2 entries for `hq` and `fence` are data only; no code path produces level 2. The storehouse carries a note that its capacity arrives with carry.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Planned Changes
 

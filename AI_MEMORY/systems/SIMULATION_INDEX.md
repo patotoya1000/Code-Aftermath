@@ -25,11 +25,7 @@ The simulation is the ONLY writer of GameState. It counts ticks, advances the ac
 
 # Core Data
 
-<<<<<<< HEAD
 `defs.clock`: `ticksPerSecond 3`, `speeds [1,2,4]`, `maxTicksPerFrame 30`, `strategy { start 10, max 10, regenEvery 20 }` in `src/modules/definitions/data/actions.js`. `SIM_VERSION` 0.5.0 (R3 carry trips).
-=======
-`defs.clock`: `ticksPerSecond 3`, `speeds [1,2,4]`, `maxTicksPerFrame 30`, `strategy { start 10, max 10, regenEvery 20 }` in `src/modules/definitions/data/actions.js`. `SIM_VERSION` 0.4.0.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # State
 

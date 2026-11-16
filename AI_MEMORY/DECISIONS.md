@@ -87,7 +87,6 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 ## ADR-013 — Roadmap order: R4 (react) before R3 (carry)
 - **Decision:** Needs policies and event hooks came before carry + deposit.
 - **Reason:** The learner must be able to *react* before the economy gets deeper (`docs/IMPLEMENTATION_PLAN_2026-11-13.md`).
-<<<<<<< HEAD
 - **Status:** ACCEPTED; R4a, R4b and R3 done. **Next: R5.**
 
 ## ADR-014 — Carry as hands + pooled storage (R3)
@@ -96,6 +95,3 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 - **Forbidden Alternative:** crediting stock directly from the node; per-building stock accounts (would need transfers); a carry total stored on the survivor.
 - **Consequence:** `gather` trips are longer (walking home), lesson/time budgets were verified; `total` counts units that reached storage. Behaviour change ⇒ `SIM_VERSION` 0.5.0.
 - **Status:** ACCEPTED, implemented.
-=======
-- **Status:** ACCEPTED; R4a and R4b done. **Next: R3, then R5.**
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e

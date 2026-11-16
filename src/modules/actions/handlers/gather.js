@@ -117,11 +117,7 @@ function stopWith(ctx, a, reason, { partial = false } = {}) {
     commit(ctx.state, reserve(ctx.state, { owner: a.actionId, account: nodeKey(node), qty: units }));
     pickUp(ctx, a, units); // she keeps what she chopped; `deposit()` or the next gather unloads it
   }
-<<<<<<< HEAD
   if (a.stats.gathered + a.stats.picked + a.stats.prior === 0) return failTick(reason); // a resumed job that already worked before it was interrupted still ends as COMPLETED
-=======
-  if (a.stats.gathered + a.stats.prior === 0) return failTick(reason); // a resumed job that already gathered before it was interrupted still ends as COMPLETED
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
   return { status: 'done', stopReason: reason };
 }
 
@@ -147,13 +143,9 @@ export const gatherHandler = {
     const load = amount ?? def.defaultAmount;
     if (!Number.isInteger(load) || load < 1 || load > def.maxAmount) return fail('INVALID_PARAMS');
     if (wantTotal !== undefined && (!Number.isInteger(wantTotal) || wantTotal < 1 || wantTotal > def.maxTotal)) return fail('INVALID_PARAMS');
-<<<<<<< HEAD
     a.stats = { gathered: 0, trips: 0, picked: 0, prior: a.resumeOf?.gathered ?? 0 }; // gathered = units that reached base stock; picked = units taken from nodes; `prior`: units gathered before a policy interrupted this job
     a.legMoved = 0;
     if (Object.keys(actor.inventory.items).length > 0) { a.leg = 'depot'; a.batch = 0; return ok; } // she still carries something from before: unload it first, then plan the first trip
-=======
-    a.stats = { gathered: 0, trips: 0, prior: a.resumeOf?.gathered ?? 0 }; // `prior`: units gathered before a policy interrupted this job
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
     const plan = planBatch(ctx, a);
     return plan.stop ? fail(plan.stop) : ok;
   },

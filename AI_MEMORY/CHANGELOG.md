@@ -15,10 +15,7 @@ Purpose: stop future agents from following stale documentation. When an old docu
 | 2026-11-13 (S0–S5) | the removed turns.test.js; `app.runTurnCode`; free-play progress not saved; `node_modules` tracked | **`tests/stabilization.test.js`**; no turn code in `src/app`; free-play save = command timeline + hash; `.gitignore` |
 | 2026-11-14 (R4a) | survival fully manual | **Needs policies** (interrupt → act → resume) |
 | 2026-11-14 (R4b) | no reaction to events | **Learner event hooks** (source text stored in state, run in the sandbox by the session) |
-<<<<<<< HEAD
 | 2026-11-16 (R3) | gathered units went straight into base stock; HQ-only capacity; storehouse a decoration | **Carry + deposit**: units move node → survivor's hands → base stock via a walk to the nearest working storage building; `survivor.deposit()`; capacity pooled over working buildings (HQ + tent + repaired storehouse); `SIM_VERSION` 0.5.0 |
-=======
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 | 2026-11-15 | no project memory layer | **`AI_MEMORY/`** navigation layer + `tests/invariants.test.js` (turn-model guard, projection purity, terminal-action finality, event/state agreement, AI_MEMORY accuracy) |
 
 ## Historical-only material (do not treat as requirements)
@@ -30,8 +27,4 @@ Purpose: stop future agents from following stale documentation. When an old docu
 
 ## Upcoming (not done)
 
-<<<<<<< HEAD
 R5 lessons on the timeline model · collision/pathing · skills/XP · production · environment · events · combat · enemies · buildings (BUILD/upgrade) · final assets · offline/release. See `AI_MEMORY/IMPLEMENTATION_STATUS.md`.
-=======
-R3 carry + deposit · R5 lessons on the timeline model · collision/pathing · skills/XP · production · environment · events · combat · enemies · buildings (BUILD/upgrade) · final assets · offline/release. See `AI_MEMORY/IMPLEMENTATION_STATUS.md`.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e

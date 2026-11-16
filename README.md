@@ -1,18 +1,10 @@
-<<<<<<< HEAD
 # CODE: AFTERMATH — engine (Phases 0–1 + correction C0–C8 + R1–R2, S0–S5, R4a, R4b, R3)
-=======
-# CODE: AFTERMATH — engine (Phases 0–1 + correction C0–C8 + R1–R2, S0–S5, R4a, R4b)
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 A **modular monolith**: one deployable app (static files, offline-first, no build step), split into modules with
 enforced boundaries. Vanilla ES modules; Node ≥ 22 for tests.
 
 ```
-<<<<<<< HEAD
 npm test          # 162 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
-=======
-npm test          # 149 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 SOAK_SEEDS=300 npm test   # deep randomized soak (invariants after every 50 ticks)
 npm run serve     # http://localhost:8080  (ES modules need http://, not file://)
 npm run smoke     # real-browser check (needs Playwright + Chromium) — (C9 gate: passing)
@@ -72,12 +64,8 @@ Learner code → Sandbox (Worker, Clock A) → Game API v1 → Command → Actio
 - **Strategy points:** each command costs 1; start 10, max 10, +1 every 20 ticks.
 - **Policies (R4a):** `survivor.policy("eat", { below: 30 })`, `policy("rest", { below: 25, until: 70 })`, `clearPolicy("eat")`. When the need drops below the threshold the survivor pauses her job, acts, then resumes it. Blocked policies (no food) emit `policy.blocked` and retry later.
 - **Event hooks (R4b):** `survivor.on("hungry", () => { survivor.eat(); })`; events `hungry`, `thirsty`, `tired` (fires when she becomes so) and `stopped` (handler gets `{ reason }`). `survivor.off(event)` removes. Handlers must be self-contained, run in the sandbox with a fresh view, may only issue commands (max 5 per run, 1 point each), have a 10-tick cooldown, and are switched off if they crash or hang. Free play only (lessons reject them).
-<<<<<<< HEAD
 - **Carry + deposit (R3):** `gather` works in trips — walk to a node, gather what she can carry (60 weight for a rookie: 30 wood or 15 stone), walk to the nearest working storage building and unload. Base stock only grows on unloading. `survivor.carry` shows `{ load, capacity }`; `survivor.deposit()` empties her hands after a `stop()`. Storage capacity is pooled over every building that is not ruined (HQ, tent, and the storehouse once you repair it).
 - Commands: `moveTo`, `gather`, `deposit`, `rest`, `eat`, `drink`, `repair`, `stop` (+ the free `queue` marker). Survival is manual: nothing eats or rests for you. Buttons for systems that do not exist yet are disabled and labelled with their phase.
-=======
-- Commands: `moveTo`, `gather`, `rest`, `eat`, `drink`, `repair`, `stop` (+ the free `queue` marker). Survival is manual: nothing eats or rests for you. Buttons for systems that do not exist yet are disabled and labelled with their phase.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 - Run the screen with `npm run serve`; `?debug` (or Alt+D) shows the debug overlay. Details: `docs/game/15-realtime-simulation-and-tasks.md`.
 
 ## Design docs

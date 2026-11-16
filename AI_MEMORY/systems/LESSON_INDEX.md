@@ -98,11 +98,7 @@ IMPLEMENTED: 8 lessons, all passable from their starters. **Curriculum roadmap**
 | M5 | State / Resource Planning | PLANNED |
 | M6 | Capability / Task Resolution | PLANNED |
 | M7 | Policies / Events | Policy lesson 8 exists but is labelled "Module 3"; hooks have no lesson (free play only) |
-<<<<<<< HEAD
 | M8 | Carry / Logistics | PLANNED (R3 mechanics exist; no lesson yet) |
-=======
-| M8 | Carry / Logistics | PLANNED (needs R3) |
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 | M9 | Events / Risk | PLANNED |
 | M10 | Advanced Automation | PLANNED |
 
@@ -114,11 +110,7 @@ See weaknesses above. Lesson titles/ids vs roadmap numbering conflict.
 
 # Planned Changes
 
-<<<<<<< HEAD
 R5 timeline lessons; behavioural validators; hook lesson (M7); logistics lessons (R3 mechanics exist).
-=======
-R5 timeline lessons; behavioural validators; hook lesson (M7); logistics lessons after R3.
->>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 
 # Forbidden Changes
 
