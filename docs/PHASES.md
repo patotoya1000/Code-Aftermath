@@ -9,7 +9,11 @@
 - [x] **R1** continuous clock: clock driver (play/pause/1×–4×), strategy points regenerate over time, turns removed, command timeline + `replayTimeline`, `runUntil`
 - [x] **R2** standing actions: looping `gather(resource, load, total)`, stop reasons, `task.*` events, `survivor.lastTask`, replace-vs-queue (+ `survivor.queue()`), storage reserved per batch
 - [x] **S0–S5 stabilization (2026-11-13)** — engine/lesson/UI bug fixes, free-play save/load, regression + soak tests. See `IMPLEMENTATION_PLAN_2026-11-13.md`
-- [ ] **R4a** needs policies (interrupt → act → resume) · [ ] **R4b** learner event hooks · [ ] **R3** carry + deposit trips · [ ] **R5** lessons on the timeline model (free-play save is already done)
+<<<<<<< HEAD
+- [x] **R4a** needs policies (interrupt → act → resume) — 2026-11-14, see `game/15-realtime-simulation-and-tasks.md` §R4a · [x] **R4b** learner event hooks — 2026-11-14 · [x] **R3** carry + deposit trips — 2026-11-16, see `game/15-realtime-simulation-and-tasks.md` §R3 · [ ] **R5** lessons on the timeline model (free-play save is already done)
+=======
+- [x] **R4a** needs policies (interrupt → act → resume) — 2026-11-14, see `game/15-realtime-simulation-and-tasks.md` §R4a · [x] **R4b** learner event hooks — 2026-11-14 · [ ] **R3** carry + deposit trips · [ ] **R5** lessons on the timeline model (free-play save is already done)
+>>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
 - Order changed: R4 before R3 — the learner must be able to *react* before the economy gets deeper (reasoning in the plan).
 - Spec: `docs/game/15-realtime-simulation-and-tasks.md`. The C2 line below ("turn-based free play") is historical.
 
@@ -63,7 +67,7 @@ Legend: [x] done and tested · [ ] to do. A phase is finished only when its **ga
 
 ## Phase 5 — Loops, collections, carry
 - [ ] Multiple survivors, task queues, inventory + carry capacity + encumbrance
-- [ ] Gather → carry → deposit
+- [x] Gather → carry → deposit (R3; encumbrance/equipment effects still open)
 
 ## Phase 6 — Progression
 - [ ] Skill XP with diminishing returns, training, specialization unlocks

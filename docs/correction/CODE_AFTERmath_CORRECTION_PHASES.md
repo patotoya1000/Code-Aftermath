@@ -1,3 +1,5 @@
+> **HISTORICAL (superseded 2026-11-12).** Written for the turn-based model (C2: NEXT TURN, 3 commands per turn, `executeTurn`). The active model is real-time: see `docs/game/15-realtime-simulation-and-tasks.md` and `AI_MEMORY/CHANGELOG.md`. Do not treat the turn rules here as requirements.
+
 # CODE: AFTERMATH --- Correction Phases
 
 ## Purpose

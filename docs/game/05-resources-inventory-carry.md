@@ -19,8 +19,7 @@
 
 - Resource mutation happens only inside the simulation engine.
 
-> **Update 2026-11-12:** each gather batch now reserves node units and counts in-flight batches against storage room
-> (so concurrent gatherers cannot overfill). Gathered units still go straight to base stock; carry and deposit trips are phase R3.
+> **Update 2026-11-16 (R3):** gathered units go into the survivor's hands and reach base stock only when she unloads at a working storage building; room is reserved before pickup. Implemented: unitWeight, derived load and capacity, pickup, unload, pooled storage. Still open: encumbrance and equipment effects on capacity. See `game/15-realtime-simulation-and-tasks.md` §R3.
 
 # 10. Inventory and Carry Rules
 

@@ -41,7 +41,7 @@ survivor.gather(resource, load = 5, total)
 | `NO_TARGET` | no node of that resource has anything left |
 | `EXHAUSTED` | survivor energy fell below `needs.work.minEnergy`; units already chopped in the unfinished trip still count |
 
-- Ended **after doing some work** → the action is `COMPLETED` with `stopReason`; events `task.started`, `resource.gathered` (per trip), `task.stopped { reason, gathered, trips }`.
+- Ended **after doing some work** → the action is `COMPLETED` with `stopReason`; events `task.started`, `resource.gathered` (picked up, per trip), `resource.deposited` (unloaded), `task.stopped { reason, gathered, trips }`.
 - Ended **before any work** → `FAILED` with the same reason code (so "no trees at all" is still a failure).
 - `stop()` or a replacing command cancels the job: the unfinished trip is released back to the node (not credited); everything already delivered stays.
 - Learner-readable result: `survivor.lastTask = { type, status, reason, gathered, tick }` explains why a survivor is idle.
@@ -61,6 +61,38 @@ Hunger, thirst and energy keep draining while survivors work. Nothing eats or re
 - **`rest` is plain arithmetic:** +`energyPerTick` per tick (rest skill / endurance speed it up; hunger/thirst slow it; tiredness does *not*), capped at 100.
 - **Save / load** stores scenario + seed + command timeline + state hash; loading replays and verifies (`SAVE_CORRUPT`, `SAVE_VERSION_MISMATCH`).
 
+## R4a — Needs policies (added 2026-11-14)
+`survivor.policy(name, { below, until })` stores a standing rule on the survivor (`eat`→hunger, `drink`→thirst, `rest`→energy; thresholds and retry times are data in `definitions/data/actions.js → policies`). `survivor.clearPolicy(name?)` removes one or all. Both are instant commands (1 strategy point, not part of the replace/queue order) and are recorded in the command timeline, so replay and save/load cover them.
+
+Each tick, after needs decay and before the queue advances, every active survivor's policies are checked:
+1. **Fire** when `need < below`, the policy has no action of its own already queued, and the survivor's current job is not already the cure (a manual `rest` is left alone).
+2. **Pre-check:** no food/water in stock → nothing is interrupted; `policy.blocked` is emitted once and the policy waits `retryEvery` ticks. A policy action that later FAILS blocks it the same way.
+3. **Interrupt → act → resume:** the running job is cancelled with reason `INTERRUPTED` (reservations released, the unfinished trip is not credited, like `stop()`); the policy action is queued at the FRONT; a continuation of the job is queued right behind it. Continuations keep the learner's `total` (already-gathered units count), the remaining ticks of a `rest`, and the cumulative work-tick counter (so interrupting cannot dodge energy cost). `task.resumed` is emitted when it really starts. Jobs queued after the interrupted one keep their order.
+Events: `policy.set`, `policy.cleared`, `policy.triggered`, `policy.blocked`, `task.resumed`. Survivor card shows active policies; `survivor.policies` is readable. `SIM_VERSION` is now `0.3.0` (old saves are refused with `SAVE_VERSION_MISMATCH`).
+Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with a manual rest, and fails if the learner does neither.
+
+## R4b — Learner event hooks (added 2026-11-14)
+`survivor.on(event, fn)` registers a hook; `survivor.off(event?)` removes one or all (max 4 per survivor, one per event). Both are instant commands (1 strategy point) stored in `state.hooks` and in the command timeline.
+- **Registration sends the function's SOURCE TEXT** (a function cannot cross the Worker boundary). The handler therefore cannot use variables from the code around it; it reads the world through `survivor`, `base`, `nodes` … exactly as top-level code does. Max 600 characters.
+- **Running:** the session's `createHookRunner(...).pump()` (called every frame by the UI) reads new events. `hungry`/`thirsty`/`tired` fire when the condition is newly gained; `stopped` fires on `task.stopped` or `action.failed` and passes `{ reason, task }`. The handler runs in a fresh sandbox Worker with a fresh frozen view, may issue at most `limits.maxCommands` (5) commands, and a hook cannot fire again within `limits.cooldownTicks` (10).
+- **Commands from a hook** follow the program rule (first task command replaces, the rest queue) and go through `submitCalls`, so they cost points and are recorded in the timeline. **Replay and save/load never run hooks**; they replay the commands the hooks produced. After loading, a new runner takes over from the end of the log.
+- **Failure:** an error, timeout or budget overrun emits `hook.failed` and switches that hook off until it is registered again (not persisted across load). `survivor.on` inside a hook is refused (`HOOK_NOT_ALLOWED`).
+- **Lessons:** rejected with `HOOKS_FREE_PLAY_ONLY` until R5 puts lessons on the live timeline.
+<<<<<<< HEAD
+- Events: `hook.set`, `hook.cleared`, `hook.ran`, `hook.failed`. `SIM_VERSION` is `0.5.0` (after R3).
+
+## R3 — Carry and deposit (2026-11-16)
+- A survivor has a **carry capacity** in weight units: `(20 + 8 × strength) × trait multipliers` (`strong` ×1.25), from `defs.carry`. A rookie carries 60 weight = 30 wood or 15 stone. `survivor.carry` shows `{ load, capacity }`; `survivor.inventory` shows what she holds.
+- A `gather` **trip**: walk to the nearest node → gather up to `load` units (never more than she can carry or than fits in storage) → the units go into her hands (`resource.gathered`) → she walks to the nearest working storage building that accepts them → unloads (`resource.deposited`, `unloadTicks` 2) → next trip. Base stock only grows when she unloads. `total` counts units that reached storage.
+- **Storage is pooled:** base stock is one stock per item; its capacity is the sum of the `storage` tables of every building that is not ruined (HQ, tent, and the storehouse once repaired). `base.capacity.wood` shows it. A ruined building contributes nothing and cannot be unloaded at.
+- **Room is reserved before pickup:** pooled capacity − stock − everything survivors carry − batches other gatherers have reserved. Storage therefore never overfills, however many survivors work.
+- **Interruptions never lose units:** `stop()`, a policy interruption, exhaustion or `replace` leave the load in her hands. `survivor.deposit()` walks it to storage; so does the next `gather`, before its first trip. A policy that interrupts a carrying job resumes it and the load is unloaded on the way.
+- `survivor.deposit()` fails with `NOTHING_TO_DEPOSIT` when her hands are empty. New stop reason `NO_DEPOT` (nothing that works accepts what she carries).
+- Not in R3: encumbrance (load does not slow her), equipment effects, field eating from her hands, learner-chosen depot, pathing.
+=======
+- Events: `hook.set`, `hook.cleared`, `hook.ran`, `hook.failed`. `SIM_VERSION` is `0.4.0`.
+>>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
+
 ## Compatibility notes
 - `gather(resource, n)` used to be a one-shot batch of `n`. It now means *trips of n, until done*. Use `gather(resource, n, n)` for the old behaviour. Starter code in the four lessons was updated this way.
 - `API_VERSION` stays 1 (pre-release); `SIM_VERSION` is now `0.2.0`.
@@ -68,6 +100,11 @@ Hunger, thirst and energy keep draining while survivors work. Nothing eats or re
 ## Still to come
 | Phase | Scope |
 |---|---|
+<<<<<<< HEAD
+| R3 ✅ | Carry capacity and deposit trips (gather → carry → walk to storage → unload), tent/HQ/storehouse storage pooling — see §R3 |
+=======
 | R3 | Carry capacity and deposit trips (gather → carry → walk to HQ → deposit), tent/HQ storage pooling |
-| R4 | Needs interrupts and policies, learner event hooks |
+>>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
+| R4a ✅ | Needs policies |
+| R4b ✅ | Learner event hooks |
 | R5 | Lessons and replay records moved fully to the timeline model; saving free-play sessions |

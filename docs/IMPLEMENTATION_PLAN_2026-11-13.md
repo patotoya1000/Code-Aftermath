@@ -76,6 +76,10 @@ empty tree, the only tool is "write the whole day in advance", which teaches seq
 Rules that carry across every phase (they are what kept this pass safe): every new mechanic gets (1) a regression test
 that fails on the old behaviour, (2) an invariant added to `soak.test.js`, (3) a real-browser smoke check when it has UI.
 
+> **Update 2026-11-14:** R4a is implemented (130 tests, soak 150 seeds green). Browser smoke could not be re-run in that session (no Chromium); run `npm run smoke` locally before R4b.
+
+> **Update 2026-11-14 (2):** R4b is implemented (138 tests, soak 100 seeds green). Browser smoke still needs a local run (no Chromium in the build sandbox).
+
 ## 4. What was added
 
 - **Free-play save/load.** A save is the session *record* (scenario, seed, the commands with the ticks they were issued,
@@ -101,3 +105,5 @@ that fails on the old behaviour, (2) an invariant added to `soak.test.js`, (3) a
 
 Not measured here: real touch devices, Firefox/Safari, and performance on a low-end phone (the projection cache should
 help; profile before R3 adds more per-frame work).
+
+> **Update 2026-11-15:** `AI_MEMORY/` navigation layer added; `tests/invariants.test.js` adds 11 tests (149 total, 0 failing; soak 100 seeds green); browser smoke re-run after R4b: 20/20 passed, and the page now declares an empty `data:` icon so the browser's favicon request no longer logs a console 404.
