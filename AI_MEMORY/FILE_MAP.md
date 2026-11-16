@@ -20,7 +20,9 @@ Columns: Purpose · Owns · Does not own · Used by · Depends on · Tests · Me
 | `src/modules/actions/handlers/deposit.js` | `deposit()` | unload everything carried | — | engine | carry, shared | carry | INVENTORY_INDEX, TASK_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/move.js` | Move | stepping to a tile/entity | pathing | engine | shared | simulation | TASK_INDEX | IMPLEMENTED (walks A* routes via `walkStep`) |
 | `src/modules/actions/handlers/rest.js` | Rest | energy gain per tick | — | engine | shared | stabilization | NEEDS_INDEX | IMPLEMENTED |
-| `src/modules/actions/handlers/consume.js` | Eat/drink | restore need, reserve item | — | engine | resources | simulation | NEEDS_INDEX | IMPLEMENTED |
+| `src/modules/actions/handlers/consume.js` | Eat/drink | choose item (`pickConsumable`), restore need, reserve item | — | engine, policies | resources | simulation | NEEDS_INDEX | IMPLEMENTED |
+| `src/modules/actions/handlers/cook.js` | Cook (standing batches) | recipe batches at a station, stop reasons | — | engine | resources, buildings (`stationsFor`), capability, survivors | simulation | TASK_INDEX | IMPLEMENTED |
+| `src/modules/definitions/data/recipes.js` | Recipes (data) | station, level, inputs, outputs, ticks, skill | — | definitions, projection, cook | — | — | TASK_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/repair.js` | Repair buildings | health gain, wood cost | construction | engine | buildings | simulation, world-i2 | BUILDING_INDEX | IMPLEMENTED |
 | `src/modules/actions/handlers/shared.js` | Walk-then-work helper | work energy cost, `tooTired` | — | handlers | kernel | stabilization | TASK_INDEX | IMPLEMENTED |
 | `src/modules/capability/index.js` | Capability + modifiers | `checkCapability` | state writes | actions | definitions | stabilization | SKILLS_INDEX | IMPLEMENTED (constants in code) |
@@ -48,3 +50,5 @@ Columns: Purpose · Owns · Does not own · Used by · Depends on · Tests · Me
 | `src/app/index.js` | Composition root | wiring, progress, save/load glue | rules | `src/app/mainscreen.js`, tests | all modules | stabilization, ui-wiring | ARCHITECTURE_INDEX | IMPLEMENTED |
 | `src/app/mainscreen.js` | UI controller | DOM, frame loop, panels | gameplay numbers | `index.html` | app, render, assets, persistence | ui-wiring, smoke | RENDERER_INDEX | IMPLEMENTED |
 | `scripts/smoke.mjs` | Real-browser check | UI smoke | unit logic | `npm run smoke` | Playwright | — | RENDERER_INDEX | IMPLEMENTED (20/20 on 2026-11-15) |
+| `src/modules/spoilage/index.js` | Spoilage (O9): perishable batches `{qty, age}`, daily ageing, cold storage | `syncStock`, `ageFood`, `coldOf`, `perishableView`, `coldInfoFor` | cook/eat handlers, simulation (day change), projection | simulation | resources, buildings | tests/spoilage.test.js | ITEM_INDEX | IMPLEMENTED |
+| `src/modules/water/index.js` | Water (O7): aquifer recharge, siphon, well view | `tickWater`, `workingSources`, `siphonTarget`, `waterInfoFor` | gather trips, building repair | simulation, gather, projection | resources, buildings, environment | water | WATER_INDEX | IMPLEMENTED |

@@ -29,6 +29,7 @@ export const FailureReason = Object.freeze({
   NOTHING_TO_DEPOSIT: 'NOTHING_TO_DEPOSIT', // deposit() while carrying nothing
   MAX_LEVEL: 'MAX_LEVEL', // upgrade: no higher level exists for this building
   NEEDS_REPAIR: 'NEEDS_REPAIR', // upgrade: repair the building first
+  NO_STATION: 'NO_STATION', // cook: no such station building (kitchen) exists in this world
   NO_DEPOT: 'NO_DEPOT', // nothing that still works can store what she carries
   NO_PATH: 'NO_PATH', // walls/buildings leave no way to the destination
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
@@ -46,4 +47,6 @@ export const StopReason = Object.freeze({
   EXHAUSTED: 'EXHAUSTED',           // the survivor is too tired to keep working
   NO_DEPOT: 'NO_DEPOT',             // no working storage building accepts what she carries
   NO_PATH: 'NO_PATH',               // she cannot walk to where the work is
+  NO_INGREDIENTS: 'NO_INGREDIENTS', // cook: the next batch cannot be paid for from base stock
+  NO_STATION: 'NO_STATION',         // cook: the station stopped working (or is gone)
 });

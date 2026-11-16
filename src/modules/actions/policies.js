@@ -1,5 +1,5 @@
 import { AftermathError, hasOwn } from '../../kernel/index.js';
-import { available, stockKey } from '../resources/index.js';
+import { pickConsumable } from './handlers/consume.js';
 import { Status, FailureReason, isTerminal } from './lifecycle.js';
 
 /**
@@ -27,7 +27,7 @@ export function normalizePolicy(defs, params = {}) {
   const key = params.action;
   if (typeof key !== 'string' || !hasOwn(defs.policies, key)) throw bad(`policy(): unknown policy "${key}". Use one of: ${Object.keys(defs.policies).join(', ')}.`);
   const rule = defs.policies[key];
-  const known = ['action', 'below', ...(rule.until ? ['until'] : [])];
+  const known = ['action', 'below', ...(rule.until ? ['until'] : []), ...(rule.prefer ? ['prefer'] : [])];
   for (const k of Object.keys(params)) if (!known.includes(k)) throw bad(`policy("${key}"): "${k}" is not an option here. Options: ${known.slice(1).join(', ')}.`);
   const below = params.below ?? rule.below.default;
   if (!Number.isInteger(below) || below < rule.below.min || below > rule.below.max) throw bad(`policy("${key}"): below must be a whole number from ${rule.below.min} to ${rule.below.max}.`);
@@ -38,6 +38,11 @@ export function normalizePolicy(defs, params = {}) {
     if (until <= below) throw bad(`policy("${key}"): until (${until}) must be higher than below (${below}), or the survivor would stop before the need is cured.`);
     out.until = until;
   }
+  if (params.prefer !== undefined) {
+    const items = defs.actions[rule.action].items;
+    if (typeof params.prefer !== 'string' || !hasOwn(items, params.prefer)) throw bad(`policy("${key}"): prefer must be one of: ${Object.keys(items).join(', ')}.`);
+    out.prefer = params.prefer;
+  }
   return out;
 }
 
@@ -46,8 +51,8 @@ export function setPolicy(ctx, actorId, params) {
   const s = state.survivors[actorId];
   const n = normalizePolicy(defs, params);
   const prev = s.policies[n.key];
-  s.policies[n.key] = { below: n.below, ...(n.until !== undefined ? { until: n.until } : {}), cooldownUntil: 0, lastActionId: prev?.lastActionId ?? null, blocked: null };
-  ctx.emit('policy.set', { actorId, policy: n.key, below: n.below, ...(n.until !== undefined ? { until: n.until } : {}) });
+  s.policies[n.key] = { below: n.below, ...(n.until !== undefined ? { until: n.until } : {}), ...(n.prefer !== undefined ? { prefer: n.prefer } : {}), cooldownUntil: 0, lastActionId: prev?.lastActionId ?? null, blocked: null };
+  ctx.emit('policy.set', { actorId, policy: n.key, below: n.below, ...(n.until !== undefined ? { until: n.until } : {}), ...(n.prefer !== undefined ? { prefer: n.prefer } : {}) });
 }
 
 export function clearPolicy(ctx, actorId, params = {}) {
@@ -64,11 +69,15 @@ export function clearPolicy(ctx, actorId, params = {}) {
 
 /** The command that continues an interrupted job, or null when nothing is left to do. Never carries learner input twice. */
 function continuationOf(a, defs) {
-  const resumeOf = { actionId: a.actionId, gathered: (a.resumeOf?.gathered ?? 0) + (a.stats?.gathered ?? 0), workTotal: a.workTotal ?? 0 };
+  const resumeOf = { actionId: a.actionId, gathered: (a.resumeOf?.gathered ?? 0) + (a.stats?.gathered ?? a.stats?.crafted ?? 0), workTotal: a.workTotal ?? 0 };
   const params = { ...a.params };
   if (a.actionType === 'gather' && params.total !== undefined) {
     params.total -= a.stats?.gathered ?? 0; // what is already in the base counts toward the learner's total
     if (params.total < 1) return null;
+  }
+  if (a.actionType === 'cook' && params.count !== undefined) {
+    params.count -= a.stats?.crafted ?? 0; // batches already finished count toward the learner's count
+    if (params.count < 1) return null;
   }
   if (a.actionType === 'rest') {
     params.ticks = (params.ticks ?? defs.actions.rest.defaultTicks) - a.progress;
@@ -92,8 +101,13 @@ function fire(ctx, engine, s, key, p) {
 
   if (live.some((a) => a.origin === `policy:${key}`)) return; // already being handled
 
-  const item = defs.actions[rule.action].item;
-  if (item && available(state, stockKey(item)) < 1) return block(ctx, s, key, p, FailureReason.INSUFFICIENT_RESOURCE);
+  // Eating / drinking: is there anything to consume at all? `prefer` is soft - the preferred item if it is in stock, else the default order.
+  const consumable = defs.actions[rule.action].items;
+  let item;
+  if (consumable) {
+    item = p.prefer !== undefined && pickConsumable(ctx, defs.actions[rule.action], p.prefer) ? p.prefer : undefined;
+    if (!item && !pickConsumable(ctx, defs.actions[rule.action])) return block(ctx, s, key, p, FailureReason.INSUFFICIENT_RESOURCE);
+  }
 
   // The job in front of any policy actions is the one to interrupt (only if it is actually running).
   const headAt = live.findIndex((a) => !isPolicyAction(a));
@@ -111,7 +125,7 @@ function fire(ctx, engine, s, key, p) {
     anchor = current;
   }
 
-  const params = rule.action === 'rest' ? { ticks: defs.actions.rest.maxTicks, until: p.until } : {};
+  const params = rule.action === 'rest' ? { ticks: defs.actions.rest.maxTicks, until: p.until } : item ? { item } : {};
   const actionId = engine.submit(ctx, { type: rule.action, actorId: s.id, params }, { origin: `policy:${key}`, beforeId: anchor?.actionId });
   if (cont) engine.submit(ctx, cont.command, { resumeOf: cont.resumeOf, beforeId: anchor?.actionId });
   p.lastActionId = actionId;

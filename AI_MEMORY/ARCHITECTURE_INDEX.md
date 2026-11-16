@@ -52,11 +52,13 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `definitions` | — |
 | `resources` | — |
 | `survivors` | — |
-| `buildings` | — |
-| `world` | `resources`, `survivors`, `buildings` |
-| `projection` | `resources`, `survivors`, `buildings`, `environment` |
-| `actions` | `resources`, `survivors`, `buildings`, `capability` |
-| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment` |
+| `buildings` | `resources` |
+| `water` | `resources`, `buildings`, `environment` |
+| `spoilage` | `resources`, `buildings` |
+| `world` | `resources`, `survivors`, `buildings`, `spoilage` |
+| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage` |
+| `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage` |
+| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage` |
 | `environment` | — |
 | `api` | — |
 | `sandbox` | `api` |
@@ -76,7 +78,11 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 
 **REPAIR** (the only building action; there is no BUILD) — `survivor.repair(fence)` → `repairHandler`: validate (exists, damaged, not too tired) → reserve wood cost → walk → work `repair.ticks` → `complete`: `applyHealth` → `building.repaired`, `building.condition_changed`.
 
-**EAT / DRINK** — `consumeHandler`: reserve 1 food/water → `ticks` → `need += restore` → `survivor.consumed`.
+**EAT / DRINK** — `consumeHandler`: pick the item (`pickConsumable`: a learner's named item is hard, otherwise the in-stock item with the lowest `rank` in `actions.<name>.items`) → reserve 1 → `ticks` → `need += items[item].restore` → `survivor.consumed { item }`.
+
+**SPOILAGE** — items with `shelfLife` (days) keep batches in `state.perishables[item]` beside the ledger (sum = ledger total; `syncStock` after every change: surplus = fresh batch, deficit = oldest used). `simulation` calls `ageFood` when the calendar day changes: +100 age points per batch (+⌊100/factor⌋ for the `capacity` oldest units while a working cold building exists), spoiled units leave the ledger through `discard` (unreserved units only) and emit `food.spoiled`.
+
+**COOK** — `cookHandler` (standing, like gather): nearest working station for the recipe (`buildings.stationsFor`: type = `recipe.station`, `condition === 'repaired'`, level ≥ `stationLevel`) → walk → per batch: reserve `recipe.inputs` from base stock, work `recipe.ticks`, commit inputs, `credit` outputs, `item.crafted`, cooking XP → next batch or stop (`TARGET_REACHED`, `NO_INGREDIENTS`, `STORAGE_FULL`, `EXHAUSTED`, `NO_STATION`, `NO_PATH`). Output room is checked before the batch starts and again before inputs are spent.
 
 **QUEUE TASK / REPLACE** — `submitCalls`: first non-instant command per survivor in a run uses mode `replace` (`engine.cancelFor(..., 'REPLACED')`), later ones `queue`; `survivor.queue()` marks the survivor append-only; policies/hooks/`clearPolicy` are instant and never count as "first".
 

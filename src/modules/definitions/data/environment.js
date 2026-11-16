@@ -12,12 +12,13 @@ export const environment = {
   duskHour: 18,
   // `rainfall`: water falls from the sky (will water open-air crops). `hazard`: what weather harms exposed things with
   // (null = none). Greenhouses block hazards, hydroponics ignore weather entirely (farming phase).
+  // `recharge`: how fast aquifers refill, in percent of normal (O7 wells): rain and storms top them up, a heat wave dries them, cold slows them.
   weather: {
-    clear:    { name: 'Clear',     icon: '☀',  rainfall: false, hazard: null },
-    rain:     { name: 'Rain',      icon: '🌧', rainfall: true,  hazard: null },
-    storm:    { name: 'Storm',     icon: '⛈', rainfall: true,  hazard: 'storm' },
-    heatwave: { name: 'Heat wave', icon: '🔥', rainfall: false, hazard: 'heat' },
-    cold:     { name: 'Cold snap', icon: '❄',  rainfall: false, hazard: 'cold' },
+    clear:    { name: 'Clear',     icon: '☀',  rainfall: false, hazard: null, recharge: 100 },
+    rain:     { name: 'Rain',      icon: '🌧', rainfall: true,  hazard: null, recharge: 160 },
+    storm:    { name: 'Storm',     icon: '⛈', rainfall: true,  hazard: 'storm', recharge: 200 },
+    heatwave: { name: 'Heat wave', icon: '🔥', rainfall: false, hazard: 'heat', recharge: 50 },
+    cold:     { name: 'Cold snap', icon: '❄',  rainfall: false, hazard: 'cold', recharge: 80 },
   },
   seasons: [
     { id: 'spring', name: 'Spring', days: 8, phases: [{ weather: 'clear', days: 3 }, { weather: 'rain', days: 2 }, { weather: 'clear', days: 2 }, { weather: 'storm', days: 1 }] },

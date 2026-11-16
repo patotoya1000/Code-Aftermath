@@ -2,7 +2,9 @@ import { deepFreeze, API_VERSION, own } from '../../kernel/index.js';
 import { available, stockKey, nodeKey, total, summary } from '../resources/index.js';
 import { deriveConditions, carriedLoad, carryCapacity, skillProgress } from '../survivors/index.js';
 import { environmentView } from '../environment/index.js';
-import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade } from '../buildings/index.js';
+import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, stationsFor } from '../buildings/index.js';
+import { waterInfoFor } from '../water/index.js';
+import { perishableView, coldInfoFor } from '../spoilage/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
 // the Inspector/Survivor Card and the renderer all consume these and can never mutate the simulation.
@@ -20,7 +22,7 @@ function survivorView(state, defs, s) {
     needs: { ...s.needs }, conditions: deriveConditions(s, defs),
     attributes: { ...s.attributes }, skills: { ...s.skills }, skillProgress: skillProgress(defs, s), traits: [...s.traits],
     hooks: Object.values(state.hooks ?? {}).filter((h) => h.actorId === s.id).map((h) => h.event),
-    policies: Object.fromEntries(Object.entries(s.policies ?? {}).map(([k, p]) => [k, { below: p.below, ...(p.until !== undefined ? { until: p.until } : {}), blocked: p.blocked ?? null }])),
+    policies: Object.fromEntries(Object.entries(s.policies ?? {}).map(([k, p]) => [k, { below: p.below, ...(p.until !== undefined ? { until: p.until } : {}), ...(p.prefer !== undefined ? { prefer: p.prefer } : {}), blocked: p.blocked ?? null }])),
     inventory: { items: { ...s.inventory.items } },
     // Weights come from item definitions (never from UI constants). `carry` is derived on the fly: load = sum of quantity x unitWeight.
     carry: { load: carriedLoad(s, defs), capacity: carryCapacity(s, defs) },
@@ -30,7 +32,7 @@ function survivorView(state, defs, s) {
     task: a ? {
       actionId: a.actionId, type: a.actionType, status: a.status, targetId: a.targetId, progress: a.progress,
       fraction: a.fraction ?? 0, // 0..1 of the current batch (standing actions); presentation only
-      ...(a.stats ? { stats: { gathered: a.stats.gathered, trips: a.stats.trips } } : {}),
+      ...(a.stats ? { stats: a.stats.crafted !== undefined ? { crafted: a.stats.crafted } : { gathered: a.stats.gathered, trips: a.stats.trips } } : {}),
       ...(a.capabilityDetail ? { capabilityDetail: { ...a.capabilityDetail } } : {}),
     } : null,
     lastTask: s.lastTask ? { ...s.lastTask } : null,
@@ -55,12 +57,37 @@ function storageInfoFor(state, defs, b) {
 function buildingView(state, defs, b) {
   const def = defs.buildings[b.type];
   const storageInfo = storageInfoFor(state, defs, b);
+  const water = waterInfoFor(state, defs, b); // wells: reservoir, recharge, siphon
+  const recipesHere = recipesAt(defs, b);
+  const cold = coldInfoFor(state, defs, b); // cold cellar: { capacity, factor, working }
   return {
     id: b.id, type: b.type, name: def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
     upgrade: nextUpgrade(defs, b), // { level, cost, ticks } or null
-    ...(storageInfo ? { storageInfo } : {}), ...(def.note ? { note: def.note } : {}),
+    ...(storageInfo ? { storageInfo } : {}), ...(water ? { water } : {}), ...(def.note ? { note: def.note } : {}),
+    ...(cold ? { cold } : {}),
+    ...(recipesHere.length ? { recipes: recipesHere } : {}), // station buildings: which recipes are cooked here (and from which level)
   };
+}
+
+/** Recipes a station building type makes: [{ id, stationLevel, working }] - `working` = this very building can cook it right now. */
+function recipesAt(defs, b) {
+  return Object.entries(defs.recipes ?? {}).filter(([, r]) => r.station === b.type)
+    .map(([id, r]) => ({ id, stationLevel: r.stationLevel, working: b.condition === 'repaired' && b.level >= r.stationLevel }));
+}
+
+/** The learner's recipe book: what each recipe needs and makes, whether a working station exists, and whether base stock can pay for a batch. */
+function recipeBook(state, defs) {
+  return Object.fromEntries(Object.entries(defs.recipes ?? {}).map(([id, r]) => [id, {
+    id, name: r.name, station: r.station, stationLevel: r.stationLevel, inputs: { ...r.inputs }, outputs: { ...r.outputs }, ticks: r.ticks, skill: r.skill,
+    stationWorking: stationsFor(state, defs, r).working.length > 0,
+    canAfford: Object.entries(r.inputs).every(([item, qty]) => available(state, stockKey(item)) >= qty),
+  }]));
+}
+
+/** What survivor.eat() can eat: item -> { restore, rank, available }. */
+function foodTable(state, defs) {
+  return Object.fromEntries(Object.entries(defs.actions.eat.items).map(([id, f]) => [id, { restore: f.restore, rank: f.rank, available: available(state, stockKey(id)) }]));
 }
 
 /** What learner code may read. `base.<item>` is the AVAILABLE amount (total minus reserved). */
@@ -73,6 +100,7 @@ export function studentView(state, defs) {
     reserved[item] = total(state, stockKey(item)) - base[item];
   }
   base.reserved = reserved;
+  base.perishables = perishableView(state, defs); // [{ item, qty, daysLeft, cold }], oldest first
   base.capacity = Object.fromEntries(Object.keys(defs.items).map((item) => [item, storageCapacity(state, item)]));
   const buildings = Object.values(state.buildings).map((b) => buildingView(state, defs, b));
   const nodes = Object.values(state.nodes).map((n) => ({
@@ -82,6 +110,7 @@ export function studentView(state, defs) {
     apiVersion: API_VERSION, tick: state.tick, world: { ...state.map, ...environmentView(defs, state.tick) },
     survivor: survivors[0] ?? null, survivors, base,
     buildings, fence: buildings.find((b) => b.type === 'fence') ?? null, hq: buildings.find((b) => b.type === 'hq') ?? null,
+    recipes: recipeBook(state, defs), foods: foodTable(state, defs),
     nodes,
   });
 }
@@ -91,7 +120,8 @@ function animationFor(s, a) {
   if (s.status === 'downed') return 'DOWNED';
   if (!a || a.status !== 'EXECUTING') return 'IDLE';
   if (a.actionType === 'move' || a.phase === 'travel') return 'WALK';
-  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
+  if (a.phase === 'wait') return 'IDLE'; // standing at an empty well, waiting for it to refill
+  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', cook: 'REPAIR', /* placeholder: no cooking pose in the sprite sheet yet - a working pose stands in */ rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
 }
 
 /** Static presentation ground for the scenario (forest zone, outside path). Never affects gameplay. */
@@ -112,11 +142,15 @@ export function renderProjection(state, defs) {
       id: s.id, name: s.identity.name, x: s.position.x, y: s.position.y, direction: s.direction,
       animation: animationFor(s, currentAction(state, s.id)), status: s.status,
     })),
-    buildings: Object.values(state.buildings).map((b) => ({
-      id: b.id, type: b.type, name: defs.buildings[b.type].name, level: b.level, condition: b.condition, assetKey: assetKey(b), x: b.x, y: b.y,
-      ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
-      storageInfo: storageInfoFor(state, defs, b.type),
-    })),
+    buildings: Object.values(state.buildings).map((b) => {
+      const w = waterInfoFor(state, defs, b);
+      return {
+        id: b.id, type: b.type, name: defs.buildings[b.type].name, level: b.level, condition: b.condition, assetKey: assetKey(b), x: b.x, y: b.y,
+        ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
+        storageInfo: storageInfoFor(state, defs, b.type),
+        ...(w ? { water: { amount: w.amount, capacity: w.capacity, working: w.working } } : {}), // the renderer draws a reservoir gauge from this
+      };
+    }),
     terrain: terrainOf(state, defs),
     nodes: Object.values(state.nodes).map((n) => {
       const left = total(state, nodeKey(n.id));

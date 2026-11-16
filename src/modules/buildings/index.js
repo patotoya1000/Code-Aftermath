@@ -1,4 +1,5 @@
 import { AftermathError } from '../../kernel/index.js';
+import { total, stockKey } from '../resources/index.js';
 
 export function createBuilding(defs, spec) {
   const def = defs.buildings[spec.type];
@@ -9,6 +10,9 @@ export function createBuilding(defs, spec) {
     condition: 'repaired',
     blocks: def.blocks !== false, // survivors cannot walk through it (see pathing.js); the gate opts out
     ...(def.storage ? { storage: { ...def.storage } } : {}),
+    // A building that has a water source at any level keeps its own small bookkeeping here (the reservoir itself is a ledger account):
+    //   progress = aquifer recharge accumulator (percent-ticks), siphon = { status, progress }.
+    ...(Object.values(def.levels).some((l) => l.source) ? { water: { progress: 0, siphon: { status: 'OFF', progress: 0 } } } : {}),
   };
   if (spec.bounds) b.bounds = { ...spec.bounds };
   b.condition = conditionOf(defs, b);
@@ -63,12 +67,33 @@ export function nearestDepot(state, item, from) {
 
 export const depotAccepts = accepts;
 
+/**
+ * Room left in pooled storage for `item`: pooled capacity - base stock - every unit already on its way there (what survivors carry
+ * and what gatherers have reserved at a source but not picked up yet). `exceptActionId` leaves one gather's own batch out of the sum.
+ * Gatherers and siphons both use it, so nothing can ever overfill storage.
+ */
+export function storageRoom(state, item, exceptActionId = null) {
+  let incoming = 0;
+  for (const sv of Object.values(state.survivors)) if (Object.prototype.hasOwnProperty.call(sv.inventory.items, item)) incoming += sv.inventory.items[item];
+  for (const id of state.activeActions) {
+    const o = state.actions[id];
+    if (o.actionId !== exceptActionId && o.actionType === 'gather' && o.params.resource === item && o.batch > 0 && o.reservationIds.length > 0) incoming += o.batch;
+  }
+  return Math.max(0, storageCapacity(state, item) - total(state, stockKey(item)) - incoming);
+}
+
 /** The next level's upgrade offer for a building ({ level, cost, ticks }) or null at the top / when none is defined. */
 export function nextUpgrade(defs, b) {
   const def = defs.buildings[b.type];
   const level = b.level + 1;
   const spec = def.upgrade?.[level];
   return def.levels[level] && spec ? { level, cost: { ...spec.cost }, ticks: spec.ticks } : null;
+}
+
+/** Station buildings for a recipe: `all` of its type, and the `working` ones (fully repaired and at least the recipe's station level). */
+export function stationsFor(state, defs, recipe) {
+  const all = Object.values(state.buildings).filter((b) => b.type === recipe.station);
+  return { all, working: all.filter((b) => b.condition === 'repaired' && b.level >= recipe.stationLevel) };
 }
 
 export { findPath, blockedTiles } from './pathing.js';

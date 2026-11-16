@@ -21,8 +21,8 @@ The ONLY bridge from learner code to the simulation. Learner code calls `survivo
 
 # Core Data
 
-- `moveTo(x,y | entity)`→`move` · `gather(resource, load 1–20 = 5, total 1–500)`→`gather` · `rest(ticks 1–200 = 20)`→`rest` · `eat()`→`eat` · `drink()`→`drink` · `repair(building)`→`repair`
-- `policy(name, {below, until})`→`policy` (instant) · `clearPolicy(name?)`→`policy_clear` (instant) · `on(event, fn)`→`hook_register` (instant, hook) · `off(event?)`→`hook_clear` (instant, hook)
+- `moveTo(x,y | entity)`→`move` · `gather(resource, load 1–20 = 5, total 1–500)`→`gather` · `rest(ticks 1–200 = 20)`→`rest` · `eat(item?)`→`eat` · `cook(recipe, count 1–100?)`→`cook` · `drink()`→`drink` · `repair(building)`→`repair`
+- `policy(name, {below, until, prefer})`→`policy` (instant) · `clearPolicy(name?)`→`policy_clear` (instant) · `on(event, fn)`→`hook_register` (instant, hook) · `off(event?)`→`hook_clear` (instant, hook)
 - `queue()` marker (no command) · `stop()`→`stop`
 - Versions: `API_VERSION` 1, `SUPPORTED_API_VERSIONS` [1] in `src/kernel/versions.js`.
 

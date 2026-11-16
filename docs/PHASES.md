@@ -12,6 +12,9 @@
 - [x] **R4a** needs policies (interrupt → act → resume) — 2026-11-14, see `game/15-realtime-simulation-and-tasks.md` §R4a · [x] **R4b** learner event hooks — 2026-11-14 · [x] **R3** carry + deposit trips — 2026-11-16, see `game/15-realtime-simulation-and-tasks.md` §R3 · [x] **R5** lessons on the timeline model · [x] **O3** collision/pathing — 2026-11-16 (A*, gate is the only opening in the fence; see `game/15-realtime-simulation-and-tasks.md` §O3)
 - [x] **O5** building upgrades (2026-11-16) — design: no free construction; buildings start ruined, are repaired, then upgraded. Planned: environment → farming (field/greenhouse/hydroponic) → cooking (kitchen) → crafting (workshop).
 - [x] **O6** environment: day/night + public weather calendar (2026-11-16)
+- [x] **O9** spoilage + cold cellar (2026-11-16) — bread spoils after 4 days; storehouse level 2 slows it. Next: farming → power (freezer) → crafting.
+- [x] **O8** recipe engine + kitchen + bread (2026-11-16) — `survivor.cook(recipe, count)`, ruined kitchen to repair, wheat → bread (+40 hunger), `eat(item)` / `policy("eat", { prefer })`; design in `docs/game/16-farming-cooking-power-design.md`. Next: spoilage + cold cellar → farming → power → crafting.
+- [x] **O7** water: deep well, aquifer recharge, siphon, water tank (2026-11-16) — design in `docs/game/17-water-wells.md`
 - Order changed: R4 before R3 — the learner must be able to *react* before the economy gets deeper (reasoning in the plan).
 - Spec: `docs/game/15-realtime-simulation-and-tasks.md`. The C2 line below ("turn-based free play") is historical.
 

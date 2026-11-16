@@ -95,3 +95,24 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 - **Forbidden Alternative:** crediting stock directly from the node; per-building stock accounts (would need transfers); a carry total stored on the survivor.
 - **Consequence:** `gather` trips are longer (walking home), lesson/time budgets were verified; `total` counts units that reached storage. Behaviour change ⇒ `SIM_VERSION` 0.5.0.
 - **Status:** ACCEPTED, implemented.
+
+## ADR-015 — Water: a refilling reservoir, not a counter (O7)
+- **Decision:** A deep well is a building whose reservoir is a ledger account. The aquifer refills it with time (data per level, scaled by the public weather calendar); survivors draw with `gather("water")` and wait when it is empty; a level-2 siphon moves water to base stock automatically, but only while a WORKING water store stands within `reach` of the well. The machine tier is a powered pump, deferred to the power phase.
+- **Reason:** Water straight into stock would remove the programming task and the survival pressure. A reservoir keeps hauling a loop to write, makes over-drawing meaningful, gives the forecast a use, and the siphon turns repeated manual code into structure-dependent automation.
+- **Consequence:** Wells never refill randomly (integer accumulator, replay-safe). Gather draw points are nodes AND working source buildings. Conservation: nothing is created except aquifer recharge.
+- **Forbidden Alternative:** crediting base stock directly from a timer; a siphon that ignores the building structure; floating-point recharge; learner-visible randomness.
+- **Status:** ACCEPTED, implemented (`SIM_VERSION` 0.10.0).
+
+## ADR-016 — One recipe engine for cooking and crafting (O8)
+- **Decision:** A recipe is data (`definitions/data/recipes.js`): station building type, minimum station level, inputs (including fuel), outputs, ticks, skill. `cook` is a standing action made of batches. Inputs are reserved per batch and spent only when the batch finishes; outputs go straight into base stock (the station is part of the base). Eating chooses among foods through a data table (`actions.eat.items`, `rank` = default order, lowest first); a named food is hard (`eat("bread")` never falls back), a policy `prefer` is soft.
+- **Reason:** Cooking, the workshop and later the MRE must share one mechanism; reservation per batch keeps the ledger exact when a job is cancelled or interrupted by a needs policy. Eating the cheapest food first keeps the good food for when it matters.
+- **Consequence:** Station buildings are scenario ruins that must be repaired (no free construction). A kitchen level is added together with the recipes that need it. Output room is checked twice (before the batch and before inputs are spent) because two cooks could both pass the first check. Behaviour change ⇒ `SIM_VERSION` 0.11.0.
+- **Forbidden Alternative:** cooking inside the survivor's hands/queue without a building; consuming inputs at the start of a batch; hard-coded recipe numbers in the handler; `eat()` silently substituting a different food when a named one is missing.
+- **Status:** ACCEPTED, implemented.
+
+## ADR-017 — Spoilage as age batches beside the ledger (O9)
+- **Decision:** The ledger keeps owning quantities. Perishables additionally have batches `{ qty, age }` (integer age points, 100 per day); `syncStock` reconciles them after every change so ages stay exact (surplus = fresh, deficit = oldest). Ageing runs once per calendar day. Cold storage protects its `capacity` OLDEST units (shared over all perishables), which age ⌊100/factor⌋ instead of 100. Spoiled units leave via `discard`, the only ledger sink; units reserved by an action in progress cannot be discarded and spoil the next day.
+- **Reason:** Keeps one source of truth for amounts (reservation, capacity and conservation code untouched) while adding time pressure; oldest-first protection is a rule a learner can reason about and automate.
+- **Consequence:** Stock changed outside the game rules counts as fresh. Freezer (power) tier = another `cold` level later. Behaviour change ⇒ `SIM_VERSION` 0.12.0.
+- **Forbidden Alternative:** random spoilage; per-unit timers; spoiling inside the ledger; ageing every tick.
+- **Status:** ACCEPTED, implemented.

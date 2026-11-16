@@ -66,6 +66,8 @@ body::before {
 #top-bar .resource .icon.stone { background:#6b6d6b; color:#c9c9c9; }
 #top-bar .resource .icon.metal { background:#5c6f80; color:#d1dce8; }
 #top-bar .resource .icon.food { background:#7d5a3d; color:#e8d4b8; }
+#top-bar .resource .icon.wheat { background:#8a7a3a; color:#f0e6b8; }
+#top-bar .resource .icon.bread { background:#9a6a3a; color:#f6dcb4; }
 #top-bar .resource .icon.water { background:#3d6b8a; color:#bfe2f0; }
 #top-bar .resource .icon.survivor { background:#8a5a4b; color:#f2ddc8; }
 #top-bar .resource .icon.base { background:#7a7a7a; color:#e8e4d8; }

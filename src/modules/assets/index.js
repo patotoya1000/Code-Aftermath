@@ -184,6 +184,7 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     // Storehouse: crates under a lean-to roof. Ruined = collapsed roof (tilted, short); damaged = sagging; repaired = flat.
     c.fillStyle = '#7a6244'; c.fillRect(ox + 4, oy + 14, w - 8, h - 18);
     c.fillStyle = '#5b4730'; c.fillRect(ox + 7, oy + 18, 8, 8); c.fillRect(ox + w - 15, oy + 18, 8, 8);
+    if (level > 1) { c.fillStyle = '#9fc4e0'; c.fillRect(ox + 4, oy + 26, w - 8, 3); } // cold cellar: a frosty band
     c.fillStyle = tint; c.beginPath();
     if (condition === 'ruined') { c.moveTo(ox + 2, oy + 16); c.lineTo(ox + w - 6, oy + 12); c.lineTo(ox + w - 3, oy + 17); c.lineTo(ox + 2, oy + 19); }
     else if (condition === 'damaged') { c.moveTo(ox + 2, oy + 10); c.lineTo(ox + w - 2, oy + 13); c.lineTo(ox + w - 2, oy + 17); c.lineTo(ox + 2, oy + 14); }
@@ -196,6 +197,40 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     if (condition === 'repaired') c.fillRect(ox + 8, oy + 12, w - 16, h - 18);
     else if (condition === 'damaged') { c.beginPath(); c.moveTo(ox + 8, oy + 12); c.lineTo(ox + 15, oy + 14); c.lineTo(ox + 15, oy + h - 8); c.lineTo(ox + 8, oy + h - 6); c.closePath(); c.fill(); }
     else { c.fillRect(ox + 9, oy + h - 9, 5, 3); }
+  } else if (type === 'well') {
+    // Deep well: a round stone rim with a crossbeam roof. Ruined = planks over the opening and a sagging beam; damaged = water visible,
+    // roof leaning; repaired = open water and a level roof. Level 2 adds the siphon tube leaving to the right.
+    c.fillStyle = '#7b7f85'; c.fillRect(ox + 7, oy + 16, w - 14, 11);
+    c.fillStyle = '#5d6168'; c.beginPath(); c.ellipse(ox + w / 2, oy + 27, (w - 14) / 2, 3, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = condition === 'ruined' ? '#4a3a2a' : '#2a5f8f'; c.beginPath(); c.ellipse(ox + w / 2, oy + 16, (w - 14) / 2 - 2, 3.5, 0, 0, Math.PI * 2); c.fill();
+    if (condition === 'ruined') { c.fillStyle = '#6b523a'; c.fillRect(ox + 9, oy + 14, w - 18, 3); }
+    c.fillStyle = '#5b4730'; c.fillRect(ox + 8, oy + 5, 3, 12); c.fillRect(ox + w - 11, oy + 5, 3, 12);
+    c.fillStyle = tint; c.beginPath();
+    if (condition === 'ruined') { c.moveTo(ox + 5, oy + 9); c.lineTo(ox + w - 7, oy + 6); c.lineTo(ox + w - 5, oy + 10); c.lineTo(ox + 5, oy + 12); }
+    else if (condition === 'damaged') { c.moveTo(ox + 5, oy + 4); c.lineTo(ox + w - 5, oy + 7); c.lineTo(ox + w - 5, oy + 10); c.lineTo(ox + 5, oy + 7); }
+    else { c.moveTo(ox + 5, oy + 4); c.lineTo(ox + w - 5, oy + 4); c.lineTo(ox + w - 5, oy + 8); c.lineTo(ox + 5, oy + 8); }
+    c.closePath(); c.fill();
+    if (level > 1) { c.strokeStyle = '#9fb6c9'; c.lineWidth = 3; c.beginPath(); c.moveTo(ox + w - 9, oy + 22); c.lineTo(ox + w - 1, oy + 22); c.stroke(); c.fillStyle = '#9fb6c9'; c.fillRect(ox + w - 4, oy + 19, 4, 6); }
+  } else if (type === 'water_tank') {
+    // Water tank: a barrel on short legs with a pipe stub. Ruined = split and tilted (shorter); level 2 is taller with a second band.
+    const top = condition === 'ruined' ? 12 : level > 1 ? 4 : 7;
+    c.fillStyle = '#5b4730'; c.fillRect(ox + 8, oy + 24, 3, 6); c.fillRect(ox + w - 11, oy + 24, 3, 6);
+    c.fillStyle = '#6f8fa8'; c.fillRect(ox + 7, oy + top, w - 14, 24 - top);
+    c.fillStyle = tint; c.fillRect(ox + 7, oy + top + 4, w - 14, 3); if (level > 1) c.fillRect(ox + 7, oy + top + 12, w - 14, 3);
+    c.fillStyle = '#4d6b82'; c.beginPath(); c.ellipse(ox + w / 2, oy + top, (w - 14) / 2, 3, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#9fb6c9'; c.fillRect(ox + w - 6, oy + 21, 5, 3);
+  } else if (type === 'kitchen') {
+    // Kitchen: a small hut with a chimney and an oven opening. Ruined = no chimney, roof caved in; damaged = chimney stub, sagging roof;
+    // repaired = chimney with a puff of smoke and a lit oven.
+    c.fillStyle = '#7a6244'; c.fillRect(ox + 4, oy + 12, w - 8, h - 16);
+    c.fillStyle = condition === 'repaired' ? '#e0a040' : '#2b2118'; c.fillRect(ox + 11, oy + 19, 10, 9);
+    if (condition !== 'ruined') { c.fillStyle = '#5d6168'; c.fillRect(ox + w - 11, oy + (condition === 'repaired' ? 3 : 7), 5, condition === 'repaired' ? 10 : 6); }
+    if (condition === 'repaired') { c.fillStyle = 'rgba(220,220,220,0.8)'; c.beginPath(); c.arc(ox + w - 8, oy + 3, 2.5, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = tint; c.beginPath();
+    if (condition === 'ruined') { c.moveTo(ox + 3, oy + 15); c.lineTo(ox + w - 6, oy + 11); c.lineTo(ox + w - 3, oy + 16); c.lineTo(ox + 3, oy + 18); }
+    else if (condition === 'damaged') { c.moveTo(ox + 2, oy + 12); c.lineTo(ox + w / 2, oy + 6); c.lineTo(ox + w - 2, oy + 12); c.lineTo(ox + w - 2, oy + 15); c.lineTo(ox + 2, oy + 15); }
+    else { c.moveTo(ox + 2, oy + 12); c.lineTo(ox + w / 2, oy + 4); c.lineTo(ox + w - 2, oy + 12); }
+    c.closePath(); c.fill();
   } else {
     c.fillStyle = tint; c.fillRect(ox + 4, oy + 4, w - 8, h - 8);
   }

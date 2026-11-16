@@ -30,7 +30,7 @@ let eventCursor = 0;
 let lastFrame = 0; let lastPanelRefresh = 0;
 
 // Presentation-only icon hints for action types (no gameplay meaning).
-const TASK_ICON = { gather: '🌲', move: '🚶', rest: '💤', eat: '🍎', drink: '💧', repair: '🔧' };
+const TASK_ICON = { gather: '🌲', move: '🚶', rest: '💤', eat: '🍎', drink: '💧', repair: '🔧', upgrade: '🔨', deposit: '📦', cook: '🍞' };
 
 async function init() {
   let adapter;
@@ -108,8 +108,9 @@ function updateTopBar() {
   const view = freeSim.studentView();
   const info = freeSim.getClockInfo();
 
+  const fresh = (key) => (view.base.perishables ?? []).filter((p) => p.item === key).map((p) => `${p.qty} with ${p.daysLeft} day(s) left${p.cold ? ' (cold)' : ''}`).join('; ');
   let html = Object.entries(proj.stock).map(([key, val]) => `
-    <div class="resource" title="${esc(cap(key))}"><div class="icon ${esc(key)}">${esc(key.slice(0, 2).toUpperCase())}</div><b>${val}</b></div>`).join('');
+    <div class="resource" title="${esc(cap(key))}${fresh(key) ? ` — ${esc(fresh(key))}` : ''}"><div class="icon ${esc(key)}">${esc(key.slice(0, 2).toUpperCase())}</div><b>${val}</b></div>`).join('');
   html += `<div class="resource" title="Survivors"><div class="icon survivor">SV</div><b>${view.survivors.length}</b></div>`;
   if (view.hq) {
     const pct = Math.round((view.hq.health / view.hq.maxHealth) * 100);
@@ -160,7 +161,7 @@ function survivorSections(card) {
 }
 
 function policySection(policies = {}) {
-  const rows = Object.entries(policies).map(([k, p]) => `<span class="status-pill" style="margin-right:6px;">${esc(k)} &lt; ${p.below}${p.until ? ` → ${p.until}` : ''}${p.blocked ? ` ⚠ ${esc(p.blocked)}` : ''}</span>`);
+  const rows = Object.entries(policies).map(([k, p]) => `<span class="status-pill" style="margin-right:6px;">${esc(k)} &lt; ${p.below}${p.until ? ` → ${p.until}` : ''}${p.prefer ? ` (${esc(p.prefer)} first)` : ''}${p.blocked ? ` ⚠ ${esc(p.blocked)}` : ''}</span>`);
   return section('🧭', 'Policies', rows.length ? rows.join('') : muted('None. Try survivor.policy("eat", { below: 30 })'));
 }
 
@@ -171,13 +172,37 @@ function hookSection(hooks = []) {
 function taskSection(task, queued = 0, lastTask = null) {
   if (!task) {
     const last = lastTask
-      ? `Last: ${esc(lastTask.type)} ${esc(lastTask.status.toLowerCase())}${lastTask.reason ? ` — ${esc(lastTask.reason)}` : ''}${lastTask.gathered ? ` (${lastTask.gathered} gathered)` : ''}`
+      ? `Last: ${esc(lastTask.type)} ${esc(lastTask.status.toLowerCase())}${lastTask.reason ? ` — ${esc(lastTask.reason)}` : ''}${lastTask.gathered ? ` (${lastTask.gathered} gathered)` : ''}${lastTask.crafted ? ` (${lastTask.crafted} cooked)` : ''}`
       : 'Waiting for command';
     return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">—</div><div class="task-info"><div class="task-title">No active task</div><div class="task-target">Idle</div><div class="task-progress"><div class="task-progress-fill" style="width:0%"></div></div><div class="task-meta">${last}</div></div></div>`);
   }
   const pct = Math.round((task.fraction ?? 0) * 100);
-  const stats = task.stats ? ` · gathered ${task.stats.gathered} in ${task.stats.trips} trip(s)` : '';
+  const stats = !task.stats ? '' : task.stats.crafted !== undefined ? ` · cooked ${task.stats.crafted} batch(es)` : ` · gathered ${task.stats.gathered} in ${task.stats.trips} trip(s)`;
   return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">${TASK_ICON[task.type] ?? '⏳'}</div><div class="task-info"><div class="task-title">${esc(task.type)}</div><div class="task-target">Target: ${esc(task.targetId ?? 'base')}</div><div class="task-progress"><div class="task-progress-fill" style="width:${pct}%"></div></div><div class="task-meta">${esc(task.status)} · ${pct}%${esc(stats)} · queued: ${queued}</div></div></div>`);
+}
+
+// A well: reservoir bar, how fast the aquifer refills right now (weather changes it), and the siphon's connection status.
+const SIPHON_TEXT = {
+  OFF: 'No siphon yet. Upgrade the well to add one.', BROKEN: 'Siphon is down: repair the well.',
+  NO_STORAGE: 'Not connected: no working water storage within reach. Repair a water tank near the well.', FULL: 'Connected, but base water storage is full.', ACTIVE: 'Connected: it fills base storage by itself.',
+};
+function waterSection(b) {
+  const w = b.water;
+  if (!w) return '';
+  const every = w.recharge.percent > 0 ? Math.round((w.recharge.every * 100) / w.recharge.percent) : null;
+  const refill = !w.working ? 'Ruined: the well gives and refills nothing until it is repaired.'
+    : every === null ? 'The aquifer is dry right now (no refill in this weather).'
+    : `Refills +${w.recharge.amount} every ~${every} ticks now (${w.recharge.percent}% of normal, about ${w.recharge.perDay}/day).`;
+  const siphon = w.siphon ? `Siphon ${esc(w.siphon.status)} (reach ${w.siphon.reach}${w.siphon.target ? `, feeds ${esc(w.siphon.target)}` : ''}): ${esc(SIPHON_TEXT[w.siphon.status] ?? '')}` : esc(SIPHON_TEXT.OFF);
+  return section('💧', 'Water', `<div class="needs-grid">${bar('reservoir', w.amount, w.capacity, !w.working ? 'bad' : w.amount < 5 ? 'warn' : 'good').replace(/<div class="value">\d+<\/div>/, `<div class="value">${w.amount}/${w.capacity}</div>`)}</div><div style="margin-top:6px;font-size:11px;">${esc(refill)}</div><div style="margin-top:4px;font-size:11px;">${siphon}</div>`);
+}
+
+function buildingActions(b) {
+  const lines = [`survivor.repair(${b.id})`];
+  if (b.water) lines.push('survivor.gather("water", 10)');
+  for (const r of b.recipes ?? []) lines.push(`survivor.cook("${r.id}", 5)${r.working ? '' : b.condition === 'repaired' ? `  (needs ${b.type} level ${r.stationLevel})` : '  (repair it first)'}`);
+  if (b.upgrade) lines.push(`survivor.upgrade(${b.id})  → level ${b.upgrade.level}: ${Object.entries(b.upgrade.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`);
+  return lines.map((l) => `<div>${muted(l)}</div>`).join('');
 }
 
 function buildingSections(b) {
@@ -188,7 +213,9 @@ function buildingSections(b) {
   return [
     section('🏗', 'Building', `<div class="needs-grid">${bar('health', b.health, b.maxHealth, pct < 25 ? 'bad' : pct < 60 ? 'warn' : 'good')}</div><div style="margin-top:6px;font-size:11px;">Condition: <b>${esc(b.condition)}</b> · Level ${b.level}</div>`),
     storage ? section('📦', 'Storage', `<div class="needs-grid">${storage}</div>`) : '',
-    section('🔧', 'Actions', muted(`Use survivor.repair(${b.id}) from the code panel.`)),
+    waterSection(b),
+    b.cold ? section('❄', 'Cold storage', `<div style="font-size:11px;">${b.cold.working ? `Keeps the ${b.cold.capacity} oldest food units fresh: they age ${b.cold.factor}× slower. Needs no power.` : 'Ruined: it protects nothing until it is repaired.'}</div>`) : '',
+    section('🔧', 'Actions', buildingActions(b)),
   ].join('');
 }
 
@@ -472,7 +499,8 @@ const nameOf = (id) => freeSim.studentView().survivors.find((x) => x.id === id)?
 const SHOWN_EVENTS = {
   'task.started': (e) => `${nameOf(e.actorId)} started ${e.taskType} ${e.resource}`,
   'resource.gathered': (e) => `+${e.amount} ${e.resource}`,
-  'task.stopped': (e) => `${nameOf(e.actorId)} stopped ${e.taskType}: ${e.reason} (${e.gathered} gathered in ${e.trips} trip(s))`,
+  'task.stopped': (e) => `${nameOf(e.actorId)} stopped ${e.taskType}: ${e.reason} (${e.crafted !== undefined ? `${e.crafted} batch(es) cooked` : `${e.gathered} gathered in ${e.trips} trip(s)`})`,
+  'item.crafted': (e) => `${nameOf(e.actorId)} cooked ${Object.entries(e.outputs).map(([k, v]) => `${v} ${k}`).join(', ')}`,
   'action.failed': (e) => `${nameOf(e.actorId)}: ${e.actionType} failed: ${e.reason}`,
   'action.cancelled': (e) => `${nameOf(e.actorId)}: ${e.actionType} cancelled (${e.reason})`,
   'command.rejected': (e) => `${e.name}() rejected: ${e.code}`,
@@ -486,7 +514,10 @@ const SHOWN_EVENTS = {
   'hook.failed': (e) => `${nameOf(e.actorId)}: "${e.event}" hook switched off: ${e.code}`,
   'task.resumed': (e) => `${nameOf(e.actorId)} resumed ${e.taskType}`,
   'node.depleted': (e) => `${e.nodeId} is empty`,
+  'siphon.status': (e) => `${e.buildingId} siphon: ${e.to}`,
+  'building.upgraded': (e) => `${e.buildingId} upgraded to level ${e.to}`,
   'building.condition_changed': (e) => `${e.buildingId}: ${e.from} → ${e.to}`,
+  'food.spoiled': (e) => `${e.qty} ${e.item} spoiled`,
   'survivor.consumed': (e) => `consumed ${e.item}`,
   'survivor.downed': () => 'survivor downed',
 };

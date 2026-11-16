@@ -37,7 +37,7 @@ export const COMMANDS = {
   },
   gather: {
     type: 'gather', signature: 'survivor.gather(resource, load = 5, total)',
-    doc: 'Keep gathering that resource in trips: walk to the nearest node, gather `load` (1–20, never more than she can carry), carry it to storage and unload. Stops by itself when storage is full, nothing is left, or the survivor is too tired. Add `total` (1–500) to stop after that many have reached storage.',
+    doc: 'Keep gathering that resource in trips: walk to the nearest node, gather `load` (1–20, never more than she can carry), carry it to storage and unload. Stops by itself when storage is full, nothing is left, or the survivor is too tired. Add `total` (1–500) to stop after that many have reached storage. Water comes from a repaired well (survivor.gather("water", 10)): the well refills with time, so she waits at an empty one.',
     params(args) {
       if (args.length < 1 || args.length > 3 || typeof args[0] !== 'string' || !args[0]) throw bad('gather', 'first argument must be a resource name like "wood"');
       const amount = optInt('gather', 'load', args[1], 1, 20);
@@ -47,6 +47,15 @@ export const COMMANDS = {
     },
   },
   deposit: { type: 'deposit', signature: 'survivor.deposit()', doc: 'Walk to the nearest working storage building and unload everything she carries into base stock.', params: (args) => noArgs('deposit', args) },
+  cook: {
+    type: 'cook', signature: 'survivor.cook(recipe, count)',
+    doc: 'Walk to a repaired kitchen and cook a recipe in batches, e.g. survivor.cook("bread", 5). Ingredients (and fuel) come from base stock; the result goes back into it. Stops by itself when `count` batches are done, the next batch cannot be paid for, storage is full or she is too tired. With no count she keeps cooking until one of those happens. See recipes for what each needs.',
+    params(args) {
+      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('cook', 'first argument must be a recipe name like "bread"');
+      const count = optInt('cook', 'count', args[1], 1, 100);
+      return { recipe: args[0], ...(count !== undefined ? { count } : {}) };
+    },
+  },
   rest: {
     type: 'rest', signature: 'survivor.rest(ticks = 20)', doc: 'Rest to recover energy.',
     params(args) {
@@ -55,7 +64,14 @@ export const COMMANDS = {
       return ticks === undefined ? {} : { ticks };
     },
   },
-  eat: { type: 'eat', signature: 'survivor.eat()', doc: 'Eat one food from base stock to restore hunger.', params: (args) => noArgs('eat', args) },
+  eat: {
+    type: 'eat', signature: 'survivor.eat(item)', doc: 'Eat one food from base stock to restore hunger. With no argument she eats the cheapest food in stock first (the default order); name one to choose, e.g. survivor.eat("bread"). See foods for what each restores.',
+    params(args) {
+      if (args.length > 1) throw bad('eat', 'takes at most one argument, e.g. survivor.eat("bread")');
+      if (args.length === 1 && (typeof args[0] !== 'string' || !args[0])) throw bad('eat', 'the food must be a name like "bread"');
+      return args.length ? { item: args[0] } : {};
+    },
+  },
   drink: { type: 'drink', signature: 'survivor.drink()', doc: 'Drink one water from base stock to restore thirst.', params: (args) => noArgs('drink', args) },
   repair: {
     type: 'repair', signature: 'survivor.repair(building)', doc: 'Walk to a building and repair it (costs wood).',
@@ -72,16 +88,17 @@ export const COMMANDS = {
     },
   },
   policy: {
-    type: 'policy', instant: true, options: true, signature: 'survivor.policy(name, { below, until })',
-    doc: 'A standing rule: when the need drops below `below`, pause the current job, do it (\"eat\", \"drink\" or \"rest\"), then go back to the job. rest also takes `until` (stop resting at that energy). Example: survivor.policy(\"eat\", { below: 30 }).',
+    type: 'policy', instant: true, options: true, signature: 'survivor.policy(name, { below, until, prefer })',
+    doc: 'A standing rule: when the need drops below `below`, pause the current job, do it (\"eat\", \"drink\" or \"rest\"), then go back to the job. rest also takes `until` (stop resting at that energy); eat also takes `prefer` (a food to eat first when it is in stock, e.g. \"bread\"). Example: survivor.policy(\"eat\", { below: 30, prefer: \"bread\" }).',
     params(args) {
       if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('policy', 'first argument must be \"eat\", \"drink\" or \"rest\"');
       const o = typeof args[1] === 'number' ? { below: args[1] } : args[1] ?? {};
       if (typeof o !== 'object') throw bad('policy', 'second argument must be options like { below: 30 }');
-      for (const k of Object.keys(o)) if (k !== 'below' && k !== 'until') throw bad('policy', `unknown option \"${k}\" (use below, until)`);
+      for (const k of Object.keys(o)) if (k !== 'below' && k !== 'until' && k !== 'prefer') throw bad('policy', `unknown option \"${k}\" (use below, until, prefer)`);
+      if (o.prefer !== undefined && (typeof o.prefer !== 'string' || !o.prefer)) throw bad('policy', 'prefer must be a food name like \"bread\"');
       const below = optInt('policy', 'below', o.below, 1, 99);
       const until = optInt('policy', 'until', o.until, 2, 100);
-      return { action: args[0], ...(below !== undefined ? { below } : {}), ...(until !== undefined ? { until } : {}) };
+      return { action: args[0], ...(below !== undefined ? { below } : {}), ...(until !== undefined ? { until } : {}), ...(o.prefer !== undefined ? { prefer: o.prefer } : {}) };
     },
   },
   clearPolicy: {
@@ -124,9 +141,14 @@ export const READ_SURFACE = [
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory   (what she carries)',
   'survivor.carry   ({ load, capacity } in weight units)',
   'survivors   (array of all survivors)',
-  'base.wood, base.stone, base.food, base.water   (available amounts in storage, not what survivors carry)',
+  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread   (available amounts in storage, not what survivors carry)',
+  'base.perishables   (food that can spoil, oldest first: [{ item, qty, daysLeft, cold }]; spoiled units are lost - eat or protect them)',
   'base.capacity.wood …   (how much the working storage buildings hold in total)',
   'fence, hq, buildings   (id, type, level, health, maxHealth, condition, x, y)',
+  'storage_1.cold   (a cold cellar: { capacity, factor, working } - the `capacity` oldest food units age `factor` times slower)',
+  'well.water   (the deep well\'s reservoir: { amount, capacity, working, recharge: { every, amount, percent, perDay }, siphon: { status, reach, target } or null })',
+  'recipes   (what can be cooked: id -> { name, station, stationLevel, inputs, outputs, ticks, skill, stationWorking, canAfford })',
+  'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
   'world.width, world.height, tick',

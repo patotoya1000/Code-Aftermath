@@ -21,7 +21,7 @@ export function createActionEngine(defs) {
       a.endedAtTick = ctx.state.tick;
       // Learner-readable "what happened last" (survivor.lastTask): why the survivor is idle now.
       const who = ctx.state.survivors[a.actorId];
-      if (who) who.lastTask = { actionId: a.actionId, type: a.actionType, status: to, reason: extra.reason ?? a.stopReason ?? null, gathered: a.stats?.gathered ?? null, tick: ctx.state.tick, ...(extra.capabilityDetail ? { capabilityDetail: extra.capabilityDetail } : {}) };
+      if (who) who.lastTask = { actionId: a.actionId, type: a.actionType, status: to, reason: extra.reason ?? a.stopReason ?? null, gathered: a.stats?.gathered ?? null, ...(a.stats?.crafted !== undefined ? { crafted: a.stats.crafted } : {}), tick: ctx.state.tick, ...(extra.capabilityDetail ? { capabilityDetail: extra.capabilityDetail } : {}) };
     }
     ctx.emit(`action.${to.toLowerCase()}`, { actionId: a.actionId, actorId: a.actorId, actionType: a.actionType, targetId: a.targetId, ...extra });
     // A job that a needs policy paused picks up again: say so (task.resumed), once, when it really starts working.

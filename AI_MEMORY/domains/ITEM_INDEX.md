@@ -8,7 +8,7 @@ Item definitions (name, unit weight). Today items are only base-stock resources.
 
 # Responsibilities
 
-- Define the four items: wood (w2), stone (w4), food (w1), water (w1).
+- Define the six items: wood (w2), stone (w4), food (w1), water (w1), wheat (w1), bread (w1). Wheat is a starting stock (10) until farming exists; bread is cooked and perishable (`shelfLife` 4 days, spoilage module) (recipe `bread`, restores 40 hunger; canned `food` restores 30).
 - Project `unitWeight` and per-stack weight in `inventoryDetail` (display only).
 
 # Does NOT Own

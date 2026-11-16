@@ -9,9 +9,10 @@ export const actions = {
   },
   // gather is a STANDING action: it repeats TRIPS (walk to a node, gather `amount` - the load per trip, default 5, capped by what the
   // survivor can carry - walk to storage, unload) until a stop reason fires (storage full, nothing left to gather, too tired)
-  // or the optional `total` is reached. `unloadTicks` is how long unloading at storage takes.
+  // or the optional `total` is reached. `unloadTicks` is how long unloading at storage takes. At an empty RENEWABLE source (a well) she
+  // waits up to `waitTicks` ticks for the next water to seep in before she gives up with NO_TARGET.
   gather: {
-    handler: 'gather', ticksPerUnit: 2, defaultAmount: 5, maxAmount: 20, maxTotal: 500, range: 1, ticksPerTile: 1, unloadTicks: 2,
+    handler: 'gather', ticksPerUnit: 2, defaultAmount: 5, maxAmount: 20, maxTotal: 500, range: 1, ticksPerTile: 1, unloadTicks: 2, waitTicks: 120,
     capability: { attributes: { strength: 1, agility: 1 }, skills: { gathering: 0 } },
   },
   // deposit: walk to the nearest working storage building that accepts what is carried, unload (`unloadTicks`), repeat for
@@ -25,13 +26,21 @@ export const actions = {
   upgrade: { handler: 'upgrade', range: 1, ticksPerTile: 1,
     capability: { attributes: { agility: 1, intelligence: 1, strength: 1 }, skills: { repair: 1 } },
   },
+  // cook is a STANDING action (docs/game/16): walk to a repaired station building, then make `count` batches of a recipe one after
+  // another (inputs come from base stock and are reserved per batch, outputs go straight into base stock) until the count is done or
+  // a stop reason fires (NO_INGREDIENTS, STORAGE_FULL, EXHAUSTED). With no count she keeps cooking until one of those happens (capped at maxCount).
+  cook: { handler: 'cook', range: 1, ticksPerTile: 1, maxCount: 100,
+    capability: { attributes: { agility: 1, intelligence: 1 }, skills: { cooking: 0 } },
+  },
   rest: { handler: 'rest', defaultTicks: 20, maxTicks: 200, energyPerTick: 2,
     capability: { attributes: { endurance: 1 }, skills: { rest: 0 } },
   },
-  eat: { handler: 'consume', item: 'food', need: 'hunger', restore: 30, ticks: 5,
+  // eat / drink: `items` is what can be consumed - `restore` points of the need, `rank` = the default order (lowest rank first, so the
+  // cheapest food goes first). A learner can ask for one by name: survivor.eat("bread").
+  eat: { handler: 'consume', need: 'hunger', ticks: 5, items: { food: { restore: 30, rank: 1 }, bread: { restore: 40, rank: 2 } },
     capability: { attributes: { intelligence: 1 }, skills: { consume: 0 } },
   },
-  drink: { handler: 'consume', item: 'water', need: 'thirst', restore: 30, ticks: 3,
+  drink: { handler: 'consume', need: 'thirst', ticks: 3, items: { water: { restore: 30, rank: 1 } },
     capability: { attributes: { intelligence: 1 }, skills: { consume: 0 } },
   },
   repair: { handler: 'repair', range: 1, ticksPerTile: 1,
@@ -43,7 +52,8 @@ export const actions = {
 // current job, runs the action, then RESUMES the job. All numbers are data. `retryEvery`: after a policy could not run
 // (e.g. no food in stock) it waits this many ticks before trying again, so a blocked policy never spams the world.
 export const policies = {
-  eat:   { need: 'hunger', action: 'eat',   below: { min: 1, max: 99, default: 30 }, retryEvery: 10 },
+  // `prefer`: the policy may name which of the action's `items` to eat first ("prefer" is soft: if it is out of stock she eats the default).
+  eat:   { need: 'hunger', action: 'eat',   below: { min: 1, max: 99, default: 30 }, retryEvery: 10, prefer: true },
   drink: { need: 'thirst', action: 'drink', below: { min: 1, max: 99, default: 30 }, retryEvery: 10 },
   rest:  { need: 'energy', action: 'rest',  below: { min: 1, max: 99, default: 25 }, until: { min: 2, max: 100, default: 70 }, retryEvery: 10 },
 };

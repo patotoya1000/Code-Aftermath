@@ -16,6 +16,7 @@ Active model: **real-time simulation** (continuous ticks, standing actions, lear
 | Storage, carry, deposit (R3) | `AI_MEMORY/domains/INVENTORY_INDEX.md` | RESOURCE, ITEM, BUILDING |
 | Items | `AI_MEMORY/domains/ITEM_INDEX.md` | INVENTORY |
 | Buildings, repair | `AI_MEMORY/domains/BUILDING_INDEX.md` | WORLD |
+| Water: deep well, aquifer, siphon, tank (O7) | `AI_MEMORY/domains/WATER_INDEX.md` | RESOURCE, BUILDING |
 | Map, scenarios | `AI_MEMORY/domains/WORLD_INDEX.md` | |
 | Events / payloads | `AI_MEMORY/domains/EVENT_INDEX.md` | |
 | Skills, traits, capability | `AI_MEMORY/domains/SKILLS_INDEX.md` | TASK |

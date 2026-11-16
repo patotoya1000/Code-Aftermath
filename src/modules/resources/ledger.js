@@ -5,6 +5,8 @@ import { AftermathError } from '../../kernel/index.js';
 // so two actions can never spend the same unit.
 export const stockKey = (item) => `stock.${item}`;
 export const nodeKey = (id) => `node.${id}`;
+// A renewable source building (a well): its reservoir is an account too, so gatherers reserve from it exactly like from a node.
+export const sourceKey = (id) => `source.${id}`;
 
 function acct(state, key) {
   const a = state.ledger[key];
@@ -65,6 +67,25 @@ export function releaseOwner(state, owner) {
 export function credit(state, key, qty) {
   assertQty(qty);
   acct(state, key).total += qty;
+}
+
+/** Remove `qty` of what is not reserved by anyone, for good (spoilage). */
+export function discard(state, key, qty) {
+  assertQty(qty);
+  const a = acct(state, key);
+  if (a.total - a.reserved < qty) throw new AftermathError('INSUFFICIENT_RESOURCE', `Cannot discard ${qty} of ${key}, only ${a.total - a.reserved} unreserved`, { account: key, qty });
+  a.total -= qty;
+}
+
+/** Move `qty` straight from one account to another (what is not reserved by anyone). Used by siphons: no reservation churn. */
+export function transfer(state, from, to, qty) {
+  assertQty(qty);
+  const a = acct(state, from);
+  const b = acct(state, to);
+  const free = a.total - a.reserved;
+  if (free < qty) throw new AftermathError('INSUFFICIENT_RESOURCE', `Need ${qty} of ${from}, only ${free} available`, { account: from, qty, available: free });
+  a.total -= qty;
+  b.total += qty;
 }
 
 /** Safe summary for learner/UI: no reservation internals. */

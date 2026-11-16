@@ -1,6 +1,6 @@
 # Farming, cooking, crafting and power — agreed design (2026-11-16)
 
-Status: **design only** (nothing below is implemented except what it builds on: repair O5-upgrade, skill XP O4, environment O6).
+Status: **build steps 3–4 are implemented (O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar)**; farming, power (and the freezer) and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
 
 ## Principles (decided with the project owner)
 - **No free construction.** Every building is placed by the scenario as a ruin. Learners repair it (`survivor.repair`) and then raise it (`survivor.upgrade`). Fixed world ⇒ fixed lessons and replays.
@@ -46,10 +46,22 @@ Status: **design only** (nothing below is implemented except what it builds on: 
 - Learner reads: `base.perishables` (item, qty, daysLeft) and `building.cold` (capacity, factor, powered).
 - Ties systems together: the freezer needs the generator/solar, solar depends on weather (calendar), so power planning protects the food.
 
+## As built (O8, 2026-11-16)
+- **Data:** `definitions/data/recipes.js` (`bread`: 2 wheat + 1 water + 1 wood → 1 bread, 12 ticks, cooking skill), building `kitchen` (level 1, repair 6 wood + 4 stone, ruined at (9,9) in stage 1), items `wheat` and `bread`, `actions.eat.items` (food +30 rank 1, bread +40 rank 2), `cook` action, `cooking` skill and `cook` XP award. HQ storage holds 60 wheat / 40 bread (120 / 80 at level 2).
+- **Learner API:** `survivor.cook("bread", 5)` (count 1–100, optional: without it she cooks until a stop reason fires), `survivor.eat()` (cheapest food first) / `survivor.eat("bread")` (hard choice), `survivor.policy("eat", { below: 30, prefer: "bread" })` (soft choice). Reads: `recipes` (inputs, outputs, ticks, `stationWorking`, `canAfford`), `foods` (restore, rank, available), `building.recipes`, `base.wheat`, `base.bread`.
+- **Stop reasons for cook:** `TARGET_REACHED`, `NO_INGREDIENTS`, `STORAGE_FULL`, `EXHAUSTED`, `NO_STATION`, `NO_PATH`. Failures before any work: `NO_STATION` (no kitchen exists), `NEEDS_REPAIR` (kitchen is ruined/damaged or too low a level), `INSUFFICIENT_RESOURCE` (first batch cannot be paid for), `STORAGE_FULL`, `EXHAUSTED`, `INVALID_PARAMS`.
+- **Not yet:** hot meal / preserved ration / MRE (they come with kitchen levels 2–3 and the workshop), spoilage, a cooking animation (a working pose stands in).
+
+## As built (O9, 2026-11-16)
+- Bread has `shelfLife: 4` days; wheat and canned food never spoil (raw crops will get a shelf life with farming). Ageing runs at dawn (calendar day change), 100 points/day, integers only.
+- Storehouse level 2 = **cold cellar**: repair the storehouse, then `survivor.upgrade(storage_1)` (25 wood + 30 stone). Its `cold` table (capacity 30, factor 2) protects the 30 OLDEST perishable units; the rest age normally. A ruined cellar protects nothing. Level 3 (freezer, needs power) is not built.
+- Learner reads: `base.perishables` ([{ item, qty, daysLeft, cold }], oldest first), `storage_1.cold` ({ capacity, factor, working }). Event `food.spoiled { item, qty, day }`.
+
 ## Build order
 1. ✅ Upgrade existing buildings (O5)  2. ✅ Environment / weather calendar (O6)
-3. Recipe engine + kitchen + bread + `eat` choosing among foods (wheat given as starting stock until farming exists)
-4. Spoilage (batches) + storehouse cold cellar (L2)
+2b. ✅ Water source (O7, `17-water-wells.md`) — bread, crops and later the pump all draw on it
+3. ✅ Recipe engine + kitchen + bread + `eat` choosing among foods (wheat given as starting stock until farming exists) — O8
+4. ✅ Spoilage (batches) + storehouse cold cellar (L2) — O9
 5. Farming: field → greenhouse (weather hazards go live)
 6. Power: generator (+ upgrade branches) → hydroponic, freezer (storehouse L3)
 7. Crafting / workshop recipes (packaging, fuel, glass, fertilizer), hot meals, MRE

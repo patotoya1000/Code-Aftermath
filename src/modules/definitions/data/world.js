@@ -11,12 +11,12 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200 } } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
-    storage: { wood: 150, stone: 150, food: 100, water: 100 },
+    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40 },
   },
   fence: {
     name: 'Perimeter Fence',
@@ -36,10 +36,45 @@ export const buildings = {
   // survivors can unload there (R3). Closer to the forest than the HQ, so it shortens trips.
   storage: {
     name: 'Storehouse',
-    levels: { 1: { maxHealth: 120 } },
+    // Level 2 is a COLD CELLAR: `cold.capacity` units of perishable food (the oldest first) age `factor` times slower. No power needed.
+    levels: { 1: { maxHealth: 120 }, 2: { maxHealth: 170, cold: { capacity: 30, factor: 2 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 8 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 } },
     storage: { wood: 100, stone: 100 },
+  },
+  // O7 water. A DEEP WELL is a renewable source: its `source` table (per level) says how much water the reservoir holds and how fast the
+  // aquifer refills it (`recharge`: +amount every `every` ticks at normal weather; rain speeds it up, a heat wave slows it - see the
+  // weather table). A ruined well gives and refills nothing. Survivors draw from it with gather("water"); they WAIT at an empty well.
+  // `siphon` (level 2+) is the first automation: a tube that moves reservoir water into base stock by itself - but only while a WORKING
+  // building that stores water (a repaired water tank, the HQ, a tent) stands within `reach` tiles of the well. The machine tier
+  // (a powered pump) arrives with the power phase.
+  well: {
+    name: 'Deep Well',
+    levels: {
+      1: { maxHealth: 90, source: { resource: 'water', reservoir: 40, recharge: { every: 24, amount: 1 } } },
+      2: { maxHealth: 130, source: { resource: 'water', reservoir: 80, recharge: { every: 16, amount: 1 } }, siphon: { every: 6, amount: 1, reach: 3 } },
+    },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 6 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 25, stone: 20 }, ticks: 70 } },
+  },
+  // Water storage. Pooled like every storage table: it adds room for water once it is repaired (the siphon needs one within reach).
+  water_tank: {
+    name: 'Water Tank',
+    levels: { 1: { maxHealth: 100 }, 2: { maxHealth: 150, storage: { water: 240 } } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 6, stone: 4 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 20, stone: 20 }, ticks: 50 } },
+    storage: { water: 120 },
+  },
+  // A kitchen: a STATION building. Recipes whose `station` is 'kitchen' (data/recipes.js) can only be cooked at one that is fully
+  // repaired and at least at the recipe's `stationLevel`. Higher kitchen levels arrive together with the recipes that need them.
+  kitchen: {
+    name: 'Kitchen',
+    levels: { 1: { maxHealth: 110 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 6, stone: 4 }, healthPerAction: 30, ticks: 30 },
   },
   // I2 world object: the gap in the fence that connects the base to the outside path. `perimeter: true` means the
   // scenario must place it on the fence line (validated) and the renderer leaves that fence cell open.
@@ -56,13 +91,16 @@ export const buildings = {
 const stage1 = {
   name: 'Stage 1 — The Ruined Settlement',
   map: { width: 24, height: 16 },
-  stock: { wood: 0, stone: 0, food: 6, water: 6 },
+  stock: { wood: 0, stone: 0, food: 6, water: 6, wheat: 10 }, // wheat is a starting stock until farming exists
   buildings: [
     { id: 'hq', type: 'hq', level: 1, x: 11, y: 7, health: 200 },
     { id: 'fence', type: 'fence', level: 1, x: 11, y: 12, health: 20, bounds: { x1: 6, y1: 3, x2: 16, y2: 12 } },
     { id: 'tent_1', type: 'tent', level: 1, x: 8, y: 6, health: 60 },
     { id: 'storage_1', type: 'storage', level: 1, x: 14, y: 5, health: 15 }, // ruined
     { id: 'gate', type: 'gate', level: 1, x: 16, y: 7, health: 30 },          // damaged, on the east fence line
+    { id: 'well', type: 'well', level: 1, x: 13, y: 11, health: 12 },         // ruined; 4 tiles from the HQ, so the siphon cannot reach it
+    { id: 'kitchen', type: 'kitchen', level: 1, x: 9, y: 9, health: 15 },    // ruined; repair it, then survivor.cook("bread")
+    { id: 'tank', type: 'water_tank', level: 1, x: 15, y: 10, health: 10 },   // ruined; within siphon reach (2 tiles) of the well once repaired
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
   // gameplay; they reach the renderer through the render projection.

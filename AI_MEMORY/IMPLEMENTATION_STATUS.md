@@ -1,6 +1,6 @@
 # Implementation status
 
-Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`: 203 tests, 0 failing). Legend: IMPLEMENTED · PARTIALLY IMPLEMENTED · PLANNED · BLOCKED · OBSOLETE · NEEDS REFACTOR · NEEDS TESTS · NEEDS DOCUMENTATION. Nothing is listed IMPLEMENTED without source evidence.
+Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`: 260 tests, 0 failing). Legend: IMPLEMENTED · PARTIALLY IMPLEMENTED · PLANNED · BLOCKED · OBSOLETE · NEEDS REFACTOR · NEEDS TESTS · NEEDS DOCUMENTATION. Nothing is listed IMPLEMENTED without source evidence.
 
 ## Systems and domains
 
@@ -33,7 +33,11 @@ Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`
 | Skills: training buildings, specialization, failure-XP, attribute training; `observant`, `hardy` have no effect | PLANNED | — |
 | Equipment, occupation, progression | PLANNED | empty fields in the survivor schema |
 | Environment: day/night clock, 4-season weather CALENDAR, public forecast, `time.*`/`weather.changed`/`season.changed` events, HUD + calendar panel, night/weather tint (O6) | IMPLEMENTED (information only — weather has no gameplay effect until farming/hazards use it) | `src/modules/environment/index.js`, `definitions/data/environment.js`, `tests/environment.test.js` |
-| Production (farming, cooking, crafting), power (generator → advanced generator / solar panel) | PLANNED | design in `docs/game/16-farming-cooking-power-design.md` |
+| Water: deep well (reservoir refilled by ticks, scaled by the weather calendar), `gather("water")` with waiting at an empty well, water tank, siphon auto-store at well level 2 (needs a working water store within reach) (O7) | IMPLEMENTED (machine/pump tier PLANNED with power) | `src/modules/water/index.js`, `actions/handlers/gather.js`, `tests/water.test.js` |
+| Recipe engine + kitchen + bread (O8): data-driven recipes, station building (`kitchen`, ruined at start), standing `survivor.cook(recipe, count)`, `recipes`/`foods` learner reads, cooking skill + XP, kitchen in renderer/UI | IMPLEMENTED (kitchen has one level and one recipe: hot meal / ration / MRE arrive with kitchen levels 2–3; no spoilage yet) | `definitions/data/recipes.js`, `actions/handlers/cook.js`, `buildings` `stationsFor`, `tests/cook.test.js` |
+| Foods: `eat(item?)` choice, `policy("eat", { prefer })`, bread +40 | IMPLEMENTED (default = lowest `rank` in stock) | `actions/handlers/consume.js` `pickConsumable`, `actions/policies.js`, `tests/cook.test.js` |
+| Spoilage (O9): bread has a 4-day shelf life, batches by age, eating takes the oldest, daily ageing at dawn, `food.spoiled`; storehouse level 2 = cold cellar (30 oldest units age 2× slower, no power); `base.perishables`, `building.cold` | IMPLEMENTED (freezer tier needs power: PLANNED; wheat and canned food never spoil) | `src/modules/spoilage/index.js`, `data/items.js` `shelfLife`, `data/world.js` storehouse level 2, `tests/spoilage.test.js` |
+| Farming, power (generator → advanced generator / solar panel), workshop crafting | PLANNED | design in `docs/game/16-farming-cooking-power-design.md` |
 | Events framework / risk events | PLANNED | log exists; no risk events |
 | Zombies, combat, enemies | PLANNED / NOT IMPLEMENTED | no code (`AI_MEMORY/domains/ZOMBIE_INDEX.md`) |
 | Projections (student, render, inspector) | IMPLEMENTED | `src/modules/projection/index.js` |
@@ -67,7 +71,7 @@ Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`
 
 ## Priority (master prompt §19)
 
-S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4b Learner Event Hooks — done. R3 Carry + Deposit — done (2026-11-16). R5 Timeline Lessons — done. Collision/pathing (O3) — done (2026-11-16). Skills/XP (O4) — done (2026-11-16). Building upgrade (O5) — done (2026-11-16). Environment (O6) — done (2026-11-16). **Next: farming (field → greenhouse → hydroponic as ruined buildings repaired + upgraded), cooking (kitchen building), crafting (workshop).** Then production, environment, events, combat, enemies, buildings, final assets, offline/release. Do not start combat or final art while core foundations are unstable.
+S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4b Learner Event Hooks — done. R3 Carry + Deposit — done (2026-11-16). R5 Timeline Lessons — done. Collision/pathing (O3) — done (2026-11-16). Skills/XP (O4) — done (2026-11-16). Building upgrade (O5) — done (2026-11-16). Environment (O6) — done (2026-11-16). Water (O7) — done (2026-11-16). Recipe engine + kitchen + bread (O8) — done (2026-11-16). Spoilage + cold cellar (O9) — done (2026-11-16). **Next: farming (field → greenhouse), power (pump tier, freezer), crafting / workshop + hot meals + MRE.** Then production, environment, events, combat, enemies, buildings, final assets, offline/release. Do not start combat or final art while core foundations are unstable.
 
 ## Tests (every file in `tests/`)
 
@@ -91,6 +95,9 @@ S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4
 | `tests/upgrade.test.js` | upgrade: cost, levels, storage growth, NEEDS_REPAIR / MAX_LEVEL / capability / resources failures, cancel, API, determinism |
 | `tests/environment.test.js` | O6 clock, calendar determinism, forecast vs reality, nextChange, season calendar, views, events, replay, learner reads forecast, validation |
 | `tests/carry.test.js` | R3 carry capacity, per-tick conservation (node + hands + stock), trip caps, stop-while-carrying, `deposit()`, storehouse pooling, storage never overfilled, determinism |
+| `tests/cook.test.js` | O8 kitchen as a ruin, exact batch inputs/outputs, work ticks, standing cook + stop reasons, STORAGE_FULL/NO_INGREDIENTS/EXHAUSTED, cancel releases inputs, eat choice + policy prefer, interrupt/resume of a cook job, sandbox reads `recipes`/`foods`, view, definitions validation, determinism, soak |
+| `tests/spoilage.test.js` | O9 daily ageing, spoilage + ledger sink, non-perishables, oldest eaten first, cold cellar rate/capacity/oldest-first, ruined cellar, build path (repair → upgrade), reserved units, untracked stock, learner reads, validation, conservation soak, determinism |
+| `tests/water.test.js` | O7 aquifer by ticks and weather, capacity cap, drawing + waiting, siphon status/reach/FULL/BROKEN, tank, upgrade, shared reservoir, exact conservation soak, replay |
 | `tests/world-i2.test.js` | stage layout, storage info, gate/storehouse repair, ids in learner code |
 | `tests/assets-render.test.js` | asset keys, fallback chain, renderer is projection-only |
 | `tests/ui-wiring.test.js` | main screen wiring |

@@ -4,7 +4,7 @@ import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlacehol
 // Pipeline: projection → semantic state → asset resolver → atlas frame → animation player → canvas.
 // It is read-only with respect to gameplay: animation timing, selection and debug overlays live here and nowhere else.
 
-const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1], tent: [1], storage: [1], gate: [1] }, nodes: { tree: true, rock: true } });
+const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1], tent: [1], storage: [1, 2], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1] }, nodes: { tree: true, rock: true } });
 const COLORS = {
   terrain: '#1d2420', grid: '#2a342e', select: '#ffd46b', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
   zone: 'rgba(63,143,79,0.14)', zoneEdge: 'rgba(63,143,79,0.45)', path: '#4a4333', labelOutline: 'rgba(15,14,12,0.85)',
@@ -112,6 +112,11 @@ export function mountRenderer(canvas, {
       const e = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note(layer, 'building', b.id, e, { x, y, condition: b.condition });
       if (!blit(e, 0, tileCenterX(x), tileFootY(y))) marker(tileCenterX(x), tileFootY(y));
+      if (b.water?.working) { // reservoir gauge under a working well (presentation only; the amount comes from the projection)
+        const gw = scale * 0.7; const gx = tileCenterX(x) - gw / 2; const gy = offsetY + (y + 1) * scale - scale * 0.1;
+        ctx.fillStyle = 'rgba(10,18,28,0.75)'; ctx.fillRect(gx, gy, gw, Math.max(2, scale * 0.08));
+        ctx.fillStyle = '#4da3e8'; ctx.fillRect(gx, gy, gw * Math.min(1, b.water.amount / Math.max(1, b.water.capacity)), Math.max(2, scale * 0.08));
+      }
     };
     // 2 fence / settlement boundary (uses authoritative bounds, not just the origin tile). A building standing on the
     //   fence line (the gate) replaces that fence cell, leaving the opening.

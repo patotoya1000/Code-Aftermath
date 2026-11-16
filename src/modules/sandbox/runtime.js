@@ -57,11 +57,11 @@ export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, acto
   const survivors = view.survivors.map(withCommands);
   const env = {
     survivor: survivors.find((s) => s.id === actorId) ?? survivors[0] ?? null, survivors, base: structuredClone(view.base), fence: view.fence, hq: view.hq,
-    buildings: view.buildings, nodes: view.nodes, world: view.world, tick: view.tick,
+    buildings: view.buildings, nodes: view.nodes, world: view.world, tick: view.tick, recipes: view.recipes, foods: view.foods,
     console: Object.freeze({ log: (...a) => { if (logs.length < budget.maxLogs) logs.push(a.map(fmt).join(' ')); } }),
     Math: seededMath(seed),
   };
-  for (const k of ['base', 'fence', 'hq', 'buildings', 'nodes', 'world']) deepFreeze(env[k]);
+  for (const k of ['base', 'fence', 'hq', 'buildings', 'nodes', 'world', 'recipes', 'foods']) deepFreeze(env[k]);
   Object.freeze(survivors);
   // Every building and resource node is also readable by its id (tent_1, gate, storage_1, tree_1 …), so the hints the
   // UI shows — survivor.repair(tent_1), survivor.moveTo(tree_1) — are real code. Built-in names always win.

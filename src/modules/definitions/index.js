@@ -5,8 +5,9 @@ import { survivorTemplates, SKILLS, TRAITS, progression } from './data/survivors
 import { nodeTypes, buildings, scenarios } from './data/world.js';
 import { lessons } from './data/lessons.js';
 import { environment } from './data/environment.js';
+import { recipes } from './data/recipes.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -18,6 +19,12 @@ function validateWorldLayout(id, s, d, need) {
   for (const f of fences) {
     const { x1, y1, x2, y2 } = f.bounds;
     need(isTile(s, x1, y1) && isTile(s, x2, y2) && x1 < x2 && y1 < y2, `scenario ${id}: ${f.id} bounds must be a rectangle inside the map`);
+  }
+  const ids = new Set();
+  for (const e of [...s.buildings, ...s.nodes, ...s.survivors]) {
+    need(typeof e.id === 'string' && e.id, `scenario ${id}: every building, node and survivor needs an id`);
+    need(!ids.has(e.id), `scenario ${id}: id \"${e.id}\" is used twice (learner code names things by id)`);
+    ids.add(e.id);
   }
   const taken = new Map();
   for (const e of [...s.buildings.filter((b) => !b.bounds), ...s.nodes]) {
@@ -41,7 +48,10 @@ export function validateDefinitions(d) {
   const errors = [];
   const need = (cond, msg) => { if (!cond) errors.push(msg); };
 
-  for (const [id, it] of Object.entries(d.items)) need(it.unitWeight > 0, `item ${id}: unitWeight must be > 0`);
+  for (const [id, it] of Object.entries(d.items)) {
+    need(it.unitWeight > 0, `item ${id}: unitWeight must be > 0`);
+    if (it.shelfLife !== undefined) need(Number.isInteger(it.shelfLife) && it.shelfLife >= 1, `item ${id}: shelfLife must be a whole number of days >= 1`);
+  }
   for (const [id, n] of Object.entries(d.nodeTypes)) {
     need(d.items[n.yields], `nodeType ${id}: unknown item "${n.yields}"`);
     need(n.amount > 0, `nodeType ${id}: amount must be > 0`);
@@ -56,6 +66,13 @@ export function validateDefinitions(d) {
   for (const [id, a] of Object.entries(d.actions)) {
     need(KNOWN_HANDLERS.includes(a.handler), `action ${id}: unknown handler "${a.handler}"`);
     if (a.item) need(d.items[a.item], `action ${id}: unknown item "${a.item}"`);
+    if (a.handler === 'consume') {
+      need(a.items && Object.keys(a.items).length > 0, `action ${id}: a consume action needs an items table`);
+      for (const [it, c] of Object.entries(a.items ?? {})) need(d.items[it] && Number.isInteger(c.restore) && c.restore > 0 && Number.isInteger(c.rank) && c.rank >= 1, `action ${id}: item "${it}" needs a known item, a whole restore > 0 and a whole rank >= 1`);
+      need(new Set(Object.values(a.items ?? {}).map((c) => c.rank)).size === Object.keys(a.items ?? {}).length, `action ${id}: item ranks must all differ (they decide the default order)`);
+    }
+    if (a.handler === 'cook') need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
+    if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
   for (const [id, p] of Object.entries(d.policies ?? {})) {
     need(d.actions[p.action], `policy ${id}: unknown action \"${p.action}\"`);
@@ -64,6 +81,7 @@ export function validateDefinitions(d) {
     need(range(p.below), `policy ${id}: below needs integer min <= default <= max within 1..${d.needs.max}`);
     if (p.until) need(range(p.until) && p.until.default > p.below.default, `policy ${id}: until needs a valid range and a default above below's default`);
     need(Number.isInteger(p.retryEvery) && p.retryEvery >= 1, `policy ${id}: retryEvery must be >= 1`);
+    if (p.prefer) need(d.actions[p.action]?.items, `policy ${id}: prefer needs an action with an items table`);
   }
   const hk = d.hooks ?? { events: {}, limits: {} };
   for (const [id, e] of Object.entries(hk.events)) need((e.on === 'condition' && typeof e.condition === 'string') || e.on === 'stopped', `hook ${id}: unknown trigger`);
@@ -77,11 +95,45 @@ export function validateDefinitions(d) {
         need(cap > 0, `building ${id}: storage for ${res} must be > 0`);
       }
     }
-    for (const res of Object.keys(b.repair?.cost ?? {})) need(d.items[res], `building ${id}: repair cost uses unknown item "${res}"`);
+    for (const res of Object.keys(b.repair?.cost ?? {})) need(d.items[res], `building ${id}: repair cost uses unknown item \"${res}\"`);
+    const whole = (n) => Number.isInteger(n) && n >= 1;
+    let sourceSeen = false;
+    for (const [lvl, L] of Object.entries(b.levels)) {
+      for (const [res, cap] of Object.entries(L.storage ?? {})) need(d.items[res] && cap > 0, `building ${id} level ${lvl}: storage for \"${res}\" needs a known item and a capacity > 0`);
+      if (sourceSeen) need(L.source, `building ${id} level ${lvl}: a source must continue at every higher level`);
+      if (L.source) {
+        sourceSeen = true;
+        const s = L.source;
+        need(d.items[s.resource], `building ${id} level ${lvl}: source uses unknown item \"${s.resource}\"`);
+        need(whole(s.reservoir), `building ${id} level ${lvl}: source reservoir must be a whole number >= 1`);
+        need(s.recharge && whole(s.recharge.every) && whole(s.recharge.amount), `building ${id} level ${lvl}: source recharge needs whole numbers every >= 1 and amount >= 1`);
+      }
+      if (L.cold) need(Number.isInteger(L.cold.capacity) && L.cold.capacity >= 1 && Number.isInteger(L.cold.factor) && L.cold.factor >= 2, `building ${id} level ${lvl}: cold needs a whole capacity >= 1 and a whole factor >= 2`);
+      if (L.siphon) {
+        need(L.source, `building ${id} level ${lvl}: a siphon needs a source at the same level`);
+        need(whole(L.siphon.every) && whole(L.siphon.amount) && whole(L.siphon.reach), `building ${id} level ${lvl}: siphon needs whole numbers every, amount and reach (all >= 1)`);
+      }
+    }
     if (b.note !== undefined) need(typeof b.note === 'string' && b.note, `building ${id}: note must be non-empty text`);
   }
+  for (const [id, r] of Object.entries(d.recipes ?? {})) {
+    const qtys = (t) => t && Object.keys(t).length > 0 && Object.entries(t).every(([it, q]) => d.items[it] && Number.isInteger(q) && q >= 1);
+    need(d.buildings[r.station], `recipe ${id}: unknown station building "${r.station}"`);
+    need(d.buildings[r.station]?.levels?.[r.stationLevel], `recipe ${id}: station "${r.station}" has no level ${r.stationLevel}`);
+    need(qtys(r.inputs), `recipe ${id}: inputs need known items with whole quantities >= 1`);
+    need(qtys(r.outputs), `recipe ${id}: outputs need known items with whole quantities >= 1`);
+    need(Number.isInteger(r.ticks) && r.ticks >= 1, `recipe ${id}: ticks must be a whole number >= 1`);
+    need(d.skills[r.skill] && d.progression?.awards?.cook?.skill === r.skill, `recipe ${id}: skill "${r.skill}" must be a known skill that the "cook" award teaches`);
+    need(Number.isInteger(r.minSkill) && r.minSkill >= 0, `recipe ${id}: minSkill must be a whole number >= 0`);
+  }
   for (const [id, s] of Object.entries(d.scenarios)) {
-    for (const b of s.buildings) need(d.buildings[b.type], `scenario ${id}: unknown building type "${b.type}"`);
+    for (const b of s.buildings) {
+      need(d.buildings[b.type], `scenario ${id}: unknown building type \"${b.type}\"`);
+      if (b.water !== undefined) {
+        const cap = d.buildings[b.type]?.levels?.[b.level ?? 1]?.source?.reservoir ?? 0;
+        need(Number.isInteger(b.water) && b.water >= 0 && b.water <= cap, `scenario ${id}: ${b.id} water must be a whole number from 0 to its reservoir (${cap})`);
+      }
+    }
     for (const n of s.nodes) need(d.nodeTypes[n.type], `scenario ${id}: unknown node type "${n.type}"`);
     for (const sv of s.survivors) need(d.survivorTemplates[sv.template], `scenario ${id}: unknown template "${sv.template}"`);
     for (const k of Object.keys(s.stock)) need(d.items[k], `scenario ${id}: stock uses unknown item "${k}"`);
@@ -98,6 +150,7 @@ export function validateDefinitions(d) {
     need(s.days >= 1 && (s.phases ?? []).reduce((n, p) => n + p.days, 0) === s.days, `environment season ${s.id}: phase lengths must add up to ${s.days} days`);
     for (const p of s.phases ?? []) need(en.weather[p.weather] && p.days >= 1, `environment season ${s.id}: unknown weather "${p.weather}" or empty phase`);
   }
+  for (const [wid, w] of Object.entries(en?.weather ?? {})) need(Number.isInteger(w.recharge) && w.recharge >= 0 && w.recharge <= 1000, `environment weather ${wid}: recharge must be a whole number of percent from 0 to 1000`);
   need((en?.seasons ?? []).length > 0, 'environment: needs at least one season');
   const pr = d.progression;
   need(pr && Array.isArray(pr.thresholds) && pr.thresholds[0] === 0 && pr.thresholds.every((t, i) => i === 0 || t > pr.thresholds[i - 1]), 'progression: thresholds must start at 0 and strictly increase');
@@ -124,7 +177,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

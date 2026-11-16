@@ -4,6 +4,10 @@ export const items = {
   stone: { name: 'Stone', unitWeight: 4 },
   food: { name: 'Food', unitWeight: 1 },
   water: { name: 'Water', unitWeight: 1 },
+  // Kitchen goods (docs/game/16). Wheat is a starting stock until farming exists; bread is cooked from it.
+  wheat: { name: 'Wheat', unitWeight: 1 },
+  // `shelfLife` (days): the item spoils when it has been in stock that long (spoilage module). Items without one never spoil.
+  bread: { name: 'Bread', unitWeight: 1, shelfLife: 4 },
 };
 
 // Carry capacity (R3), in weight units: (base + perStrength x strength) x every matching trait multiplier, rounded down.

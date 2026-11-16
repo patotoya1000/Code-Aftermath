@@ -131,6 +131,7 @@ function actionSkillOf(handler) {
     consume: 'consume',
     repair: 'repair',
     upgrade: 'repair',
+    cook: 'cooking',
   };
   return map[handler] ?? null;
 }

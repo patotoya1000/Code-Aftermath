@@ -4,7 +4,7 @@
 
 # Purpose
 
-Everything a survivor can be asked to do is an *action* with one lifecycle, executed over simulation ticks. `gather` is a standing action.
+Everything a survivor can be asked to do is an *action* with one lifecycle, executed over simulation ticks. `gather` and `cook` are standing actions.
 
 # Responsibilities
 
