@@ -3,6 +3,8 @@ import { applyNeedsDecay } from '../survivors/index.js';
 import { createActionEngine } from '../actions/index.js';
 import { studentView, renderProjection, inspectorCard } from '../projection/index.js';
 
+import { setHook, clearHook } from './hooks.js';
+
 export { createClockDriver } from './clock.js';
 
 const MODES = [undefined, 'queue', 'replace'];
@@ -34,6 +36,10 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
       ctx.emit('command.stop', { actorId: command.actorId });
       return null;
     }
+    if (command.type === 'policy') { engine.setPolicy(ctx, command.actorId, command.params ?? {}); return null; }
+    if (command.type === 'policy_clear') { engine.clearPolicy(ctx, command.actorId, command.params ?? {}); return null; }
+    if (command.type === 'hook_register') { setHook(ctx, command.actorId, command.params ?? {}); return null; }
+    if (command.type === 'hook_clear') { clearHook(ctx, command.actorId, command.params ?? {}); return null; }
     if (!hasOwn(defs.actions, command.type)) throw new AftermathError('UNKNOWN_ACTION', `Unknown action type ${command.type}`);
     if (command.mode === 'replace') engine.cancelFor(ctx, command.actorId, 'REPLACED');
     return engine.submit(ctx, command);
@@ -45,6 +51,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     state.tick += 1;
     for (const id of applyNeedsDecay(ctx)) engine.cancelFor(ctx, id, 'ACTOR_DOWNED');
     if (state.tick % cfg.regenEvery === 0 && state.strategyPoints < cfg.max) state.strategyPoints += 1;
+    engine.applyPolicies(ctx);
     engine.step(ctx);
   }
 
@@ -86,6 +93,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     get seed() { return state.seed; },
     get scenarioId() { return state.scenarioId; },
     isIdle,
+    hooks: () => Object.values(state.hooks).map((h) => ({ ...h })),
     commandTimeline: () => timeline.map((t) => structuredClone(t)),
     stateHash: () => hashValue(state),
     snapshot: () => structuredClone(state),

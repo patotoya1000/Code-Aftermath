@@ -33,7 +33,7 @@ function seededMath(seed) {
 
 const fmt = (v) => { try { return typeof v === 'string' ? v : JSON.stringify(v) ?? String(v); } catch { return String(v); } };
 
-export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, actorId = null }) {
+export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, actorId = null, allowHooks = true }) {
   harden();
   const calls = [];
   const logs = [];
@@ -45,6 +45,12 @@ export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, acto
   const withCommands = (sv) => {
     const o = structuredClone(sv);
     for (const name of Object.keys(COMMANDS)) o[name] = (...args) => record(sv.id, name, args);
+    // survivor.on(event, fn): a function cannot cross the Worker boundary, so its SOURCE TEXT is what gets registered.
+    o.on = (event, fn) => {
+      if (!allowHooks) throw new AftermathError('HOOK_NOT_ALLOWED', 'survivor.on() cannot be used inside a hook. Register hooks at the top level of your code.');
+      if (typeof fn !== 'function') throw new AftermathError('INVALID_ARGUMENT', 'on(): the second argument must be a function, like () => { survivor.eat(); }');
+      record(sv.id, 'on', [event, Function.prototype.toString.call(fn)]);
+    };
     return deepFreeze(o);
   };
 

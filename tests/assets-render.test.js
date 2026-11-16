@@ -95,7 +95,7 @@ test('building visual changes only through simulation state (ruined → damaged 
   assert.equal(r.lastDrawList.find((e) => e.layer === 'fence').key, 'building_fence_lv1_repaired');
 });
 
-test('NPC projection goes IDLE → WALK → GATHER → IDLE and the renderer follows without deciding anything', () => {
+test('NPC projection goes IDLE → WALK → GATHER → WALK → GATHER (unload) → IDLE and the renderer follows without deciding anything', () => {
   const sim = newSim();
   const r = mount();
   const seen = [];
@@ -107,7 +107,8 @@ test('NPC projection goes IDLE → WALK → GATHER → IDLE and the renderer fol
     if (seen[seen.length - 1] !== a) seen.push(a);
     if (sim.isIdle()) break;
   }
-  assert.deepEqual(seen, ['WALK', 'GATHER', 'IDLE']);
+  // walk to the tree, chop, walk the wood back to the HQ, unload (placeholder pose = GATHER until a dedicated unload animation exists)
+  assert.deepEqual(seen, ['WALK', 'GATHER', 'WALK', 'GATHER', 'IDLE']);
 });
 
 test('deleting an animation frame does not change gameplay and the renderer falls back', () => {

@@ -7,11 +7,18 @@ export const actions = {
     handler: 'move', ticksPerTile: 1,
     capability: { attributes: { agility: 1 }, skills: { move: 0 } },
   },
-  // gather is a STANDING action: it repeats batches of `amount` (the load per trip, default 5) until a stop reason fires
-  // (storage full, nothing left to gather, too tired) or the optional `total` is reached.
+  // gather is a STANDING action: it repeats TRIPS (walk to a node, gather `amount` - the load per trip, default 5, capped by what the
+  // survivor can carry - walk to storage, unload) until a stop reason fires (storage full, nothing left to gather, too tired)
+  // or the optional `total` is reached. `unloadTicks` is how long unloading at storage takes.
   gather: {
-    handler: 'gather', ticksPerUnit: 2, defaultAmount: 5, maxAmount: 20, maxTotal: 500, range: 1, ticksPerTile: 1,
+    handler: 'gather', ticksPerUnit: 2, defaultAmount: 5, maxAmount: 20, maxTotal: 500, range: 1, ticksPerTile: 1, unloadTicks: 2,
     capability: { attributes: { strength: 1, agility: 1 }, skills: { gathering: 0 } },
+  },
+  // deposit: walk to the nearest working storage building that accepts what is carried, unload (`unloadTicks`), repeat for
+  // anything that building does not take. gather does this by itself after every trip; learners call it to empty a survivor
+  // that was stopped or interrupted while carrying.
+  deposit: { handler: 'deposit', range: 1, ticksPerTile: 1, unloadTicks: 2,
+    capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
   },
   rest: { handler: 'rest', defaultTicks: 20, maxTicks: 200, energyPerTick: 2,
     capability: { attributes: { endurance: 1 }, skills: { rest: 0 } },
@@ -25,6 +32,27 @@ export const actions = {
   repair: { handler: 'repair', range: 1, ticksPerTile: 1,
     capability: { attributes: { agility: 1, intelligence: 1 }, skills: { repair: 0 } },
   },
+};
+
+// Needs policies (R4a): a standing rule "when this need drops below X, do this action". A policy INTERRUPTS the survivor's
+// current job, runs the action, then RESUMES the job. All numbers are data. `retryEvery`: after a policy could not run
+// (e.g. no food in stock) it waits this many ticks before trying again, so a blocked policy never spams the world.
+export const policies = {
+  eat:   { need: 'hunger', action: 'eat',   below: { min: 1, max: 99, default: 30 }, retryEvery: 10 },
+  drink: { need: 'thirst', action: 'drink', below: { min: 1, max: 99, default: 30 }, retryEvery: 10 },
+  rest:  { need: 'energy', action: 'rest',  below: { min: 1, max: 99, default: 25 }, until: { min: 2, max: 100, default: 70 }, retryEvery: 10 },
+};
+
+// Learner event hooks (R4b): survivor.on(event, fn). `events` says what each name listens for; `limits` keep hooks cheap and safe
+// (a handler runs in the sandbox Worker like any learner code, may only issue commands, and each command costs a strategy point).
+export const hooks = {
+  events: {
+    hungry: { on: 'condition', condition: 'hungry' },   // fires when she BECOMES hungry
+    thirsty: { on: 'condition', condition: 'thirsty' },
+    tired: { on: 'condition', condition: 'tired' },
+    stopped: { on: 'stopped' },                         // a job ended by itself (task.stopped) or failed (action.failed); the handler gets { reason }
+  },
+  limits: { perSurvivor: 4, maxSourceChars: 600, maxCommands: 5, cooldownTicks: 10 },
 };
 
 export const needs = {

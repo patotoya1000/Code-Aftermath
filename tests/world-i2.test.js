@@ -20,8 +20,9 @@ test('stage 1 contains a ruined storehouse, a damaged gate on the fence line, an
   assert.equal(storage.condition, 'ruined');
   assert.equal(gate.condition, 'damaged');
   assert.equal(gate.x, 16); // x2 edge of the fence bounds (6..16)
-  assert.match(storage.note, /Phase I5/);
-  assert.equal(storage.storageInfo, undefined, 'no pretend capacity before inventory/carry exists');
+  assert.equal(storage.storageInfo.working, false, 'a ruined storehouse adds no capacity');
+  assert.deepEqual(storage.storageInfo.capacity, { wood: 100, stone: 100 });
+  assert.equal(storage.storageInfo.pooledCapacity.wood, 150, 'only the HQ counts until the storehouse is repaired');
   const proj = newSim().renderProjection();
   assert.equal(proj.terrain.zones[0].label, 'Forest');
   assert.deepEqual(proj.terrain.paths[0].cells[0], [17, 7]);

@@ -2,7 +2,7 @@
 import { createDefinitions } from '../modules/definitions/index.js';
 import { createSandbox } from '../modules/sandbox/index.js';
 import { runLesson, listLessons } from '../modules/lessons/index.js';
-import { runAttempt, createFreeSim, runLiveCode, replayTimeline } from '../modules/session/index.js';
+import { runAttempt, createFreeSim, runLiveCode, replayTimeline, createHookRunner } from '../modules/session/index.js';
 import { createClockDriver } from '../modules/simulation/index.js';
 import { verifyReplay } from '../modules/replay/index.js';
 import { describeApi } from '../modules/api/index.js';
@@ -39,6 +39,8 @@ export function createApp({ adapter = createMemoryAdapter(), sandbox = createSan
     createFreeSim({ scenarioId = 'stage1', seed = 1 } = {}) {
       return createFreeSim({ defs, scenarioId, seed });
     },
+    /** Event hooks for a free-play sim (survivor.on): call pump() each frame; it runs matching handlers in the sandbox. */
+    createHooks(sim) { return createHookRunner({ sim, sandbox, defs }); },
     /** Real-time driver for a free-play sim: play/pause/speed and frame pacing, numbers from defs.clock. */
     createClock(sim) {
       return createClockDriver(sim, defs.clock);

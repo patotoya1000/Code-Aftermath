@@ -77,7 +77,7 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
 
   // C6/C8: card is projection-driven; no hardcoded carry numbers
   const card = els['inspector-card'].innerHTML;
-  assert.match(card, /Needs/); assert.match(card, /Skills/); assert.match(card, /not active yet/);
+  assert.match(card, /Needs/); assert.match(card, /Skills/); assert.match(card, /Carrying 0 \/ 60 wt/);
   assert.equal(/22 ?kg|Encumbrance: (Light|Heavy|Moderate)/.test(card), false);
   assert.equal(/Crafting/.test(card), false, 'crafting is not an attribute');
 

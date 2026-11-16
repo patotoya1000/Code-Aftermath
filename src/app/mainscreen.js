@@ -15,7 +15,8 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-let app; let renderer; let freeSim; let clock;
+let app; let renderer; let hooks = null;
+let freeSim; let clock;
 let selected = null; // { kind: 'npc' | 'building' | 'node', id }
 let isInspectorOpen = true;
 let isCodePanelOpen = false;
@@ -48,6 +49,7 @@ async function startScenario() {
   const { sim } = await app.createFreeSim({ scenarioId: 'stage1', seed: 1 });
   freeSim = sim;
   clock = app.createClock(sim);
+  hooks = app.createHooks(sim);
   feed = []; eventCursor = 0; projKey = '';
   const first = freeSim.studentView().survivors[0];
   selected = first ? { kind: 'npc', id: first.id } : null;
@@ -61,6 +63,7 @@ function loop(now) {
   if (freeSim) {
     const dt = lastFrame ? now - lastFrame : 0; lastFrame = now;
     const ran = clock.update(dt);
+    hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
@@ -142,9 +145,20 @@ function survivorSections(card) {
     section('🎓', 'Skills', skills.length ? `<div class="attrs-grid">${skills.map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('')}</div>` : muted('No skills tracked yet (Phase I4).')),
     card.traits.length ? section('🏷', 'Traits', card.traits.map((t) => `<span class="status-pill">${esc(t)}</span>`).join(' ')) : '',
     section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
-    section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted('Carry capacity and encumbrance are not active yet (Phase I5).')}</div>`),
+    section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted(`Carrying ${card.carry.load} / ${card.carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>`),
     taskSection(card.task, card.queued, card.lastTask),
+    policySection(card.policies),
+    hookSection(card.hooks),
   ].join('');
+}
+
+function policySection(policies = {}) {
+  const rows = Object.entries(policies).map(([k, p]) => `<span class="status-pill" style="margin-right:6px;">${esc(k)} &lt; ${p.below}${p.until ? ` → ${p.until}` : ''}${p.blocked ? ` ⚠ ${esc(p.blocked)}` : ''}</span>`);
+  return section('🧭', 'Policies', rows.length ? rows.join('') : muted('None. Try survivor.policy("eat", { below: 30 })'));
+}
+
+function hookSection(hooks = []) {
+  return section('🪝', 'Hooks', hooks.length ? hooks.map((h) => `<span class="status-pill" style="margin-right:6px;">on ${esc(h)}</span>`).join('') : muted('None. Try survivor.on("hungry", () => { survivor.eat(); })'));
 }
 
 function taskSection(task, queued = 0, lastTask = null) {
@@ -442,6 +456,15 @@ const SHOWN_EVENTS = {
   'action.failed': (e) => `${nameOf(e.actorId)}: ${e.actionType} failed: ${e.reason}`,
   'action.cancelled': (e) => `${nameOf(e.actorId)}: ${e.actionType} cancelled (${e.reason})`,
   'command.rejected': (e) => `${e.name}() rejected: ${e.code}`,
+  'policy.set': (e) => `${nameOf(e.actorId)}: ${e.policy} policy set (below ${e.below}${e.until ? `, until ${e.until}` : ''})`,
+  'policy.cleared': (e) => `${nameOf(e.actorId)}: ${e.policy} policy cleared`,
+  'policy.triggered': (e) => `${nameOf(e.actorId)}: ${e.policy} policy fired (${e.need} ${e.value})`,
+  'policy.blocked': (e) => `${nameOf(e.actorId)}: ${e.policy} policy blocked: ${e.reason}`,
+  'hook.set': (e) => `${nameOf(e.actorId)}: hook on "${e.event}" set`,
+  'hook.cleared': (e) => `${nameOf(e.actorId)}: hook on "${e.event}" removed`,
+  'hook.ran': (e) => `${nameOf(e.actorId)}: "${e.event}" hook ran (${e.commands} command(s))`,
+  'hook.failed': (e) => `${nameOf(e.actorId)}: "${e.event}" hook switched off: ${e.code}`,
+  'task.resumed': (e) => `${nameOf(e.actorId)} resumed ${e.taskType}`,
   'node.depleted': (e) => `${e.nodeId} is empty`,
   'building.condition_changed': (e) => `${e.buildingId}: ${e.from} → ${e.to}`,
   'survivor.consumed': (e) => `consumed ${e.item}`,
@@ -472,7 +495,7 @@ async function loadSession() {
   try {
     const r = await app.loadFreePlay();
     if (!r) { flash('No saved session yet'); return; }
-    freeSim = r.sim; clock = app.createClock(freeSim);
+    freeSim = r.sim; clock = app.createClock(freeSim); hooks = app.createHooks(freeSim);
     feed = []; eventCursor = 0; projKey = '';
     const first = freeSim.studentView().survivors[0];
     selected = first ? { kind: 'npc', id: first.id } : null;

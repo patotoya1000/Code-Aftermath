@@ -26,9 +26,12 @@ export const FailureReason = Object.freeze({
   STORAGE_FULL: 'STORAGE_FULL',
   NOT_NEEDED: 'NOT_NEEDED',
   NOTHING_TO_REPAIR: 'NOTHING_TO_REPAIR',
+  NOTHING_TO_DEPOSIT: 'NOTHING_TO_DEPOSIT', // deposit() while carrying nothing
+  NO_DEPOT: 'NO_DEPOT', // nothing that still works can store what she carries
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',
   REPLACED: 'REPLACED', // a newer command from the same program took over this survivor
+  INTERRUPTED: 'INTERRUPTED', // a needs policy paused this job; an equivalent job is queued right behind the policy's action
 });
 
 // Why a STANDING action (e.g. gather) ended on its own. If it ended having done some work the action COMPLETES with
@@ -38,4 +41,5 @@ export const StopReason = Object.freeze({
   STORAGE_FULL: 'STORAGE_FULL',     // base storage has no room left for this resource
   NO_TARGET: 'NO_TARGET',           // no node of that resource has anything left
   EXHAUSTED: 'EXHAUSTED',           // the survivor is too tired to keep working
+  NO_DEPOT: 'NO_DEPOT',             // no working storage building accepts what she carries
 });

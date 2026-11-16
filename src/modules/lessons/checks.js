@@ -5,6 +5,7 @@ const CONSTRUCTS = {
   loop: /\b(for|while)\s*\(/,
   for: /\bfor\s*\(/,
   while: /\bwhile\s*\(/,
+  policy: /\.policy\s*\(/,
   function: /\bfunction\b|=>/,
   const: /\bconst\s+[A-Za-z_$]/,
   let: /\blet\s+[A-Za-z_$]/,

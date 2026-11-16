@@ -1,11 +1,15 @@
 import { AftermathError, deepFreeze } from '../../kernel/index.js';
+<<<<<<< HEAD
+import { items, carry } from './data/items.js';
+=======
 import { items } from './data/items.js';
-import { actions, needs, clock } from './data/actions.js';
+>>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
+import { actions, needs, clock, policies, hooks } from './data/actions.js';
 import { survivorTemplates, SKILLS, TRAITS } from './data/survivors.js';
 import { nodeTypes, buildings, scenarios } from './data/world.js';
 import { lessons } from './data/lessons.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'rest', 'consume', 'repair'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -45,6 +49,8 @@ export function validateDefinitions(d) {
     need(d.items[n.yields], `nodeType ${id}: unknown item "${n.yields}"`);
     need(n.amount > 0, `nodeType ${id}: amount must be > 0`);
   }
+  need(d.carry && d.carry.base > 0 && d.carry.perStrength >= 0, 'carry: base must be > 0 and perStrength >= 0');
+  for (const [t, m] of Object.entries(d.carry?.traits ?? {})) need(d.traits[t] && m > 0, `carry: trait "${t}" is unknown or its multiplier is not > 0`);
   const c = d.clock;
   need(c && c.ticksPerSecond > 0, 'clock: ticksPerSecond must be > 0');
   need(Array.isArray(c?.speeds) && c.speeds.length > 0 && c.speeds.every((v) => v > 0), 'clock: speeds must be a non-empty list of positive numbers');
@@ -54,6 +60,17 @@ export function validateDefinitions(d) {
     need(KNOWN_HANDLERS.includes(a.handler), `action ${id}: unknown handler "${a.handler}"`);
     if (a.item) need(d.items[a.item], `action ${id}: unknown item "${a.item}"`);
   }
+  for (const [id, p] of Object.entries(d.policies ?? {})) {
+    need(d.actions[p.action], `policy ${id}: unknown action \"${p.action}\"`);
+    need(Object.values(d.survivorTemplates).every((t) => p.need in t.needs), `policy ${id}: unknown need \"${p.need}\"`);
+    const range = (r) => r && Number.isInteger(r.min) && Number.isInteger(r.max) && r.min >= 1 && r.min <= r.default && r.default <= r.max && r.max <= d.needs.max;
+    need(range(p.below), `policy ${id}: below needs integer min <= default <= max within 1..${d.needs.max}`);
+    if (p.until) need(range(p.until) && p.until.default > p.below.default, `policy ${id}: until needs a valid range and a default above below's default`);
+    need(Number.isInteger(p.retryEvery) && p.retryEvery >= 1, `policy ${id}: retryEvery must be >= 1`);
+  }
+  const hk = d.hooks ?? { events: {}, limits: {} };
+  for (const [id, e] of Object.entries(hk.events)) need((e.on === 'condition' && typeof e.condition === 'string') || e.on === 'stopped', `hook ${id}: unknown trigger`);
+  for (const k of ['perSurvivor', 'maxSourceChars', 'maxCommands', 'cooldownTicks']) need(Number.isInteger(hk.limits[k]) && hk.limits[k] >= 1, `hooks.limits.${k} must be a whole number >= 1`);
   for (const [id, b] of Object.entries(d.buildings)) {
     need(b.levels?.[1]?.maxHealth > 0, `building ${id}: level 1 needs maxHealth`);
     need(b.visual?.ruinedBelow < b.visual?.damagedBelow, `building ${id}: visual thresholds must be ruinedBelow < damagedBelow`);
@@ -95,7 +112,11 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, actions, needs, clock, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+<<<<<<< HEAD
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+=======
+  const defs = structuredClone({ items, actions, needs, clock, policies, hooks, survivorTemplates, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+>>>>>>> f9c2a77d43f7703910e3e04ecf2a22b956f5ae5e
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

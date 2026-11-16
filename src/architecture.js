@@ -10,7 +10,7 @@ export const MODULES = {
   buildings: [],
   world: ['resources', 'survivors', 'buildings'],
   projection: ['resources', 'survivors', 'buildings'],
-  actions: ['resources', 'buildings', 'capability'],
+  actions: ['resources', 'survivors', 'buildings', 'capability'],
   simulation: ['survivors', 'actions', 'projection', 'capability'],
   api: [],
   sandbox: ['api'],

@@ -71,4 +71,14 @@ export const lessons = {
       { id: 'function', check: 'usesConstruct', args: { construct: 'function' }, message: 'Define a function.' },
     ],
   },
+  m3_e_policy: {
+    id: 'm3_e_policy', version: 1, title: 'Module 3 · Look After Yourself', scenario: 'stage1_weary', seed: 1008, maxTicks: 900,
+    brief: 'Gather 60 wood without your survivor ever dropping below 20 energy. You can plan the rests yourself, or give her a standing rule with survivor.policy().',
+    starter: '// A policy is a standing rule: when energy drops below 30, pause, rest until 60, then carry on.\nsurvivor.policy(\"rest\", { below: 30, until: 60 });\nsurvivor.gather(\"wood\", 10, 60);\n',
+    goals: [
+      { id: 'wood60', check: 'stockAtLeast', args: { resource: 'wood', amount: 60 }, message: 'Base has at least 60 wood.' },
+      { id: 'clean', check: 'noActionFailures', args: {}, message: 'No action failed.' },
+      { id: 'energy', check: 'needNeverBelow', args: { need: 'energy', value: 20 }, message: 'Energy never drops below 20.', hint: 'Rest first, or add survivor.policy(\"rest\", { below: 30 }).' },
+    ],
+  },
 };

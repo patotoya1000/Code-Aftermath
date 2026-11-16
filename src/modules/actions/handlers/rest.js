@@ -12,7 +12,9 @@ export const restHandler = {
     const def = ctx.defs.actions.rest;
     const ticks = a.params.ticks ?? def.defaultTicks;
     if (!Number.isInteger(ticks) || ticks < 1 || ticks > def.maxTicks) return fail('INVALID_PARAMS');
-    if (ctx.state.survivors[a.actorId].needs.energy >= ctx.defs.needs.max) return fail('NOT_NEEDED');
+    const until = a.params.until; // optional goal (used by the rest policy): stop once energy reaches it
+    if (until !== undefined && (!Number.isInteger(until) || until < 1 || until > ctx.defs.needs.max)) return fail('INVALID_PARAMS');
+    if (ctx.state.survivors[a.actorId].needs.energy >= (until ?? ctx.defs.needs.max)) return fail('NOT_NEEDED');
     a.params = { ...a.params, ticks };
     return ok;
   },
@@ -23,7 +25,7 @@ export const restHandler = {
     a.phase = 'rest';
     a.progress += 1;
     s.needs.energy = Math.min(ctx.defs.needs.max, round2(s.needs.energy + def.energyPerTick / (a.durationModifier ?? 1)));
-    return a.progress >= a.params.ticks || s.needs.energy >= ctx.defs.needs.max ? DONE : RUNNING;
+    return a.progress >= a.params.ticks || s.needs.energy >= (a.params.until ?? ctx.defs.needs.max) ? DONE : RUNNING;
   },
   complete(ctx, a) {
     const s = ctx.state.survivors[a.actorId];

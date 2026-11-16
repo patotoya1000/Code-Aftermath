@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRng } from '../src/kernel/index.js';
 import { ledgerViolations, nodeKey, stockKey } from '../src/modules/resources/index.js';
+import { storageCapacity } from '../src/modules/buildings/index.js';
+import { carriedLoad, carryCapacity } from '../src/modules/survivors/index.js';
 import { defs, newSim } from './helpers.js';
 
 const BUILDINGS = ['hq', 'fence', 'tent_1', 'storage_1', 'gate'];
@@ -27,14 +29,15 @@ function assertInvariants(sim, label, start) {
   const st = sim.snapshot();
   assert.deepEqual(ledgerViolations(st), [], `${label}: ledger`);
   for (const [k, a] of Object.entries(st.ledger)) assert.ok(a.total >= 0 && a.reserved >= 0 && a.reserved <= a.total, `${label}: ${k} ${JSON.stringify(a)}`);
-  const cap = defs.buildings.hq.storage;
-  for (const [res, c] of Object.entries(cap)) assert.ok(st.ledger[stockKey(res)].total <= Math.max(c, start[res]), `${label}: ${res} over HQ capacity`);
+  for (const res of Object.keys(defs.items)) assert.ok(st.ledger[stockKey(res)].total <= Math.max(storageCapacity(st, res), start[res]), `${label}: ${res} over pooled storage capacity`);
   const s = st.survivors.survivor_1;
+  assert.ok(carriedLoad(s, defs) <= carryCapacity(s, defs), `${label}: carrying more than she can hold`);
+  for (const [item, q] of Object.entries(s.inventory.items)) assert.ok(Number.isInteger(q) && q > 0, `${label}: inventory entry ${item}=${q}`);
   for (const [need, v] of Object.entries(s.needs)) assert.ok(Number.isFinite(v) && v >= 0 && v <= 100, `${label}: need ${need}=${v}`);
   assert.ok(s.position.x >= 0 && s.position.y >= 0 && s.position.x < st.map.width && s.position.y < st.map.height, `${label}: position`);
   for (const b of Object.values(st.buildings)) assert.ok(b.health >= 0 && b.health <= defs.buildings[b.type].levels[b.level].maxHealth, `${label}: ${b.id} health`);
-  // stone is only ever gathered (never spent): nodes + stock is constant
-  const stone = Object.values(st.nodes).filter((n) => n.resource === 'stone').reduce((t, n) => t + st.ledger[nodeKey(n.id)].total, 0) + st.ledger[stockKey('stone')].total;
+  // stone is only ever gathered (never spent): nodes + what survivors carry + base stock is constant (a unit is in exactly one place)
+  const stone = Object.values(st.nodes).filter((n) => n.resource === 'stone').reduce((t, n) => t + st.ledger[nodeKey(n.id)].total, 0) + st.ledger[stockKey('stone')].total + Object.values(st.survivors).reduce((t, sv) => t + (sv.inventory.items.stone ?? 0), 0);
   assert.equal(stone, start.stoneAll, `${label}: stone conserved`);
   // every live action reserves only what it should; terminal actions hold nothing
   for (const a of Object.values(st.actions)) if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(a.status)) assert.deepEqual(a.reservationIds, [], `${label}: ${a.actionId} holds reservations after ending`);

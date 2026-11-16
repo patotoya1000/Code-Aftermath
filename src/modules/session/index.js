@@ -1,7 +1,7 @@
 import { hashValue, SIM_VERSION, API_VERSION, REPLAY_FORMAT } from '../../kernel/index.js';
 import { createInitialState } from '../world/index.js';
 import { createSimulation } from '../simulation/index.js';
-import { buildCommand, isMarker } from '../api/index.js';
+import { buildCommand, isMarker, isInstant, isHook } from '../api/index.js';
 
 /**
  * Create a fresh simulation for continuous free play. Returns { sim, initialView }.
@@ -28,9 +28,9 @@ export function submitCalls(sim, calls = []) {
   for (const call of calls) {
     if (isMarker(call.name)) { if (call.name === 'queue') appendOnly.add(call.actorId); continue; }
     try {
-      const command = { ...buildCommand(call.actorId, { name: call.name, args: call.args }), mode: touched.has(call.actorId) || appendOnly.has(call.actorId) ? 'queue' : 'replace' };
+      const command = { ...buildCommand(call.actorId, { name: call.name, args: call.args }), mode: isInstant(call.name) || touched.has(call.actorId) || appendOnly.has(call.actorId) ? 'queue' : 'replace' };
       const actionId = sim.submitCommand(command);
-      touched.add(call.actorId);
+      if (!isInstant(call.name)) touched.add(call.actorId); // policies take effect at once; they are not part of the task order
       submitted.push({ ok: true, actionId, name: call.name, actorId: call.actorId, args: call.args, mode: command.mode });
     } catch (e) {
       submitted.push(rejectedEntry(call, e));
@@ -53,6 +53,69 @@ export async function runLiveCode({ sim, sandbox, code, actorId = null }) {
   }
   const submitted = submitCalls(sim, run.calls);
   return { ok: true, error: null, violations: null, logs: run.logs, submitted, clockInfo: sim.getClockInfo() };
+}
+
+/**
+ * Learner event hooks (R4b): react to world events with learner code.
+ * Each pump() reads the events that happened since the last one and, for every registered hook that matches (and is not
+ * cooling down), runs the handler in the sandbox Worker with a FRESH frozen view. The handler can only issue commands;
+ * they go through submitCalls like any program (strategy points, timeline), so replay needs no hook code at all.
+ * A hook that throws or never finishes is switched off (until it is registered again) and reported as hook.failed.
+ */
+export function createHookRunner({ sim, sandbox, defs }) {
+  const { events: EVENTS, limits } = defs.hooks;
+  let cursor = sim.log.length;
+  let busy = false;
+  const conds = {};      // survivorId -> Set of conditions last seen (so "hungry" fires when she BECOMES hungry)
+  const lastFired = {};  // hook id -> tick
+  const disabled = new Map(); // hook id -> registeredAtTick that failed
+  for (const v of sim.studentView().survivors) conds[v.id] = new Set(v.conditions);
+
+  function triggersFrom(fresh) {
+    const out = [];
+    for (const e of fresh) {
+      if (e.type === 'survivor.conditions_changed') {
+        const prev = conds[e.survivorId] ?? new Set();
+        const now = new Set(e.conditions);
+        for (const c of now) if (!prev.has(c)) for (const [name, rule] of Object.entries(EVENTS)) if (rule.on === 'condition' && rule.condition === c) out.push({ actorId: e.survivorId, event: name, info: { event: name } });
+        conds[e.survivorId] = now;
+      } else if (e.type === 'task.stopped' || e.type === 'action.failed') {
+        for (const [name, rule] of Object.entries(EVENTS)) if (rule.on === 'stopped') out.push({ actorId: e.actorId, event: name, info: { event: name, reason: e.reason ?? null, task: e.taskType ?? e.actionType ?? null } });
+      }
+    }
+    return out;
+  }
+
+  async function pump() {
+    if (busy) return [];
+    busy = true;
+    const results = [];
+    try {
+      const fresh = sim.log.since(cursor);
+      cursor += fresh.length;
+      const triggers = triggersFrom(fresh);
+      if (!triggers.length) return results;
+      for (const t of triggers) {
+        const hook = sim.hooks().find((h) => h.actorId === t.actorId && h.event === t.event);
+        if (!hook || disabled.get(hook.id) === hook.registeredAtTick) continue;
+        if (sim.tick - (lastFired[hook.id] ?? -Infinity) < limits.cooldownTicks) continue;
+        lastFired[hook.id] = sim.tick;
+        const code = `const __event = ${JSON.stringify(t.info)};\nconst __hook = (${hook.source});\n__hook(__event);`;
+        const run = await sandbox.run({ code, view: sim.studentView(), seed: sim.seed, actorId: hook.actorId, maxCommands: limits.maxCommands, allowHooks: false });
+        if (!run.ok) {
+          disabled.set(hook.id, hook.registeredAtTick);
+          sim.log.append(sim.tick, 'hook.failed', { actorId: hook.actorId, event: hook.event, code: run.error?.code ?? 'ERROR', message: run.error?.message ?? '' });
+          results.push({ ok: false, hook: hook.id, error: run.error });
+          continue;
+        }
+        const submitted = submitCalls(sim, run.calls);
+        sim.log.append(sim.tick, 'hook.ran', { actorId: hook.actorId, event: hook.event, commands: submitted.filter((s) => s.ok).length });
+        results.push({ ok: true, hook: hook.id, submitted });
+      }
+    } finally { busy = false; }
+    return results;
+  }
+  return { pump, get busy() { return busy; } };
 }
 
 /**
@@ -92,6 +155,11 @@ export async function runAttempt({
   if (run.ok) {
     for (const call of run.calls) {
       if (isMarker(call.name)) continue; // lessons already queue in order
+      if (isHook(call.name)) { // hooks need the live world; lessons run to completion in one go
+        commands.push({ accepted: false, name: call.name, actorId: call.actorId, args: call.args, error: { code: 'HOOKS_FREE_PLAY_ONLY', message: `survivor.${call.name}() works in free play, not inside lessons yet.` } });
+        sim.log.append(sim.tick, 'command.rejected', { actorId: call.actorId, name: call.name, code: 'HOOKS_FREE_PLAY_ONLY' });
+        continue;
+      }
       try {
         const command = buildCommand(call.actorId, call);
         const actionId = sim.submit(command);

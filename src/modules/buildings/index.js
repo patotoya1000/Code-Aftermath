@@ -35,3 +35,29 @@ export function applyHealth(defs, b, delta) {
   b.condition = conditionOf(defs, b);
   return { from, to: b.condition };
 }
+
+// ---- Pooled storage (R3). Base stock is one stock per item; its limit is the sum of the storage tables of every building
+// that still works. A ruined building adds nothing and cannot be unloaded at. ----
+
+export const isOperational = (b) => b.condition !== 'ruined';
+const accepts = (b, item) => Boolean(b.storage) && Object.prototype.hasOwnProperty.call(b.storage, item) && isOperational(b);
+
+/** Pooled capacity for `item` (0 when nothing working stores it). */
+export function storageCapacity(state, item) {
+  let cap = 0;
+  for (const b of Object.values(state.buildings)) if (accepts(b, item)) cap += b.storage[item];
+  return cap;
+}
+
+/** The working building nearest to `from` that accepts `item` (chebyshev distance, ties by id), or null. */
+export function nearestDepot(state, item, from) {
+  let best = null;
+  for (const b of Object.values(state.buildings)) {
+    if (!accepts(b, item)) continue;
+    const d = Math.max(Math.abs(b.x - from.x), Math.abs(b.y - from.y));
+    if (!best || d < best.d || (d === best.d && b.id < best.b.id)) best = { b, d };
+  }
+  return best?.b ?? null;
+}
+
+export const depotAccepts = accepts;

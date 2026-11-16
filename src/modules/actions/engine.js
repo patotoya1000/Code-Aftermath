@@ -3,6 +3,7 @@ import { reserve, commit, releaseOwner } from '../resources/index.js';
 import { Status, FailureReason, canTransition, isTerminal } from './lifecycle.js';
 import { createHandlers } from './handlers/index.js';
 import { checkCapability } from '../capability/index.js';
+import { applyPolicies, setPolicy, clearPolicy } from './policies.js';
 
 /**
  * The action engine owns the queue and the lifecycle. It mutates the state it is handed (inside the
@@ -23,6 +24,8 @@ export function createActionEngine(defs) {
       if (who) who.lastTask = { actionId: a.actionId, type: a.actionType, status: to, reason: extra.reason ?? a.stopReason ?? null, gathered: a.stats?.gathered ?? null, tick: ctx.state.tick, ...(extra.capabilityDetail ? { capabilityDetail: extra.capabilityDetail } : {}) };
     }
     ctx.emit(`action.${to.toLowerCase()}`, { actionId: a.actionId, actorId: a.actorId, actionType: a.actionType, targetId: a.targetId, ...extra });
+    // A job that a needs policy paused picks up again: say so (task.resumed), once, when it really starts working.
+    if (to === Status.EXECUTING && a.resumeOf) ctx.emit('task.resumed', { actionId: a.actionId, actorId: a.actorId, taskType: a.actionType, resumedFrom: a.resumeOf.actionId });
   }
 
   // FAILED / CANCELLED always release every reservation the action still holds.
@@ -33,7 +36,12 @@ export function createActionEngine(defs) {
     transition(ctx, a, to, { reason, ...extra, ...(a.stats ? { ...a.stats } : {}) });
   }
 
-  function submit(ctx, command) {
+  /**
+   * extra.origin    'policy:<name>' marks an action started by a needs policy.
+   * extra.resumeOf  { actionId, gathered, workTotal } marks the continuation of a job a policy interrupted.
+   * extra.beforeId  put the new action in the queue just BEFORE this one instead of at the end (policy actions jump the line).
+   */
+  function submit(ctx, command, extra = {}) {
     if (!hasOwn(defs.actions, command.type)) throw new AftermathError('UNKNOWN_ACTION', `Unknown action type ${command.type}`);
     const { state } = ctx;
     state.counters.action += 1;
@@ -41,9 +49,11 @@ export function createActionEngine(defs) {
     state.actions[actionId] = {
       actionId, actorId: command.actorId, actionType: command.type, targetId: command.params?.targetId ?? null,
       params: { ...command.params }, requestedAtTick: state.tick, status: Status.QUEUED, failureReason: null,
-      reservationIds: [], progress: 0, workTotal: 0, travelTicks: 0, phase: null, startedAtTick: null, endedAtTick: null,
+      reservationIds: [], progress: 0, workTotal: extra.resumeOf?.workTotal ?? 0, travelTicks: 0, phase: null, startedAtTick: null, endedAtTick: null,
+      ...(extra.origin ? { origin: extra.origin } : {}), ...(extra.resumeOf ? { resumeOf: { ...extra.resumeOf } } : {}),
     };
-    state.activeActions.push(actionId);
+    const at = extra.beforeId ? state.activeActions.indexOf(extra.beforeId) : -1;
+    if (at >= 0) state.activeActions.splice(at, 0, actionId); else state.activeActions.push(actionId);
     ctx.emit('action.queued', { actionId, actorId: command.actorId, actionType: command.type });
     return actionId;
   }
@@ -117,7 +127,18 @@ export function createActionEngine(defs) {
     ctx.state.activeActions = ctx.state.activeActions.filter((id) => !isTerminal(ctx.state.actions[id].status));
   }
 
+  /** Cancel exactly one action (releasing everything it holds). Used when a needs policy interrupts a job. */
+  function cancelAction(ctx, a, reason = FailureReason.CANCELLED) {
+    if (isTerminal(a.status)) return;
+    terminate(ctx, a, Status.CANCELLED, reason);
+    ctx.state.activeActions = ctx.state.activeActions.filter((id) => id !== a.actionId);
+  }
+
   const isIdle = (state) => state.activeActions.length === 0;
 
-  return { submit, step, cancelFor, isIdle };
+  const engine = { submit, step, cancelFor, cancelAction, isIdle };
+  engine.applyPolicies = (ctx) => applyPolicies(ctx, engine);
+  engine.setPolicy = setPolicy;
+  engine.clearPolicy = clearPolicy;
+  return engine;
 }

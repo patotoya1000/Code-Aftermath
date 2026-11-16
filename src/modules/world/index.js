@@ -15,7 +15,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     strategyPoints: defs.clock.strategy.start, // spent by learner commands, regenerates over time (see simulation tick)
     ledger: {}, reservations: {},
     nodes: {}, buildings: {}, survivors: {},
-    actions: {}, activeActions: [],
+    actions: {}, activeActions: [], hooks: {},
   };
   for (const item of Object.keys(defs.items)) openAccount(state, stockKey(item), sc.stock[item] ?? 0);
   for (const spec of sc.buildings) state.buildings[spec.id] = createBuilding(defs, spec);

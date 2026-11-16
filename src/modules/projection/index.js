@@ -1,7 +1,7 @@
 import { deepFreeze, API_VERSION, own } from '../../kernel/index.js';
 import { available, stockKey, nodeKey, total, summary } from '../resources/index.js';
-import { deriveConditions } from '../survivors/index.js';
-import { maxHealthOf, assetKey } from '../buildings/index.js';
+import { deriveConditions, carriedLoad, carryCapacity } from '../survivors/index.js';
+import { maxHealthOf, assetKey, storageCapacity, isOperational } from '../buildings/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
 // the Inspector/Survivor Card and the renderer all consume these and can never mutate the simulation.
@@ -18,8 +18,11 @@ function survivorView(state, defs, s) {
     id: s.id, name: s.identity.name, x: s.position.x, y: s.position.y, direction: s.direction, status: s.status,
     needs: { ...s.needs }, conditions: deriveConditions(s, defs),
     attributes: { ...s.attributes }, skills: { ...s.skills }, traits: [...s.traits],
+    hooks: Object.values(state.hooks ?? {}).filter((h) => h.actorId === s.id).map((h) => h.event),
+    policies: Object.fromEntries(Object.entries(s.policies ?? {}).map(([k, p]) => [k, { below: p.below, ...(p.until !== undefined ? { until: p.until } : {}), blocked: p.blocked ?? null }])),
     inventory: { items: { ...s.inventory.items } },
-    // Weights come from item definitions (never from UI constants). Capacity/encumbrance are NOT projected until the carry system exists.
+    // Weights come from item definitions (never from UI constants). `carry` is derived on the fly: load = sum of quantity x unitWeight.
+    carry: { load: carriedLoad(s, defs), capacity: carryCapacity(s, defs) },
     inventoryDetail: Object.entries(s.inventory.items).map(([id, quantity]) => ({
       id, name: defs.items[id]?.name ?? id, quantity, unitWeight: defs.items[id]?.unitWeight ?? 0, weight: quantity * (defs.items[id]?.unitWeight ?? 0),
     })),
@@ -34,18 +37,23 @@ function survivorView(state, defs, s) {
   };
 }
 
-/** Capacity / current / remaining for a building type that has a storage table (undefined otherwise). */
-function storageInfoFor(state, defs, type) {
-  const cap = defs.buildings[type]?.storage;
+/**
+ * Storage a building contributes, and where the pooled stock stands. `capacity` is THIS building's table; `current`/`remaining`
+ * are the pooled stock and room across every working storage building. `working` is false while the building is ruined
+ * (it then contributes nothing). Undefined for buildings without a storage table.
+ */
+function storageInfoFor(state, defs, b) {
+  const cap = defs.buildings[b.type]?.storage;
   if (!cap) return undefined;
   const current = Object.fromEntries(Object.keys(cap).map((k) => [k, total(state, stockKey(k))]));
-  const remaining = Object.fromEntries(Object.entries(cap).map(([k, c]) => [k, Math.max(0, c - current[k])]));
-  return { capacity: { ...cap }, current, remaining };
+  const pooled = Object.fromEntries(Object.keys(cap).map((k) => [k, storageCapacity(state, k)]));
+  const remaining = Object.fromEntries(Object.keys(cap).map((k) => [k, Math.max(0, pooled[k] - current[k])]));
+  return { capacity: { ...cap }, pooledCapacity: pooled, current, remaining, working: isOperational(b) };
 }
 
 function buildingView(state, defs, b) {
   const def = defs.buildings[b.type];
-  const storageInfo = storageInfoFor(state, defs, b.type);
+  const storageInfo = storageInfoFor(state, defs, b);
   return {
     id: b.id, type: b.type, name: def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
@@ -63,6 +71,7 @@ export function studentView(state, defs) {
     reserved[item] = total(state, stockKey(item)) - base[item];
   }
   base.reserved = reserved;
+  base.capacity = Object.fromEntries(Object.keys(defs.items).map((item) => [item, storageCapacity(state, item)]));
   const buildings = Object.values(state.buildings).map((b) => buildingView(state, defs, b));
   const nodes = Object.values(state.nodes).map((n) => ({
     id: n.id, type: n.type, resource: n.resource, x: n.x, y: n.y, amount: available(state, nodeKey(n.id)),
@@ -80,7 +89,7 @@ function animationFor(s, a) {
   if (s.status === 'downed') return 'DOWNED';
   if (!a || a.status !== 'EXECUTING') return 'IDLE';
   if (a.actionType === 'move' || a.phase === 'travel') return 'WALK';
-  return { gather: 'GATHER', repair: 'REPAIR', rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
+  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
 }
 
 /** Static presentation ground for the scenario (forest zone, outside path). Never affects gameplay. */

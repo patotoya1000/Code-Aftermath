@@ -6,17 +6,19 @@ import { createSurvivor } from '../src/modules/survivors/index.js';
 import { buildCommand } from '../src/modules/api/index.js';
 import { FailureReason } from '../src/modules/actions/lifecycle.js';
 
-test('gather walks to the nearest tree, works, and credits base stock via the full lifecycle', () => {
+test('gather walks to the nearest tree, works, carries the wood to storage and unloads it, via the full lifecycle', () => {
   const sim = newSim();
   call(sim, 'gather', 'wood', 10, 10);
   runUntilIdle(sim);
   const statuses = sim.log.all().filter((e) => e.type.startsWith('action.')).map((e) => e.type);
   assert.deepEqual(statuses, ['action.queued', 'action.validating', 'action.reserved', 'action.executing', 'action.completed']);
   assert.equal(sim.studentView().base.wood, 10);
-  assert.equal(sim.log.ofType('resource.gathered')[0].amount, 10);
+  assert.equal(sim.log.ofType('resource.gathered')[0].amount, 10, 'picked up at the tree');
+  assert.equal(sim.log.ofType('resource.deposited')[0].amount, 10, 'unloaded into storage');
   assert.deepEqual(ledgerViolations(sim.snapshot()), []);
   const v = sim.studentView().survivor;
-  assert.ok(Math.max(Math.abs(v.x - 20), Math.abs(v.y - 4)) <= 1, 'ends adjacent to tree_1');
+  assert.deepEqual(v.inventory.items, {}, 'nothing left in her hands');
+  assert.ok(Math.max(Math.abs(v.x - 11), Math.abs(v.y - 7)) <= 1, 'ends next to the HQ, where she unloaded');
 });
 
 test('movement uses the 8-direction vocabulary and the simulation owns direction', () => {

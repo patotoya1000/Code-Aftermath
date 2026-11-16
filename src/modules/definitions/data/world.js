@@ -6,7 +6,8 @@ export const nodeTypes = {
 
 // Building level is data: later phases add effects per level. `visual` thresholds decide the
 // meaningful world state (ruined / damaged / repaired), never one asset per health percent.
-// `storage` = max capacity per item type. Leave undefined for buildings without storage.
+// `storage` = capacity per item type. Capacity is POOLED: base stock is one stock per item, and its limit is the sum of the
+// `storage` tables of every building that is not ruined. Survivors unload at the nearest such building that accepts the item.
 export const buildings = {
   hq: {
     name: 'Headquarters',
@@ -28,14 +29,14 @@ export const buildings = {
     repair: { cost: { wood: 3 }, healthPerAction: 20, ticks: 20 },
     storage: { food: 50, water: 50 },
   },
-  // I2 world object: a ruined storehouse. It is only a repairable world object for now: capacity (a `storage` table
-  // like the HQ's) arrives with inventory/carry (I5), so nothing here pretends to be a working mechanic.
+  // A storehouse. While it is ruined it adds nothing; once repaired its `storage` table is added to the pooled capacity and
+  // survivors can unload there (R3). Closer to the forest than the HQ, so it shortens trips.
   storage: {
     name: 'Storehouse',
     levels: { 1: { maxHealth: 120 } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 8 }, healthPerAction: 30, ticks: 30 },
-    note: 'Storage capacity arrives with inventory and carry (Phase I5).',
+    storage: { wood: 100, stone: 100 },
   },
   // I2 world object: the gap in the fence that connects the base to the outside path. `perimeter: true` means the
   // scenario must place it on the fence line (validated) and the renderer leaves that fence cell open.
@@ -79,4 +80,9 @@ const stage1Tired = structuredClone(stage1);
 stage1Tired.name = 'Stage 1 — Exhausted';
 stage1Tired.survivors[0].needs = { energy: 3 };
 
-export const scenarios = { stage1, stage1_tired: stage1Tired };
+// A survivor who is already worn down: a long job will tire her out unless she looks after herself (policy lesson).
+const stage1Weary = structuredClone(stage1);
+stage1Weary.name = 'Stage 1 — Worn Down';
+stage1Weary.survivors[0].needs = { energy: 30 };
+
+export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary };
