@@ -16,6 +16,9 @@ export const isFarm = (defs, b) => Boolean(farmDefOf(defs, b));
 export const farmWorking = (defs, b) => isFarm(defs, b) && b.condition === 'repaired';
 export const farmsOf = (state, defs) => Object.values(state.buildings).filter((b) => isFarm(defs, b)).sort((a, b) => (a.id < b.id ? -1 : 1));
 
+/** A farm level with a `power.use` (the hydroponic level) only grows while the grid powers it (`b.power.powered`, set by the power module). */
+export const farmPowered = (defs, b) => defs.buildings[b.type].levels[b.level].power?.use === undefined || Boolean(b.power?.powered);
+
 /** Plots of one farm in order (plot_1, plot_2 … by index, not by text). */
 export const plotsOf = (state, farmId) => Object.values(state.plots).filter((p) => p.farmId === farmId).sort((a, b) => a.index - b.index);
 
@@ -43,10 +46,12 @@ export const raining = (defs, tick) => Boolean(defs.environment.weather[weatherA
 export function tickFarms(ctx) {
   const { state, defs, emit } = ctx;
   if (Object.keys(state.plots).length === 0) return;
-  const rain = raining(defs, state.tick);
+  const raining0 = raining(defs, state.tick);
   for (const b of farmsOf(state, defs)) {
     if (b.condition !== 'repaired') continue;
     const farm = farmDefOf(defs, b);
+    if (!farmPowered(defs, b)) continue; // a hydroponic farm without power holds its crops: nothing grows (nothing is lost either)
+    const rain = raining0 && !farm.indoor;
     for (const p of plotsOf(state, b.id)) {
       if (p.stage !== 'growing') continue;
       if (rain) p.water = defs.farming.cap;
@@ -97,9 +102,10 @@ export const percentOf = (defs, p) => (p.crop ? Math.min(100, Math.floor((p.prog
 export function farmInfoFor(state, defs, b) {
   const f = farmDefOf(defs, b);
   if (!f) return undefined;
-  const rain = raining(defs, state.tick);
+  const rain = raining(defs, state.tick) && !f.indoor;
+  const needsPower = defs.buildings[b.type].levels[b.level].power?.use !== undefined;
   return {
-    working: b.condition === 'repaired', sheltered: f.shelter, growth: f.growth, yield: f.yield,
+    working: b.condition === 'repaired', sheltered: f.shelter, growth: f.growth, yield: f.yield, indoor: Boolean(f.indoor), needsPower, powered: !needsPower || Boolean(b.power?.powered),
     plots: plotsOf(state, b.id).map((p) => ({
       id: p.id, crop: p.crop, stage: p.stage, percent: percentOf(defs, p), water: p.water, dry: p.stage === 'growing' && p.water <= 0 && !rain,
       damage: p.damage, ready: p.stage === 'ready' ? available(state, plotKey(p.id)) : 0,

@@ -11,6 +11,12 @@ export const items = {
   // Farm crops (docs/game/16). A crop item is also its own seed: planting spends `crop.seeds` units of it. Raw crops go off sooner than bread.
   potato: { name: 'Potato', unitWeight: 1, shelfLife: 5 },
   carrot: { name: 'Carrot', unitWeight: 1, shelfLife: 3 },
+  // O12: a hot meal (kitchen level 2) is the best fresh food but spoils fastest; the MRE (kitchen level 3) is sealed and never spoils.
+  hot_meal: { name: 'Hot meal', unitWeight: 1, shelfLife: 3 },
+  mre: { name: 'MRE', unitWeight: 1 },
+  // O12 workshop goods: packaging seals MREs; glass is for the hydroponic level (next phase).
+  packaging: { name: 'Packaging', unitWeight: 1 },
+  glass: { name: 'Glass', unitWeight: 2 },
 };
 
 // Carry capacity (R3), in weight units: (base + perStrength x strength) x every matching trait multiplier, rounded down.

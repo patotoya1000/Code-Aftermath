@@ -8,7 +8,7 @@ Item definitions (name, unit weight). Today items are only base-stock resources.
 
 # Responsibilities
 
-- Define the eight items: wood (w2), stone (w4), food (w1), water (w1), wheat (w1), bread (w1), potato (w1, shelfLife 5), carrot (w1, shelfLife 3). Wheat (10), potato (4) and carrot (4) are the farm's starting seeds; a crop is its own seed (planting spends `crop.seeds`, harvesting returns `crop.yield`; raw potato restores 18 hunger, carrot 12); bread is cooked and perishable (`shelfLife` 4 days, spoilage module) (recipe `bread`, restores 40 hunger; canned `food` restores 30).
+- Define the twelve items: wood (w2), stone (w4), food (w1), water (w1), wheat (w1), bread (w1), potato (w1, shelfLife 5), carrot (w1, shelfLife 3), hot_meal (w1, shelfLife 3, +60 hunger), mre (w1, never spoils, +100), packaging (w1), glass (w2) — O12. Wheat (10), potato (4) and carrot (4) are the farm's starting seeds; a crop is its own seed (planting spends `crop.seeds`, harvesting returns `crop.yield`; raw potato restores 18 hunger, carrot 12); bread is cooked and perishable (`shelfLife` 4 days, spoilage module) (recipe `bread`, restores 40 hunger; canned `food` restores 30).
 - Project `unitWeight` and per-stack weight in `inventoryDetail` (display only).
 
 # Does NOT Own

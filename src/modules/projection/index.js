@@ -77,13 +77,13 @@ function buildingView(state, defs, b) {
 /** Recipes a station building type makes: [{ id, stationLevel, working }] - `working` = this very building can cook it right now. */
 function recipesAt(defs, b) {
   return Object.entries(defs.recipes ?? {}).filter(([, r]) => r.station === b.type)
-    .map(([id, r]) => ({ id, stationLevel: r.stationLevel, working: b.condition === 'repaired' && b.level >= r.stationLevel }));
+    .map(([id, r]) => ({ id, action: r.action, stationLevel: r.stationLevel, working: b.condition === 'repaired' && b.level >= r.stationLevel }));
 }
 
 /** The learner's recipe book: what each recipe needs and makes, whether a working station exists, and whether base stock can pay for a batch. */
 function recipeBook(state, defs) {
   return Object.fromEntries(Object.entries(defs.recipes ?? {}).map(([id, r]) => [id, {
-    id, name: r.name, station: r.station, stationLevel: r.stationLevel, inputs: { ...r.inputs }, outputs: { ...r.outputs }, ticks: r.ticks, skill: r.skill,
+    id, name: r.name, action: r.action, station: r.station, stationLevel: r.stationLevel, power: r.power ?? 0, inputs: { ...r.inputs }, outputs: { ...r.outputs }, ticks: r.ticks, skill: r.skill,
     stationWorking: stationsFor(state, defs, r).working.length > 0,
     canAfford: Object.entries(r.inputs).every(([item, qty]) => available(state, stockKey(item)) >= qty),
   }]));
@@ -125,7 +125,7 @@ function animationFor(s, a) {
   if (!a || a.status !== 'EXECUTING') return 'IDLE';
   if (a.actionType === 'move' || a.phase === 'travel') return 'WALK';
   if (a.phase === 'wait') return 'IDLE'; // standing at an empty well, waiting for it to refill
-  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', cook: 'REPAIR', farm: 'GATHER', /* placeholder: no cooking pose in the sprite sheet yet - a working pose stands in */ rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
+  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', cook: 'REPAIR', craft: 'REPAIR', farm: 'GATHER', /* placeholder: no cooking pose in the sprite sheet yet - a working pose stands in */ rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
 }
 
 /** Static presentation ground for the scenario (forest zone, outside path). Never affects gameplay. */
@@ -162,6 +162,7 @@ export function renderProjection(state, defs) {
       return { id: n.id, type: n.type, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left };
     }),
     stock: Object.fromEntries(Object.keys(defs.items).map((i) => [i, total(state, stockKey(i))])),
+    zombies: [],
   });
 }
 

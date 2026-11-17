@@ -199,7 +199,7 @@ test('view: recipe book, food table and station recipes are read-only and follow
   assert.deepEqual(v.recipes.bread.inputs, { wheat: 2, water: 1, wood: 1 });
   assert.equal(v.recipes.bread.canAfford, false, 'no wood for fuel');
   assert.deepEqual(v.foods.food, { restore: 30, rank: 1, available: 6 });
-  assert.deepEqual(v.buildings.find((b) => b.id === 'kitchen').recipes, [{ id: 'bread', stationLevel: 1, working: false }]);
+  assert.deepEqual(v.buildings.find((b) => b.id === 'kitchen').recipes, [{ id: 'bread', action: 'cook', stationLevel: 1, working: false }, { id: 'hot_meal', action: 'cook', stationLevel: 2, working: false }, { id: 'mre', action: 'cook', stationLevel: 3, working: false }]);
   assert.ok(Object.isFrozen(v.recipes) && Object.isFrozen(v.foods));
   assert.equal(v.base.wheat, 10);
   assert.equal(v.base.capacity.bread, 40);

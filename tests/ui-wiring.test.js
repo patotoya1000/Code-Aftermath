@@ -12,6 +12,7 @@ function makeEl(id) {
   const classes = new Set();
   return {
     id, innerHTML: '', textContent: '', value: '', className: '', style: {}, disabled: false, width: 960, height: 640,
+    dataset: {},
     classList: { toggle: (c, on) => (on === undefined ? (classes.has(c) ? classes.delete(c) : classes.add(c)) : on ? classes.add(c) : classes.delete(c)), add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c) },
     addEventListener: (t, fn) => { (listeners[t] ??= []).push(fn); },
     fire: async (t, ev = {}) => { for (const fn of listeners[t] ?? []) await fn(ev); },
@@ -19,7 +20,7 @@ function makeEl(id) {
   };
 }
 
-test('main screen: real play/pause/speed controls, code goes through sandbox, the world runs on its own', async () => {
+test('main screen: real play/pause/speed controls, code goes through sandbox, the world runs on its own', { concurrency: false }, async () => {
   const els = Object.fromEntries(ids.map((i) => [i, makeEl(i)]));
   els['code-editor'].value = 'survivor.gather("wood", 5, 5);';
   const docListeners = {};
@@ -64,6 +65,9 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   assert.match(els['event-feed'].innerHTML, /\+5 wood/);
   assert.match(els['event-feed'].innerHTML, /stopped gather: TARGET_REACHED/);
   assert.match(els['inspector-card'].innerHTML, /Last: gather completed — TARGET_REACHED/);
+  assert.match(els['inspector-card'].innerHTML, /Stop reason: TARGET_REACHED/);
+  assert.match(els['tutor-content'].innerHTML, /Relevant commands/i);
+  assert.match(els['tutor-content'].innerHTML, /data-action="open-book" data-entry="command\.(eat|drink|rest|gather)"/);
 
   // pause freezes time; speed button cycles through the data-defined speeds
   await els['btn-play'].fire('click');
@@ -79,7 +83,7 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   const card = els['inspector-card'].innerHTML;
   assert.match(card, /Needs/); assert.match(card, /Skills/); assert.match(card, /Carrying 0 \/ 60 wt/);
   assert.equal(/22 ?kg|Encumbrance: (Light|Heavy|Moderate)/.test(card), false);
-  assert.equal(/Crafting/.test(card), false, 'crafting is not an attribute');
+  assert.match(card, /Crafting/, 'crafting is a real skill since O12 (workshop), listed from the definitions like every other skill');
 
   // Shortcuts never eat typing: the letter "l" in the editor must not open lesson mode; Alt+L does (it used to be bare "l")
   globalThis.document.activeElement = { tagName: 'TEXTAREA' };
@@ -94,6 +98,7 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   const click = (action, extra = {}) => ({ target: { closest: () => ({ dataset: { action, ...extra } }) } });
   for (const fn of docListeners.click) await fn(click('start-lesson', { lesson: 'm1_rest_first' }));
   assert.match(els['lesson-instructions'].innerHTML, /Rest First/);
+  assert.match(els['lesson-instructions'].innerHTML, /data-action="open-book" data-entry="command\.(rest|gather)"/);
   assert.match(els['clock-detail'].textContent, /TICK \d+/, 'free-play world was not reset by opening a lesson');
   for (const fn of docListeners.click) await fn(click('exit-lesson'));
   assert.equal(els['lesson-player-panel'].style.display, 'none');
@@ -115,7 +120,22 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   assert.match(els['clock-detail'].textContent, /STRATEGY 10\/10 · TICK 0/);
 });
 
-test('codebook UI: opens from BOOK, searches, shows an API-built entry, inserts the example, links rejected commands', async () => {
+test('mobile layout: narrow screens expose tabbed panels for world, code, book, inspect and lessons', { concurrency: false }, async () => {
+  const els = Object.fromEntries(ids.map((i) => [i, makeEl(i)]));
+  const docListeners = {};
+  globalThis.document = { getElementById: (i) => els[i] ?? null, createElement: () => makeEl('c'), addEventListener: (t, fn) => { (docListeners[t] ??= []).push(fn); }, body: { classList: { toggle() {} } } };
+  globalThis.window = { devicePixelRatio: 1, addEventListener() {}, innerWidth: 480, matchMedia: () => ({ matches: true, addListener() {}, removeListener() {} }) };
+  globalThis.location = { search: '' };
+  globalThis.requestAnimationFrame = () => 0;
+  await import('../src/app/mainscreen.js?mobile');
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(els['mobile-tabs'].style.display, 'flex');
+  assert.equal(els['mobile-tab-world'].classList.contains('active'), true);
+  assert.equal(els['mobile-tab-inspect'].id, 'mobile-tab-inspect');
+  assert.equal(els['mobile-tab-lessons'].id, 'mobile-tab-lessons');
+});
+
+test('codebook UI: opens from BOOK, searches, shows an API-built entry, inserts the example, links rejected commands', { concurrency: false }, async () => {
   const els = Object.fromEntries(ids.map((i) => [i, makeEl(i)]));
   const docListeners = {};
   globalThis.document = { getElementById: (i) => els[i] ?? null, createElement: () => makeEl('c'), addEventListener: (t, fn) => { (docListeners[t] ??= []).push(fn); }, body: { classList: { toggle() {} } } };

@@ -117,6 +117,27 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 - **Forbidden Alternative:** random spoilage; per-unit timers; spoiling inside the ledger; ageing every tick.
 - **Status:** ACCEPTED, implemented.
 
+## Battery bank: discharge before fuel, charge only from surplus (O14, 2026-11-17)
+- **Decision:** A battery is a third kind of power level (`store`), alongside producers and consumers. Per tick: solar, then batteries cover the remaining demand (up to `rate`, limited by charge), then generators burn fuel only for what is still missing; after every consumer and powered job is served, surplus GENERATION charges the batteries that did not discharge this tick. A ruin keeps its charge but is inert. Integers only, no losses.
+- **Reason:** Makes solar usable at night and saves fuel, without any new action; "never burn fuel to charge" keeps the generator demand-driven (O11 decision).
+- **Consequence:** A battery that discharges in a tick is not charged in that tick, so a generator's spare output that tick is lost. No efficiency loss, no manual switch. Behaviour change => `SIM_VERSION` 0.18.0.
+- **Forbidden Alternative:** generators burning fuel to charge; random charge loss; a battery that powers things while ruined.
+- **Status:** ACCEPTED, implemented.
+
+## Hydroponics is the third field level and a continuous consumer (O13, 2026-11-17)
+- **Decision:** The hydroponic farm is level 3 of the same `field` building (upgrade needs 12 glass from the workshop). Its level has `power.use` (5), so it is a normal grid consumer like the freezer, and `tickFarms` skips growth on ticks it is not powered. `farm.indoor` stops rain watering it (hazards are already blocked by `shelter`). Water stays hand-delivered.
+- **Reason:** Reuses the O11 consumer path (one grid, no special case); holding crops when unpowered teaches power planning without punishing with lost food.
+- **Consequence:** It burns fuel all the time while repaired, so solar or a fuel stock is a real choice. Nutrients (fertilizer) and a battery are not built. Behaviour change => `SIM_VERSION` 0.17.0.
+- **Forbidden Alternative:** crops dying when power drops; a farm that draws power only while someone works it; a second building for the hydroponic tier.
+- **Status:** ACCEPTED, implemented.
+
+## Crafting reuses the cook engine; machines draw power while they work (O12, 2026-11-17)
+- **Decision:** `craft` is a second action definition on the SAME `cook` handler. A recipe names the command that makes it (`action: 'cook' | 'craft'`); the handler reads `defs.actions[a.actionType]` for range/skill/limits, awards XP by action type and refuses a recipe from the wrong command (`INVALID_PARAMS`). An action may declare its own `skill` (capability uses it before the handler map). A recipe may declare `power`: while a survivor works a batch of it at a working station, the power module counts that as consumer demand (after building consumers, in action-id order) and sets `action.powered`; unpowered, she waits and after `powerWaitTicks` the job ends with `NO_POWER`. Kitchen gets levels 2-3 and the MRE seal and the glass furnace are the first powered recipes. Hot meal uses potato + carrot (a stew from the farm's vegetables; the design's "wheat or bread" alternative needs recipe alternatives, not built).
+- **Reason:** One batch engine keeps ledger conservation, interruption/resume, reservations and stop reasons in one place; a per-recipe `power` avoids a kitchen that burns fuel all day (a building-level consumer would demand power when idle).
+- **Consequence:** Preserved ration (needs salt), fuel and fertilizer recipes are not built. Glass exists for the hydroponic level (next). Behaviour change ⇒ `SIM_VERSION` 0.16.0.
+- **Forbidden Alternative:** a separate craft handler duplicating cook; a kitchen/workshop that draws power while idle; MRE or glass that ignore the grid.
+- **Status:** ACCEPTED, implemented.
+
 ## Power: producers and a freezer on one grid (O11, 2026-11-17)
 - **Decision:** Power is one integer budget per tick. Producers: a fuelled generator (burns 1 wood per `every` ticks, only on ticks when the grid still needs power) and a solar panel (output x weather `solar` %, 0 at night). Consumers (the level-3 freezer storehouse) are served in id order, all-or-nothing; an unpowered freezer protects nothing. Fuel leaves base stock through `ledger.discard`. The design's "upgrade branch" (generator → advanced generator OR solar) is built as TWO separate buildings in the scenario (`generator_1` with level 2 = advanced, and `solar_1`): the player repairs/upgrades what they want, so the O5 upgrade table stays linear.
 - **Reason:** Demand-driven burning makes solar-first a real planning choice without a second action type; separate buildings avoid extending `upgrade` with branches before there is a lesson that needs it; all-or-nothing keeps a learner's mental model simple ("is it powered?").

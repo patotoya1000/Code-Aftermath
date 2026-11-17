@@ -25,6 +25,41 @@ test('placeholder atlas: fixed frame size, shared pivot, all 8 directions', () =
   for (const d of ['UP', 'UP_RIGHT', 'RIGHT', 'DOWN_RIGHT', 'DOWN', 'DOWN_LEFT', 'LEFT', 'UP_LEFT']) assert.ok(m.animations[npcKey('idle', d)], d);
 });
 
+test('PA-6 NPC asset phase covers the readable combat and work states without changing gameplay', () => {
+  const m = buildPlaceholderManifest({});
+  assert.ok(m.animations[npcKey('work', 'DOWN')], 'work animation exists for the actor state');
+  assert.ok(m.animations[npcKey('attack', 'DOWN_RIGHT')], 'attack animation exists for the direction set');
+  assert.ok(m.animations[npcKey('hurt', 'LEFT')], 'hurt animation exists for the readable state');
+  assert.ok(m.animations[npcKey('dead', 'DOWN')], 'dead state is present for the final pose');
+
+  const resolve = createAssetResolver(m).resolveNpc({ animation: 'ATTACK', direction: 'DOWN_RIGHT' });
+  assert.equal(resolve.key, npcKey('attack', 'DOWN_RIGHT'));
+  assert.equal(resolve.step, 1);
+  assert.equal(createAssetResolver(m).resolveNpc({ animation: 'HURT', direction: 'LEFT' }).key, npcKey('hurt', 'LEFT'));
+});
+
+test('PA-7 zombie rendering follows the same renderer-only architecture as survivors', () => {
+  const m = buildPlaceholderManifest({});
+  assert.ok(m.animations.zombie_walk_down, 'zombie walking animation exists');
+  assert.ok(m.animations.zombie_attack_down_right, 'zombie attack animation exists');
+
+  const frame = {
+    tick: 1, map: { width: 24, height: 16 }, environment: { isNight: false, hour: 8, weather: 'clear' },
+    terrain: { zones: [], paths: [] }, buildings: [], nodes: [], npcs: [], zombies: [{ id: 'z1', name: 'walker', x: 10, y: 9, direction: 'DOWN', animation: 'WALK' }],
+    stock: {}, events: []
+  };
+  const r = mount();
+  r.draw(frame);
+  const px = (tx, ty) => {
+    const t = 960 / 24;
+    const ox = 0;
+    const oy = (640 - 16 * t) / 2;
+    return [ox + tx * t + t / 2, oy + ty * t + t / 2];
+  };
+  assert.ok(r.lastDrawList.some((e) => e.kind === 'zombie' && e.id === 'z1'), 'zombie is rendered via the asset resolver');
+  assert.deepEqual(r.pick(...px(10, 9), frame), { kind: 'zombie', id: 'z1' }, 'zombie is hit-testable through the same renderer pipeline');
+});
+
 test('fallback chain: missing frame → nearest direction → generic → idle → safe default', () => {
   const m = buildPlaceholderManifest({});
   const steps = (mm, req) => createAssetResolver(mm).resolveNpc(req);
@@ -130,4 +165,21 @@ test('pick() selects survivors, nodes, buildings and the fence perimeter', () =>
   assert.deepEqual(r.pick(...px(11, 7), f), { kind: 'building', id: 'hq' });
   assert.deepEqual(r.pick(...px(6, 8), f), { kind: 'building', id: 'fence' });
   assert.equal(r.pick(...px(1, 1), f), null);
+});
+
+test('PA-8 interaction and UI use a renderer-only hover/lookup contract without touching gameplay state', () => {
+  const sim = newSim();
+  const frame = sim.renderProjection();
+  const r = mount();
+  r.draw(frame);
+  r.setHover('node', 'tree_1');
+  assert.deepEqual(r.getHover(), { kind: 'node', id: 'tree_1' });
+  const hit = r.lookup('node', 'tree_1', frame);
+  assert.equal(hit.id, 'tree_1');
+  assert.equal(hit.type, 'tree');
+  r.clearHover();
+  assert.deepEqual(r.getHover(), { kind: null, id: null });
+  const npc = r.lookup('npc', 'survivor_1', frame);
+  assert.equal(npc.id, 'survivor_1');
+  assert.equal(npc.name, 'Mara');
 });

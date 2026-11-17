@@ -75,7 +75,7 @@ function continuationOf(a, defs) {
     params.total -= a.stats?.gathered ?? 0; // what is already in the base counts toward the learner's total
     if (params.total < 1) return null;
   }
-  if (a.actionType === 'cook' && params.count !== undefined) {
+  if ((a.actionType === 'cook' || a.actionType === 'craft') && params.count !== undefined) {
     params.count -= a.stats?.crafted ?? 0; // batches already finished count toward the learner's count
     if (params.count < 1) return null;
   }

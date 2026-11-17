@@ -49,10 +49,19 @@ export const COMMANDS = {
   deposit: { type: 'deposit', signature: 'survivor.deposit()', doc: 'Walk to the nearest working storage building and unload everything she carries into base stock.', params: (args) => noArgs('deposit', args) },
   cook: {
     type: 'cook', signature: 'survivor.cook(recipe, count)',
-    doc: 'Walk to a repaired kitchen and cook a recipe in batches, e.g. survivor.cook("bread", 5). Ingredients (and fuel) come from base stock; the result goes back into it. Stops by itself when `count` batches are done, the next batch cannot be paid for, storage is full or she is too tired. With no count she keeps cooking until one of those happens. See recipes for what each needs.',
+    doc: 'Walk to a repaired kitchen and cook a recipe in batches, e.g. survivor.cook("bread", 5). Ingredients (and fuel) come from base stock; the result goes back into it. Stops by itself when `count` batches are done, the next batch cannot be paid for, storage is full or she is too tired. With no count she keeps cooking until one of those happens. Kitchen recipes only (bread, hot_meal, mre); the MRE needs power while it is sealed. See recipes for what each needs.',
     params(args) {
       if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('cook', 'first argument must be a recipe name like "bread"');
       const count = optInt('cook', 'count', args[1], 1, 100);
+      return { recipe: args[0], ...(count !== undefined ? { count } : {}) };
+    },
+  },
+  craft: {
+    type: 'craft', signature: 'survivor.craft(recipe, count)',
+    doc: 'Walk to a repaired workshop and craft a recipe in batches, e.g. survivor.craft("packaging", 5). It works like cook() but for workshop recipes (packaging, glass) and practises Crafting. Some recipes need power while they are worked (see recipes.<name>.power): without it she waits, then stops with NO_POWER. Stops by itself when `count` batches are done, the next batch cannot be paid for, storage is full or she is too tired.',
+    params(args) {
+      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('craft', 'first argument must be a recipe name like "packaging"');
+      const count = optInt('craft', 'count', args[1], 1, 100);
       return { recipe: args[0], ...(count !== undefined ? { count } : {}) };
     },
   },
@@ -150,15 +159,15 @@ export const READ_SURFACE = [
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory   (what she carries)',
   'survivor.carry   ({ load, capacity } in weight units)',
   'survivors   (array of all survivors)',
-  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread, base.potato, base.carrot   (available amounts in storage, not what survivors carry)',
+  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread, base.potato, base.carrot, base.hot_meal, base.mre, base.packaging, base.glass   (available amounts in storage, not what survivors carry)',
   'base.perishables   (food that can spoil, oldest first: [{ item, qty, daysLeft, cold }]; spoiled units are lost - eat or protect them)',
   'base.capacity.wood …   (how much the working storage buildings hold in total)',
   'fence, hq, buildings   (id, type, level, health, maxHealth, condition, x, y)',
   'storage_1.cold   (cold storage: { capacity, factor, working } - the `capacity` oldest food units age `factor` times slower; a freezer (level 3) also has needsPower and powered, and only works while powered)',
-  'power   (the grid this tick: { produced, demand, balance, ok, sun, producers, working } - sun is the daylight % reaching solar panels)',
-  'generator_1.power   (a generator or solar panel: { role, kind, output, producing, status, working, fuel: { item, every, burnLeft, inStock } or null }; a freezer: { role: "consumer", use, powered, status, working })',
+  'power   (the grid this tick: { produced, demand, balance, ok, stored, capacity, sun, producers, working } - produced includes power taken from batteries; stored/capacity are the battery bank; sun is the daylight % reaching solar panels)',
+  'generator_1.power   (a generator or solar panel: { role, kind, output, producing, status, working, fuel: { item, every, burnLeft, inStock } or null }; a freezer: { role: "consumer", use, powered, status, working }; a battery: { role: "storage", capacity, rate, charge, status, working })',
   'well.water   (the deep well\'s reservoir: { amount, capacity, working, recharge: { every, amount, percent, perDay }, siphon: { status, reach, target } or null })',
-  'recipes   (what can be cooked: id -> { name, station, stationLevel, inputs, outputs, ticks, skill, stationWorking, canAfford })',
+  'recipes   (what can be cooked or crafted: id -> { name, action: "cook" | "craft", station, stationLevel, inputs, outputs, ticks, skill, power, stationWorking, canAfford })',
   'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',
   'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',

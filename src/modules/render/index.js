@@ -6,9 +6,9 @@ import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, vis
 // Every grid↔pixel conversion goes through the viewport module (PA-1); this file has no coordinate math of its own.
 // It is read-only with respect to gameplay: animation timing, selection and debug overlays live here and nowhere else.
 
-const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1, 2], tent: [1], storage: [1, 2, 3], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1], generator: [1, 2], solar_panel: [1] }, nodes: { tree: true, rock: true } });
+const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1, 2], tent: [1], storage: [1, 2, 3], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1, 2, 3], workshop: [1, 2], generator: [1, 2], solar_panel: [1], battery: [1, 2] }, nodes: { tree: true, rock: true } });
 const COLORS = {
-  terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
+  terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', hover: '#8ec8ff', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
   zone: 'rgba(63,143,79,0.14)', zoneEdge: 'rgba(63,143,79,0.45)', path: '#4a4333', labelOutline: 'rgba(15,14,12,0.85)',
 };
 const LABEL_MIN_TILE = 26; // below this tile size world labels would only add clutter
@@ -37,6 +37,7 @@ export function mountRenderer(canvas, {
 
   let vp = createViewport({ map: { width: 1, height: 1 }, view: { width: 1, height: 1 }, integer: integerScale }); // camera state lives here
   let selected = { kind: null, id: null };
+  let hover = { kind: null, id: null };
   let debugOn = debug;
   let drawList = [];
   let pathList = []; // PA-3: road pieces drawn
@@ -169,6 +170,7 @@ export function mountRenderer(canvas, {
     const actors = [
       ...(frame.nodes || []).map((n) => ({ y: n.y, order: 0, n })),
       ...(frame.npcs || []).map((p) => ({ y: p.y, order: 1, p })),
+      ...(frame.zombies || []).map((z) => ({ y: z.y, order: 2, z })),
     ].sort((u, v) => u.y - v.y || u.order - v.order);
     for (const a of actors) {
       if (a.n) {
@@ -176,6 +178,17 @@ export function mountRenderer(canvas, {
         const e = resolver.resolveNode({ type: n.type, visual: n.visual });
         note('node', 'node', n.id, e, { x: n.x, y: n.y, visual: n.visual, footprint: spec.footprint, spriteSize: spec.spriteSize });
         if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
+        continue;
+      }
+      if (a.z) {
+        const z = a.z;
+        const e = resolver.resolveZombie({ animation: z.animation, direction: z.direction });
+        const idx = frameIndexAt(e, time, stagger(z.id));
+        note('zombie', 'zombie', z.id, e, { x: z.x, y: z.y, animation: z.animation, direction: z.direction, frameIndex: idx });
+        const cx = tileCenterX(z.x); const fy = tileFootY(z.y);
+        if (!blit(e, idx, cx, fy)) marker(cx, fy);
+        ctx.fillStyle = COLORS.label; ctx.font = `${Math.max(9, t * 0.3)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        if (z.name) ctx.fillText(z.name, cx, fy - vp.cell * 0.95);
         continue;
       }
       const p = a.p;
@@ -203,20 +216,33 @@ export function mountRenderer(canvas, {
     if (debugOn) drawDebug(frame, mw, mh);
   }
 
-  function selectionRect(frame) {
-    if (!selected.id) return null;
-    const find = { npc: frame.npcs, building: frame.buildings, node: frame.nodes }[selected.kind];
-    const ent = (find || []).find((e) => e.id === selected.id);
+  function entityRect(frame, kind, id) {
+    if (!kind || !id) return null;
+    const find = { npc: frame.npcs, zombie: frame.zombies, building: frame.buildings, node: frame.nodes }[kind];
+    const ent = (find || []).find((e) => e.id === id);
     if (!ent) return null;
     if (ent.bounds || ent.footprint) { const { x1, y1, x2, y2 } = ent.bounds ?? ent.footprint; return { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 }; }
     return { x: ent.x, y: ent.y, w: 1, h: 1 };
   }
+  function selectionRect(frame) {
+    return entityRect(frame, selected.kind, selected.id) ?? entityRect(frame, hover.kind, hover.id);
+  }
   function drawSelection(frame) {
-    const r = selectionRect(frame);
-    if (!r) return;
-    ctx.strokeStyle = COLORS.select; ctx.lineWidth = 2.5; ctx.setLineDash?.([6, 5]);
-    const px = cellRect(vp, r.x, r.y, r.w, r.h);
-    ctx.strokeRect(px.x + 1, px.y + 1, px.w - 2, px.h - 2);
+    const selectedRect = selected.id ? entityRect(frame, selected.kind, selected.id) : null;
+    const hoverRect = hover.id && (!selected.id || selected.id !== hover.id) ? entityRect(frame, hover.kind, hover.id) : null;
+    if (!selectedRect && !hoverRect) return;
+    ctx.setLineDash?.([6, 5]);
+    if (selectedRect) {
+      ctx.strokeStyle = COLORS.select; ctx.lineWidth = 2.5;
+      const px = cellRect(vp, selectedRect.x, selectedRect.y, selectedRect.w, selectedRect.h);
+      ctx.strokeRect(px.x + 1, px.y + 1, px.w - 2, px.h - 2);
+    }
+    if (hoverRect) {
+      ctx.strokeStyle = COLORS.hover; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.9;
+      const px = cellRect(vp, hoverRect.x, hoverRect.y, hoverRect.w, hoverRect.h);
+      ctx.strokeRect(px.x + 3, px.y + 3, px.w - 6, px.h - 6);
+      ctx.globalAlpha = 1;
+    }
     ctx.setLineDash?.([]);
   }
   function drawDebug(frame, mw, mh) {
@@ -239,6 +265,7 @@ export function mountRenderer(canvas, {
   function pick(sx, sy, frame) {
     const g = screenToGrid(vp, sx, sy); if (!g) return null;
     const tx = g.x - 0.5; const ty = g.y - 0.5; // tile-center coordinates
+    for (const z of frame.zombies || []) if (Math.abs(z.x - tx) < 0.7 && Math.abs(z.y - ty) < 0.7) return { kind: 'zombie', id: z.id };
     for (const n of frame.npcs || []) if (Math.abs(n.x - tx) < 0.7 && Math.abs(n.y - ty) < 0.7) return { kind: 'npc', id: n.id };
     const { x, y } = screenToTile(sx, sy);
     for (const n of frame.nodes || []) if (n.x === x && n.y === y) return { kind: 'node', id: n.id };
@@ -247,12 +274,23 @@ export function mountRenderer(canvas, {
     return null;
   }
 
+  function lookup(kind, id, frame) {
+    if (!kind || !id || !frame) return null;
+    const find = { npc: frame.npcs, zombie: frame.zombies, building: frame.buildings, node: frame.nodes }[kind];
+    return (find || []).find((e) => e.id === id) ?? null;
+  }
+
   return {
     draw: drawFrame,
     pick, screenToTile,
+    lookup,
+    entityFor(kind, id, frame) { return lookup(kind, id, frame); },
     select(kind, id) { selected = { kind, id }; },
     clearSelection() { selected = { kind: null, id: null }; },
     getSelected: () => ({ ...selected }),
+    setHover(kind, id) { hover = { kind, id }; },
+    clearHover() { hover = { kind: null, id: null }; },
+    getHover: () => ({ ...hover }),
     setDebug(on) { debugOn = Boolean(on); },
     get debug() { return debugOn; },
     get lastDrawList() { return drawList; },

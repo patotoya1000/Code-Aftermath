@@ -11,7 +11,7 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80 } } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     // PA-5: the HQ is a 3x3 building. The scenario's (x, y) is its DOOR cell (bottom middle); `footprint` is the rectangle it occupies,
     // relative to the door: x/y = offset of its top-left cell, w/h = size. Every footprint cell blocks walking; survivors still walk to the door.
@@ -19,7 +19,7 @@ export const buildings = {
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
-    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40 },
+    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20 },
   },
   fence: {
     name: 'Perimeter Fence',
@@ -74,11 +74,21 @@ export const buildings = {
   },
   // A kitchen: a STATION building. Recipes whose `station` is 'kitchen' (data/recipes.js) can only be cooked at one that is fully
   // repaired and at least at the recipe's `stationLevel`. Higher kitchen levels arrive together with the recipes that need them.
+  // O12: level 2 (a proper stove: hot meals) and level 3 (a sealing machine: the MRE, which draws power while it works - see recipe.power).
   kitchen: {
     name: 'Kitchen',
-    levels: { 1: { maxHealth: 110 } },
+    levels: { 1: { maxHealth: 110 }, 2: { name: 'Stove Kitchen', maxHealth: 150 }, 3: { name: 'Field Kitchen', maxHealth: 190 } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 6, stone: 4 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 20, stone: 20 }, ticks: 60 }, 3: { cost: { wood: 25, stone: 30 }, ticks: 80 } },
+  },
+  // O12: a workshop is the crafting STATION (recipes with station 'workshop'). Level 2 adds the furnace (glass, which draws power while it works).
+  workshop: {
+    name: 'Workshop',
+    levels: { 1: { maxHealth: 120 }, 2: { name: 'Forge Workshop', maxHealth: 170 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 8, stone: 6 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 } },
   },
   // O11 power (docs/game/16). A level's `power` table is either a PRODUCER (`output`, plus `fuel` for a generator or `solar: true` for a panel)
   // or a CONSUMER (`use`). The grid is one number per tick: produced vs demanded. Demand is met by solar first (free, but only in daylight and
@@ -101,6 +111,15 @@ export const buildings = {
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 4, stone: 6 }, healthPerAction: 25, ticks: 30 },
   },
+  // O13 battery: keeps surplus power for later. `store` = { capacity (units), rate (max units charged or discharged per tick) }. It discharges before
+  // any generator burns fuel, and charges only from surplus generation (solar by day, a running generator with spare output).
+  battery: {
+    name: 'Battery Bank',
+    levels: { 1: { maxHealth: 90, power: { store: { capacity: 80, rate: 8 } } }, 2: { name: 'Large Battery Bank', maxHealth: 130, power: { store: { capacity: 200, rate: 14 } } } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 5, stone: 6 }, healthPerAction: 25, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 15, stone: 25 }, ticks: 70 } },
+  },
   // I2 world object: the gap in the fence that connects the base to the outside path. `perimeter: true` means the
   // scenario must place it on the fence line (validated) and the renderer leaves that fence cell open.
   gate: {
@@ -121,11 +140,14 @@ export const buildings = {
     levels: {
       1: { maxHealth: 100, farm: { plots: 4, growth: 100, yield: 100, shelter: false } },
       2: { name: 'Greenhouse', maxHealth: 150, farm: { plots: 6, growth: 150, yield: 150, shelter: true } },
+      // O13: level 3 = HYDROPONIC farm. Indoors (no weather at all, rain does not water it), the fastest and richest tier, but it only grows while the
+      // grid powers it (`power.use`, drawn all the time like the freezer). Unpowered it holds its crops. Still hand-watered; nutrients (fertilizer) come later.
+      3: { name: 'Hydroponic Farm', maxHealth: 200, farm: { plots: 8, growth: 200, yield: 250, shelter: true, indoor: true }, power: { use: 5 } },
     },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     blocks: false,
     repair: { cost: { wood: 4 }, healthPerAction: 25, ticks: 20 },
-    upgrade: { 2: { cost: { wood: 20, stone: 15 }, ticks: 60 } }, // glass and a powered hydroponic level 3 come later
+    upgrade: { 2: { cost: { wood: 20, stone: 15 }, ticks: 60 }, 3: { cost: { wood: 15, stone: 15, glass: 12 }, ticks: 90 } }, // level 3 needs workshop glass
   },
 };
 
@@ -142,8 +164,10 @@ const stage1 = {
     { id: 'well', type: 'well', level: 1, x: 13, y: 11, health: 12 },         // ruined; 4 tiles from the HQ, so the siphon cannot reach it
     { id: 'kitchen', type: 'kitchen', level: 1, x: 9, y: 9, health: 15 },    // ruined; repair it, then survivor.cook("bread")
     { id: 'field_1', type: 'field', level: 1, x: 8, y: 4, health: 12 },       // ruined; repair it, then survivor.farm(field_1, "potato")
+    { id: 'workshop_1', type: 'workshop', level: 1, x: 9, y: 11, health: 12 }, // ruined; repair it, then survivor.craft("packaging", 5)
     { id: 'tank', type: 'water_tank', level: 1, x: 15, y: 10, health: 10 },   // ruined; within siphon reach (2 tiles) of the well once repaired
     { id: 'generator_1', type: 'generator', level: 1, x: 13, y: 9, health: 12 }, // ruined; burns wood while something needs power (the freezer)
+    { id: 'battery_1', type: 'battery', level: 1, x: 7, y: 9, health: 10 },     // ruined; stores surplus solar / generator power
     { id: 'solar_1', type: 'solar_panel', level: 1, x: 7, y: 11, health: 10 },    // ruined; free power in daylight only
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect

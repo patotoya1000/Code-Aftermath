@@ -29,7 +29,7 @@ test('the scenario places a ruined generator and a ruined solar panel; a ruin pr
   for (const id of ['generator_1', 'solar_1']) assert.equal(view(sim, id).condition, 'ruined');
   sim.step(300);
   assert.equal(wood(sim), 50);
-  assert.deepEqual(sim.studentView().power, { produced: 0, demand: 0, balance: 0, ok: true, sun: sim.studentView().power.sun, producers: 0, working: 0 });
+  assert.deepEqual(sim.studentView().power, { produced: 0, demand: 0, balance: 0, ok: true, stored: 0, capacity: 0, sun: sim.studentView().power.sun, producers: 0, working: 0 });
 });
 
 test('a generator is demand-driven: with no consumer it idles and burns no fuel', () => {

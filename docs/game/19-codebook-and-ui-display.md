@@ -1,9 +1,15 @@
-> **Status (integrated 2026-11-17): SPEC — UI-0 kept, UI-1 IMPLEMENTED (2026-11-17), UI-2 … UI-6 PLANNED.**
+> **Status (integrated 2026-11-17): SPEC — UI-0 kept, UI-1 IMPLEMENTED (2026-11-17), UI-2 IMPLEMENTED (2026-11-17), UI-3 IMPLEMENTED (2026-11-17), UI-4 IMPLEMENTED (2026-11-17), UI-5 IMPLEMENTED (2026-11-17), UI-6 IMPLEMENTED (2026-11-17).**
 > Extends `09-rendering-boundary-and-ui.md`. Implementation notes: `AI_MEMORY/systems/CODEBOOK_UI_INDEX.md`.
 >
 > **What UI-1 delivered:** the Codebook is generated from the authoritative API (`src/modules/api/v1.js` `COMMANDS` + `READ_SURFACE`) plus curated metadata in `src/modules/api/codebook-data.js`; drift tests fail when a command or a read line has no Codebook entry, when an example does not pass the real sandbox + API validation, or when an outcome code is not a real stop/failure reason. UI: `📖 BOOK` button, searchable two-column panel, compact searchable API list in the code panel, "insert example" into the editor, rejected-command chips link to their entry.
 >
-> **Still open from this spec:** UI-2 live inspection (resource/building/task panels, stop reasons, route), UI-3 contextual help (selected survivor → relevant commands, richer error → entry links, tutor links), UI-4 lesson ↔ Codebook links, UI-5 mobile tabs (World/Code/Book/Inspect/Lessons — today the Book panel only collapses to one column), UI-6 final polish.
+> **What UI-2 delivered:** the live inspector now surfaces current task state, route target, stop reason, carry/storage, and per-building resource/power/water status from the read-only projections. The tutor and task panel explain why the last action stopped without inventing simulation rules.
+>
+> **What UI-3 delivered:** the tutor now suggests relevant read-only commands for the current selected survivor/building/node and links those entries directly into the Codebook; invalid or rejected calls keep the same entry links so a learner can jump from failure to the right command reference without adding gameplay rules.
+>
+> **What UI-4 delivered:** lesson instructions now extract the actual command calls from the starter snippet and turn them into direct `open-book` links, so the tutorial and the command reference stay in sync without duplicating the API documentation.
+>
+> **Current status:** the mobile tab flow and the final accessibility/motion polish are implemented; the UI remains read-only and API-driven on all screen sizes.
 
 # CODE: AFTERMATH --- Codebook & UI Display/Design Integration Specification
 

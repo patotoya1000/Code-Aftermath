@@ -1,6 +1,6 @@
 # Farming, cooking, crafting and power — agreed design (2026-11-16)
 
-Status: **build steps 1–6 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar, O10 farming, O11 power + freezer)**; hydroponics, battery and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
+Status: **build steps 1–7 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar, O10 farming, O11 power + freezer, O12 workshop crafting + hot meal + MRE)**; hydroponics (O13) is built; battery, fuel and fertilizer recipes are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
 
 ## Principles (decided with the project owner)
 - **No free construction.** Every building is placed by the scenario as a ruin. Learners repair it (`survivor.repair`) and then raise it (`survivor.upgrade`). Fixed world ⇒ fixed lessons and replays.
@@ -73,6 +73,20 @@ Status: **build steps 1–6 are implemented (O5 upgrades, O6 environment, O7 wat
 - **Learner reads:** `power` ({ produced, demand, balance, ok, sun, producers, working }), `generator_1.power` / `solar_1.power` ({ role, kind, output, producing, status, working, fuel }), `storage_1.power` and `storage_1.cold` ({ ..., needsPower, powered }) at level 3.
 - **Not yet:** battery, hydroponic level 3 (needs glass from the workshop), powered pump, plot/power art beyond placeholder building sprites, power-on/off commands (the grid is automatic).
 
+## As built (O12, 2026-11-17)
+- **Workshop** (`workshop_1`, ruined at (9,11) in stage 1; repair 8 wood + 6 stone; upgrade to level 2 'Forge Workshop' 25 wood + 30 stone). Recipes: `packaging` (level 1: 2 wood + 1 stone -> 2 packaging, 10 ticks), `glass` (level 2, Crafting 1: 4 stone + 2 wood -> 1 glass, 24 ticks, power 8 while worked). Command `survivor.craft(recipe, count?)`; skill `crafting` (+ XP per batch).
+- **Kitchen levels** via `survivor.upgrade(kitchen)`: level 2 'Stove Kitchen' (20 wood + 20 stone) = `hot_meal` (Cooking 1: 1 potato + 1 carrot + 1 water + 1 wood -> 1 hot meal, 16 ticks, +60 hunger, 3-day shelf life); level 3 'Field Kitchen' (25 wood + 30 stone) = `mre` (Cooking 2: 2 hot meals + 1 packaging -> 1 MRE, 20 ticks, power 4 while sealing, +100 hunger, never spoils; default `eat` order puts it last).
+- **Recipe power:** a recipe's `power` is drawn only while a survivor works a batch at the station (the grid serves it after building consumers); without power she waits, then the job ends with `NO_POWER` (`powerWaitTicks` 90). Idle kitchens and workshops draw nothing.
+- **Not yet:** preserved ration (needs salt), fuel and fertilizer recipes, recipe alternatives ("wheat or bread"), hydroponic farm level (glass exists for it), battery.
+
+## As built (O13, 2026-11-17)
+- **Hydroponic Farm** = `field` level 3 (`survivor.upgrade(field_1)` from a repaired greenhouse: 15 wood + 15 stone + 12 glass, 90 ticks). 8 plots, growth 200 %, yield 250 %, indoor: no weather damage and rain does not water it (hand water with `survivor.farm`). Draws 5 power continuously; while the grid does not power it nothing grows (crops and water are kept, nothing is lost). Reads: `field_1.farm.indoor / needsPower / powered`.
+- **Not yet:** nutrients/fertilizer, a battery, a powered water pump.
+
+## As built (O14, 2026-11-17)
+- **Battery bank** (`battery_1`, ruined at (7,9); repair 5 wood + 6 stone; level 2 'Large Battery Bank' 15 wood + 25 stone). Level 1 holds 80 units at up to 8 per tick; level 2 holds 200 at up to 14. Grid order: solar -> batteries -> generators (fuel only for what is still missing) -> consumers; surplus generation then charges batteries. Reads: `power.stored / capacity`, `battery_1.power { role: "storage", capacity, rate, charge, status }`.
+- **Not yet:** efficiency losses, a powered water pump, fertilizer/fuel recipes.
+
 ## Build order
 1. ✅ Upgrade existing buildings (O5)  2. ✅ Environment / weather calendar (O6)
 2b. ✅ Water source (O7, `17-water-wells.md`) — bread, crops and later the pump all draw on it
@@ -80,4 +94,5 @@ Status: **build steps 1–6 are implemented (O5 upgrades, O6 environment, O7 wat
 4. ✅ Spoilage (batches) + storehouse cold cellar (L2) — O9
 5. ✅ Farming: field → greenhouse, plots, `survivor.farm`, rain, weather hazards, greenhouse multipliers — O10
 6. ✅ Power: generator + solar panel (two buildings) and the freezer (storehouse L3) — O11. Hydroponic needs glass: it moves to step 7
-7. Crafting / workshop recipes (packaging, fuel, glass, fertilizer), hot meals, MRE
+7. ✅ Crafting / workshop (packaging, glass), kitchen levels 2-3, hot meals, MRE — O12. Fuel + fertilizer recipes: later
+8. ✅ Hydroponic farm level 3 (glass + power) — O13. O14 battery done. Next: fertilizer/nutrients, powered pump

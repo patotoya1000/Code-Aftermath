@@ -29,6 +29,7 @@ let stepStep = 0;
 let feed = []; // recent event lines (newest last)
 let eventCursor = 0;
 let lastFrame = 0; let lastPanelRefresh = 0;
+let activeMobileTab = 'world';
 
 // Presentation-only icon hints for action types (no gameplay meaning).
 const TASK_ICON = { gather: '🌲', move: '🚶', rest: '💤', eat: '🍎', drink: '💧', repair: '🔧', upgrade: '🔨', deposit: '📦', cook: '🍞' };
@@ -43,6 +44,7 @@ async function init() {
   renderHints();
   renderCodeAPI();
   bindEvents();
+  refreshMobileLayout();
   requestAnimationFrame(loop);
 }
 
@@ -171,15 +173,19 @@ function hookSection(hooks = []) {
 }
 
 function taskSection(task, queued = 0, lastTask = null) {
+  const stopReason = lastTask?.reason ?? task?.reason ?? null;
+  const target = task?.targetId ?? lastTask?.targetId ?? null;
+  const route = target ? `Route: ${esc(target)}` : 'Route: none';
+  const reasonText = stopReason ? `<div class="task-meta">Stop reason: ${esc(stopReason)}</div>` : '';
   if (!task) {
     const last = lastTask
       ? `Last: ${esc(lastTask.type)} ${esc(lastTask.status.toLowerCase())}${lastTask.reason ? ` — ${esc(lastTask.reason)}` : ''}${lastTask.gathered ? ` (${lastTask.gathered} gathered)` : ''}${lastTask.crafted ? ` (${lastTask.crafted} cooked)` : ''}`
       : 'Waiting for command';
-    return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">—</div><div class="task-info"><div class="task-title">No active task</div><div class="task-target">Idle</div><div class="task-progress"><div class="task-progress-fill" style="width:0%"></div></div><div class="task-meta">${last}</div></div></div>`);
+    return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">—</div><div class="task-info"><div class="task-title">No active task</div><div class="task-target">${esc(route)}</div><div class="task-progress"><div class="task-progress-fill" style="width:0%"></div></div><div class="task-meta">${last}</div>${reasonText}</div></div>`);
   }
   const pct = Math.round((task.fraction ?? 0) * 100);
   const stats = !task.stats ? '' : task.stats.crafted !== undefined ? ` · cooked ${task.stats.crafted} batch(es)` : ` · gathered ${task.stats.gathered} in ${task.stats.trips} trip(s)`;
-  return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">${TASK_ICON[task.type] ?? '⏳'}</div><div class="task-info"><div class="task-title">${esc(task.type)}</div><div class="task-target">Target: ${esc(task.targetId ?? 'base')}</div><div class="task-progress"><div class="task-progress-fill" style="width:${pct}%"></div></div><div class="task-meta">${esc(task.status)} · ${pct}%${esc(stats)} · queued: ${queued}</div></div></div>`);
+  return section('📋', 'Current Task', `<div class="current-task"><div class="task-icon">${TASK_ICON[task.type] ?? '⏳'}</div><div class="task-info"><div class="task-title">${esc(task.type)}</div><div class="task-target">Target: ${esc(task.targetId ?? 'base')} · ${esc(route)}</div><div class="task-progress"><div class="task-progress-fill" style="width:${pct}%"></div></div><div class="task-meta">${esc(task.status)} · ${pct}%${esc(stats)} · queued: ${queued}</div>${reasonText}</div></div>`);
 }
 
 // A well: reservoir bar, how fast the aquifer refills right now (weather changes it), and the siphon's connection status.
@@ -200,15 +206,18 @@ function waterSection(b) {
 
 // Power (O11): a producer's output and status (and fuel), or a consumer's use and whether the grid powers it.
 const POWER_TEXT = {
-  RUNNING: 'Running: it is feeding the grid.', IDLE: 'Idle: nothing needs power, so it burns no fuel.', NO_FUEL: 'Out of fuel: keep wood in base stock.',
+  RUNNING: 'Running: it is feeding the grid.', IDLE: 'Idle: nothing needs power (or nothing to store), so it burns no fuel.', NO_FUEL: 'Out of fuel: keep wood in base stock.',
   DARK: 'No light right now (night or heavy cloud): a panel makes nothing.', BROKEN: 'Ruined: repair it.', OFF: 'Not running yet.',
+  CHARGING: 'Charging from surplus power.', DISCHARGING: 'Discharging: covering demand before any generator burns fuel.',
   POWERED: 'Powered.', NO_POWER: 'Not enough power: it is switched off until the grid can supply it.',
 };
 function powerSection(b) {
   const p = b.power;
   if (!p) return '';
   const status = esc(POWER_TEXT[p.status] ?? p.status);
-  const body = p.role === 'consumer'
+  const body = p.role === 'storage'
+    ? `Battery: ${p.charge}/${p.capacity} stored, up to ${p.rate} per tick. <b>${esc(p.status)}</b>: ${status}`
+    : p.role === 'consumer'
     ? `Uses ${p.use} power per tick. <b>${esc(p.status)}</b>: ${status}`
     : `${esc(p.kind === 'solar' ? 'Solar panel' : 'Generator')}: up to ${p.output} power, making ${p.producing} now. <b>${esc(p.status)}</b>: ${status}${p.fuel ? `<div style="margin-top:4px;">Fuel: 1 ${esc(p.fuel.item)} lasts ${p.fuel.every} ticks (${p.fuel.inStock} in stock, ${p.fuel.burnLeft} ticks left in the current one).</div>` : ''}`;
   return section('⚡', 'Power', `<div style="font-size:11px;">${body}</div>`);
@@ -217,7 +226,7 @@ function powerSection(b) {
 function buildingActions(b) {
   const lines = [`survivor.repair(${b.id})`];
   if (b.water) lines.push('survivor.gather("water", 10)');
-  for (const r of b.recipes ?? []) lines.push(`survivor.cook("${r.id}", 5)${r.working ? '' : b.condition === 'repaired' ? `  (needs ${b.type} level ${r.stationLevel})` : '  (repair it first)'}`);
+  for (const r of b.recipes ?? []) lines.push(`survivor.${r.action}("${r.id}", 5)${r.working ? '' : b.condition === 'repaired' ? `  (needs ${b.type} level ${r.stationLevel})` : '  (repair it first)'}`);
   if (b.upgrade) lines.push(`survivor.upgrade(${b.id})  → level ${b.upgrade.level}: ${Object.entries(b.upgrade.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`);
   return lines.map((l) => `<div>${muted(l)}</div>`).join('');
 }
@@ -267,6 +276,27 @@ function selectEntity(kind, id) {
 }
 
 // ---------- Tutor (contextual, read-only) ----------
+function relevantCommandButtons(card, kind = 'npc') {
+  if (!card) return '';
+  const names = [];
+  if (kind === 'npc') {
+    if (card.needs?.hunger <= 45) names.push('eat');
+    if (card.needs?.thirst <= 45) names.push('drink');
+    if (card.needs?.energy <= 45) names.push('rest');
+    if (card.needs?.hunger <= 70 || card.needs?.thirst <= 70 || card.needs?.energy <= 70) names.push('policy');
+    if (card.task?.status === 'EXECUTING') names.push('stop');
+    else names.push('gather');
+  } else if (kind === 'building') {
+    names.push('repair', 'upgrade');
+  } else {
+    names.push('gather', 'moveTo');
+  }
+  const unique = [...new Set(names.filter((name) => Boolean(app?.entryForCommand?.(name))))];
+  if (!unique.length) return '';
+  const buttons = unique.slice(0, 4).map((name) => `<button type="button" class="cmd-chip ok" data-action="open-book" data-entry="command.${esc(name)}" title="Open ${esc(name)}() in the Codebook">📖 ${esc(name)}()</button>`).join('');
+  return `<div class="context-help"><div class="helper-label">Relevant commands</div>${buttons}</div>`;
+}
+
 function updateTutor() {
   const content = $('tutor-content'); const empty = $('tutor-empty');
   if (!content) return;
@@ -274,12 +304,20 @@ function updateTutor() {
   let msg = '';
   if (selected.kind === 'npc') {
     const c = freeSim.inspector(selected.id);
-    if (c?.task?.status === 'EXECUTING') msg = `<p>${esc(c.name)} is <span class="highlight">${esc(c.task.type)}</span> and will keep going until it stops by itself (storage full, nothing left, or too tired).</p>`;
-    else if (c) msg = `<p>${esc(c.name)} is idle.${c.lastTask?.reason ? ` Last job ended: <span class="highlight">${esc(c.lastTask.reason)}</span>.` : ''} Run a command; the world is already running.</p><div class="example">survivor.gather("wood", 20);</div>${c.conditions.length ? `<p>Conditions: ${c.conditions.map(esc).join(', ')}.</p>` : ''}`;
+    const stopNote = c?.lastTask?.reason ? ` Stop reason: <span class="highlight">${esc(c.lastTask.reason)}</span>.` : '';
+    const routeNote = c?.task?.targetId ? ` Route target: <span class="highlight">${esc(c.task.targetId)}</span>.` : '';
+    if (c?.task?.status === 'EXECUTING') msg = `<p>${esc(c.name)} is <span class="highlight">${esc(c.task.type)}</span> and will keep going until it stops by itself (storage full, nothing left, or too tired).${routeNote}</p>`;
+    else if (c) msg = `<p>${esc(c.name)} is idle.${stopNote}${routeNote ? ` ${routeNote}` : ''} Run a command; the world is already running.</p><div class="example">survivor.gather("wood", 20);</div>${c.conditions.length ? `<p>Conditions: ${c.conditions.map(esc).join(', ')}.</p>` : ''}`;
+    msg += relevantCommandButtons(c, 'npc');
   } else if (selected.kind === 'building') {
     const b = freeSim.studentView().buildings.find((x) => x.id === selected.id);
     if (b) msg = `<p>${esc(b.name)} — Level ${b.level}, ${esc(b.condition)}. Condition changes only through simulation actions such as repair.</p>`;
-  } else msg = '<p>Resource nodes shrink as survivors gather from them.</p>';
+    msg += relevantCommandButtons(b, 'building');
+  } else {
+    const node = freeSim.studentView().nodes.find((x) => x.id === selected.id);
+    msg = `<p>Resource nodes shrink as survivors gather from them.</p>`;
+    msg += relevantCommandButtons(node, 'node');
+  }
   if (empty) empty.style.display = 'none';
   content.innerHTML = msg;
 }
@@ -393,6 +431,14 @@ function renderLessonList() {
   }).join('');
 }
 
+function lessonCommandLinks(starter = '') {
+  const names = [...new Set([...starter.matchAll(/survivor\.([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)].map((m) => m[1]))];
+  const unique = names.filter((name) => Boolean(app?.entryForCommand?.(name)));
+  if (!unique.length) return '';
+  const buttons = unique.slice(0, 4).map((name) => `<button type="button" class="cmd-chip ok" data-action="open-book" data-entry="command.${esc(name)}" title="Open ${esc(name)}() in the Codebook">📖 ${esc(name)}()</button>`).join('');
+  return `<div class="context-help"><div class="helper-label">Lesson commands</div>${buttons}</div>`;
+}
+
 function renderLessonInstructions() {
   const content = $('lesson-instructions');
   const brief = $('lesson-brief');
@@ -409,8 +455,7 @@ function renderLessonInstructions() {
       <h4>Goals:</h4>
       <ul>${l.goals.map((g) => `<li><span class=\"goal-status\" id=\"goal-${g.id}\">○</span> ${esc(g.message)}</li>`).join('')}</ul>
     </div>
-    <div class=\"lesson-starter\">Starter code:<br><pre>${esc(l.starter)}</pre></div>
-  `;
+    <div class=\"lesson-starter\">Starter code:<br><pre>${esc(l.starter)}</pre></div>    ${lessonCommandLinks(l.starter)}  `;
   if (brief) brief.textContent = l.brief;
 }
 
@@ -620,6 +665,7 @@ function bindEvents() {
   $('codebook-search')?.addEventListener('input', renderBook);
   $('code-api-search')?.addEventListener('input', renderCodeAPI);
   $('code-close')?.addEventListener('click', toggleCodePanel);
+  window.addEventListener('resize', refreshMobileLayout);
   $('btn-run-code')?.addEventListener('click', handleRunCode);
   $('btn-play')?.addEventListener('click', togglePlay);
   $('btn-speed')?.addEventListener('click', cycleSpeed);
@@ -649,9 +695,78 @@ function bindEvents() {
     else if (action === 'insert-example') insertExample(el.dataset.entry);
     else if (action === 'lesson-list') { renderLessonList(); }
     else if (action === 'lesson-progress') renderProgressScreen();
+    else if (action === 'mobile-tab') activateMobileTab(el.dataset.mobileTab || 'world');
   });
   $('btn-save')?.addEventListener('click', saveSession);
   $('btn-load')?.addEventListener('click', loadSession);
+}
+
+function isMobileLayout() {
+  const w = typeof window !== 'undefined' ? window : {};
+  if (typeof w.matchMedia === 'function') return w.matchMedia('(max-width: 600px)').matches;
+  return Number(w.innerWidth || 1200) <= 600;
+}
+
+function refreshMobileLayout() {
+  const mobile = isMobileLayout();
+  document.body?.classList?.toggle('mobile-layout', mobile);
+  const tabs = ['world', 'code', 'book', 'inspect', 'lessons'];
+  tabs.forEach((tab) => {
+    const el = $('mobile-tab-' + tab);
+    if (el) el.classList.toggle('active', activeMobileTab === tab);
+  });
+  const tabDisplay = mobile ? 'flex' : 'none';
+  const mobileTabs = $('mobile-tabs'); if (mobileTabs) mobileTabs.style.display = tabDisplay;
+
+  const panelMap = {
+    world: ['world-region'],
+    code: ['command-region', 'code-panel'],
+    book: ['codebook-panel'],
+    inspect: ['inspector-region'],
+    lessons: ['lesson-player-panel'],
+  };
+  const allPanels = ['world-region', 'inspector-region', 'command-region', 'tutor-region', 'code-panel', 'codebook-panel', 'lesson-player-panel'];
+  allPanels.forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.dataset.mobileVisible = 'false';
+    if (!mobile) {
+      el.style.display = '';
+      el.classList?.remove('open');
+    }
+  });
+  if (!mobile) {
+    if ($('codebook-panel')) $('codebook-panel').style.display = 'none';
+    if ($('lesson-player-panel')) $('lesson-player-panel').style.display = 'none';
+    return;
+  }
+  const selection = panelMap[activeMobileTab] || panelMap.world;
+  selection.forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.dataset.mobileVisible = 'true';
+    if (id === 'code-panel') {
+      el.classList.add('open');
+      isCodePanelOpen = true;
+      el.style.display = 'flex';
+    } else if (id === 'codebook-panel') {
+      setBookOpen(true);
+    } else if (id === 'lesson-player-panel') {
+      setLessonPanel(true);
+    } else {
+      el.style.display = 'block';
+    }
+  });
+  if (activeMobileTab !== 'code') {
+    const panel = $('code-panel'); if (panel) { panel.classList.remove('open'); panel.style.display = 'none'; isCodePanelOpen = false; }
+  }
+  if (activeMobileTab !== 'book') setBookOpen(false);
+  if (activeMobileTab !== 'lessons') setLessonPanel(false);
+}
+
+function activateMobileTab(tab) {
+  activeMobileTab = tab;
+  refreshMobileLayout();
 }
 
 function toggleLessonMode() {

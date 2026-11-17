@@ -43,7 +43,7 @@ function planChore(ctx, a) {
   const cfg = defs.farming;
   const actor = state.survivors[a.actorId];
   const taken = claimedByOthers(ctx, a);
-  const rain = raining(defs, state.tick);
+  const rain = raining(defs, state.tick) && !farmDefOf(defs, farm).indoor; // an indoor (hydroponic) farm gets no rain
   const plots = plotsOf(state, farm.id).filter((p) => !taken.has(p.id));
 
   let blocked = null; // why work that exists cannot be done right now (the stop reason if nothing else is possible)

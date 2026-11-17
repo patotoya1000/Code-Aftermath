@@ -69,7 +69,7 @@ function computeDurationModifier(survivor, actionDef, defs) {
   let mod = 1.0;
 
   // Skill reduces time: each skill level shaves a small percentage
-  const skillId = actionSkillOf(actionDef.handler);
+  const skillId = actionSkillOf(actionDef);
   if (skillId) {
     const level = survivor.skills[skillId] ?? 0;
     mod *= Math.max(0.5, 1.0 - level * 0.05); // -5% per level, floor at 50%
@@ -109,7 +109,7 @@ function computeOutputModifier(survivor, actionDef, defs) {
   let mod = 1.0;
 
   // Skill increases output for gathering
-  const skillId = actionSkillOf(actionDef.handler);
+  const skillId = actionSkillOf(actionDef);
   if (skillId) {
     const level = survivor.skills[skillId] ?? 0;
     mod *= 1.0 + level * 0.03; // +3% per level
@@ -123,7 +123,9 @@ function computeOutputModifier(survivor, actionDef, defs) {
   return Math.max(0.5, Math.min(2.0, mod)); // clamp
 }
 
-function actionSkillOf(handler) {
+function actionSkillOf(actionDef) {
+  if (actionDef.skill) return actionDef.skill; // an action may name its own skill (craft shares the cook handler but practises Crafting)
+  const handler = actionDef.handler;
   const map = {
     move: 'move',
     gather: 'gathering',

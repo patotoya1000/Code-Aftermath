@@ -17,15 +17,19 @@ export const FRAME = Object.freeze({ w: 32, h: 32 });
 export const PIVOT = Object.freeze({ x: 16, y: 30 }); // stable foot pivot (frame coordinates)
 
 // Semantic animation request (from the render projection) → asset action name.
-export const NPC_ACTIONS = Object.freeze(['idle', 'walk', 'gather', 'repair', 'rest', 'eat', 'drink', 'downed']);
-const FRAME_COUNT = { idle: 1, walk: 2, gather: 2, repair: 2, rest: 1, eat: 1, drink: 1, downed: 1 };
-const FPS = { walk: 6, gather: 4, repair: 4 };
+export const NPC_ACTIONS = Object.freeze(['idle', 'walk', 'gather', 'repair', 'rest', 'eat', 'drink', 'consume', 'work', 'guard', 'attack', 'hurt', 'downed', 'dead']);
+const FRAME_COUNT = { idle: 1, walk: 2, gather: 2, repair: 2, rest: 1, eat: 1, drink: 1, consume: 1, work: 2, guard: 1, attack: 2, hurt: 1, downed: 1, dead: 1 };
+const FPS = { walk: 6, gather: 4, repair: 4, work: 4, attack: 6, hurt: 4 };
+export const ZOMBIE_ACTIONS = Object.freeze(['idle', 'walk', 'attack', 'hurt', 'dead']);
+const ZOMBIE_FRAME_COUNT = { idle: 1, walk: 2, attack: 2, hurt: 1, dead: 1 };
+const ZOMBIE_FPS = { walk: 5, attack: 6, hurt: 4 };
 
 // Step 3 of the fallback chain: if an action has no frames, a compatible generic action may stand in.
-const GENERIC_ACTION = { gather: 'work', repair: 'work', upgrade: 'work', craft: 'work', eat: 'consume', drink: 'consume', rest: 'idle', guard: 'idle', attack: 'idle', hit: 'idle', dead: 'downed' };
+const GENERIC_ACTION = { gather: 'work', repair: 'work', upgrade: 'work', craft: 'work', eat: 'consume', drink: 'consume', rest: 'idle', guard: 'guard', attack: 'attack', hit: 'hurt', hurt: 'hurt', dead: 'dead', downed: 'downed', work: 'work' };
 
 const dirName = (d) => String(d).toLowerCase();
 export const npcKey = (action, direction, variant = NPC_VARIANT) => `npc_${variant}_${dirName(action)}_${dirName(direction)}`;
+export const zombieKey = (action, direction) => `zombie_${dirName(action)}_${dirName(direction)}`;
 export const buildingKey = (type, level, condition) => `building_${type}_lv${level}_${condition}`;
 export const nodeKey = (type, visual) => `node_${type}_${visual}`;
 export const CONDITIONS = Object.freeze(['ruined', 'damaged', 'repaired']);
@@ -46,6 +50,14 @@ export function buildPlaceholderManifest({ buildings = {}, nodes = {} } = {}) {
       const list = [];
       for (let i = 0; i < n; i++) { const k = `${npcKey(action, dir)}_${i}`; add(k, { kind: 'npc', action, dir, i }); list.push(k); }
       animations[npcKey(action, dir)] = { frames: list, fps: FPS[action] ?? 0 };
+    }
+  }
+  for (const dir of DIRECTIONS) {
+    for (const action of ZOMBIE_ACTIONS) {
+      const n = ZOMBIE_FRAME_COUNT[action];
+      const list = [];
+      for (let i = 0; i < n; i++) { const k = `${zombieKey(action, dir)}_${i}`; add(k, { kind: 'npc', action, dir, i }); list.push(k); }
+      animations[zombieKey(action, dir)] = { frames: list, fps: ZOMBIE_FPS[action] ?? 0 };
     }
   }
   for (const [type, levels] of Object.entries(buildings)) {
@@ -123,6 +135,18 @@ export function createAssetResolver(manifest) {
     return none(requested);
   }
 
+  function resolveZombie({ animation = 'IDLE', direction = 'DOWN' } = {}) {
+    const action = dirName(animation);
+    const requested = zombieKey(action, direction);
+    if (has(requested)) return pack(requested, 1, requested);
+    for (const d of directionsByCloseness(direction)) { const k = zombieKey(action, d); if (has(k)) return pack(k, 2, requested); }
+    const generic = ZOMBIE_GENERIC_ACTION[action] ?? 'idle';
+    for (const d of directionsByCloseness(direction)) { const k = zombieKey(generic, d); if (has(k)) return pack(k, 3, requested); }
+    const idle = zombieKey('idle', direction); if (has(idle)) return pack(idle, 4, requested);
+    const safe = zombieKey('idle', 'DOWN'); if (has(safe)) return pack(safe, 5, requested);
+    return none(requested);
+  }
+
   /** Building chain: exact · same condition at a lower level · same condition at any level of that type · nothing. */
   function resolveBuilding({ type, level = 1, condition = 'repaired' }) {
     const requested = buildingKey(type, level, condition);
@@ -169,7 +193,7 @@ export function createAssetResolver(manifest) {
     return none(requested);
   }
 
-  return { manifest, resolveNpc, resolveBuilding, resolveNode, resolveTerrain, resolvePath, resolveFence };
+  return { manifest, resolveNpc, resolveZombie, resolveBuilding, resolveNode, resolveTerrain, resolvePath, resolveFence };
 }
 
 /** Animation player (presentation only): which frame to show at `timeMs`. Never touches gameplay state. */
@@ -187,20 +211,31 @@ function paintNpc(c, ox, oy, { action, dir, i }) {
   const [dx, dy] = DIR_VEC[dir.toUpperCase?.() ?? dir] ?? [0, 1];
   const cx = ox + PIVOT.x; const foot = oy + PIVOT.y;
   c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(cx, foot, 8, 3, 0, 0, Math.PI * 2); c.fill();
-  if (action === 'downed') {
-    c.fillStyle = '#8a8a8a'; c.beginPath(); c.ellipse(cx, foot - 5, 11, 5, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#b8b8b8'; c.beginPath(); c.arc(cx - 8, foot - 6, 4, 0, Math.PI * 2); c.fill();
+
+  if (action === 'downed' || action === 'dead') {
+    c.fillStyle = action === 'dead' ? '#7b7b7b' : '#8a8a8a'; c.beginPath(); c.ellipse(cx, foot - 5, 11, 5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = action === 'dead' ? '#b0b0b0' : '#b8b8b8'; c.beginPath(); c.arc(cx - 8, foot - 6, 4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#2b2118'; c.beginPath(); c.arc(cx + dx * 2.5, foot - 22, 1.4, 0, Math.PI * 2); c.fill();
     return;
   }
+
   const bob = action === 'walk' ? (i === 0 ? -1 : 1) : 0;
   const lower = action === 'rest' ? 4 : 0;
-  c.fillStyle = '#d99a4e'; c.beginPath(); c.ellipse(cx, foot - 10 + lower + bob, 7, 9 - lower / 2, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = '#f0c48a'; c.beginPath(); c.arc(cx, foot - 22 + lower + bob, 5, 0, Math.PI * 2); c.fill();
+  const hurt = action === 'hurt';
+  const bodyTint = hurt ? '#d77a64' : '#d99a4e';
+  const skinTint = hurt ? '#f5b5a7' : '#f0c48a';
+  const stance = action === 'attack' ? 2 : 0;
+
+  c.fillStyle = bodyTint; c.beginPath(); c.ellipse(cx, foot - 10 + lower + bob, 7, 9 - lower / 2, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = skinTint; c.beginPath(); c.arc(cx, foot - 22 + lower + bob, 5, 0, Math.PI * 2); c.fill();
   c.fillStyle = '#2b2118'; c.beginPath(); c.arc(cx + dx * 2.5, foot - 22 + lower + bob + dy * 2, 1.4, 0, Math.PI * 2); c.fill();
   c.strokeStyle = '#2b2118'; c.lineWidth = 2; c.beginPath();
-  if (action === 'gather') { c.moveTo(cx + dx * 4, foot - 12); c.lineTo(cx + dx * 9 + (i ? 2 : 0), foot - 4 + (i ? 2 : 0)); }
+  if (action === 'gather' || action === 'work') { c.moveTo(cx + dx * 4, foot - 12); c.lineTo(cx + dx * 9 + (i ? 2 : 0), foot - 4 + (i ? 2 : 0)); }
   else if (action === 'repair') { c.moveTo(cx + dx * 4, foot - 14); c.lineTo(cx + dx * 10, foot - 20 + (i ? 4 : 0)); }
-  else if (action === 'eat' || action === 'drink') { c.moveTo(cx + dx * 3, foot - 14); c.lineTo(cx + dx * 4, foot - 20); }
+  else if (action === 'eat' || action === 'drink' || action === 'consume') { c.moveTo(cx + dx * 3, foot - 14); c.lineTo(cx + dx * 4, foot - 20); }
+  else if (action === 'attack') { c.moveTo(cx + dx * 4, foot - 12); c.lineTo(cx + dx * 12 + stance, foot - 16 + (i ? 2 : 0)); }
+  else if (action === 'guard') { c.moveTo(cx - 6, foot - 10); c.lineTo(cx + 2, foot - 14); c.moveTo(cx + 6, foot - 10); c.lineTo(cx - 2, foot - 14); }
+  else if (action === 'hurt') { c.moveTo(cx - 3, foot - 12); c.lineTo(cx - 8, foot - 5); c.moveTo(cx + 3, foot - 12); c.lineTo(cx + 8, foot - 5); }
   else { c.moveTo(cx - 5, foot - 10); c.lineTo(cx - 8, foot - 5); c.moveTo(cx + 5, foot - 10); c.lineTo(cx + 8, foot - 5); }
   c.stroke();
 }
@@ -280,6 +315,16 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     c.beginPath(); c.moveTo(ox + 4, oy + 18); c.lineTo(ox + 9, oy + (condition === 'ruined' ? 14 : 7)); c.lineTo(ox + w - 4, oy + (condition === 'ruined' ? 16 : 7)); c.lineTo(ox + w - 7, oy + 18); c.closePath(); c.fill();
     if (condition !== 'ruined') { c.strokeStyle = condition === 'repaired' ? '#9fc4e0' : '#5f7fa8'; c.lineWidth = 1; c.beginPath(); c.moveTo(ox + w / 2, oy + 7); c.lineTo(ox + w / 2 - 2, oy + 18); c.moveTo(ox + 7, oy + 12); c.lineTo(ox + w - 6, oy + 12); c.stroke(); }
     c.strokeStyle = tint; c.lineWidth = 2; c.beginPath(); c.moveTo(ox + 4, oy + 18); c.lineTo(ox + w - 7, oy + 18); c.stroke();
+  } else if (type === 'battery') {
+    // Battery bank: stacked cells with a terminal cap. Ruined = tipped, dark; repaired = bright cells (level 2 has a third cell).
+    const cells = level > 1 ? 3 : 2;
+    for (let i = 0; i < cells; i++) {
+      const cx = ox + 6 + i * 8; const lean = condition === 'ruined' ? 3 : 0;
+      c.fillStyle = condition === 'ruined' ? '#3a3f45' : '#4f6f58'; c.fillRect(cx, oy + 10 + lean, 7, h - 18);
+      c.fillStyle = condition === 'repaired' ? '#7fe07f' : '#2b2f33'; c.fillRect(cx + 1, oy + 13 + lean, 5, 3);
+      c.fillStyle = '#9aa0a6'; c.fillRect(cx + 2, oy + 7 + lean, 3, 3);
+    }
+    c.fillStyle = tint; c.fillRect(ox + 4, oy + h - 9, w - 8, 3);
   } else if (type === 'kitchen') {
     // Kitchen: a small hut with a chimney and an oven opening. Ruined = no chimney, roof caved in; damaged = chimney stub, sagging roof;
     // repaired = chimney with a puff of smoke and a lit oven.
@@ -291,6 +336,18 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     if (condition === 'ruined') { c.moveTo(ox + 3, oy + 15); c.lineTo(ox + w - 6, oy + 11); c.lineTo(ox + w - 3, oy + 16); c.lineTo(ox + 3, oy + 18); }
     else if (condition === 'damaged') { c.moveTo(ox + 2, oy + 12); c.lineTo(ox + w / 2, oy + 6); c.lineTo(ox + w - 2, oy + 12); c.lineTo(ox + w - 2, oy + 15); c.lineTo(ox + 2, oy + 15); }
     else { c.moveTo(ox + 2, oy + 12); c.lineTo(ox + w / 2, oy + 4); c.lineTo(ox + w - 2, oy + 12); }
+    c.closePath(); c.fill();
+  } else if (type === 'workshop') {
+    // Workshop: an open-front shed with a workbench and an anvil. Ruined = roof collapsed, no anvil; damaged = sagging roof; repaired = anvil and a
+    // lit window. Level 2 (forge) adds a chimney stack with a glowing furnace mouth.
+    c.fillStyle = '#6e5a40'; c.fillRect(ox + 4, oy + 12, w - 8, h - 16);
+    c.fillStyle = '#2b2118'; c.fillRect(ox + 8, oy + 18, w - 16, 10);
+    if (condition !== 'ruined') { c.fillStyle = '#9aa0a6'; c.fillRect(ox + 11, oy + 22, 9, 3); c.fillRect(ox + 13, oy + 25, 5, 3); }
+    if (level > 1 && condition !== 'ruined') { c.fillStyle = '#5d6168'; c.fillRect(ox + w - 10, oy + 2, 5, 12); c.fillStyle = condition === 'repaired' ? '#ff8a3c' : '#5a3a28'; c.fillRect(ox + w - 12, oy + 22, 5, 4); }
+    c.fillStyle = tint; c.beginPath();
+    if (condition === 'ruined') { c.moveTo(ox + 3, oy + 15); c.lineTo(ox + w - 6, oy + 11); c.lineTo(ox + w - 3, oy + 17); c.lineTo(ox + 3, oy + 19); }
+    else if (condition === 'damaged') { c.moveTo(ox + 2, oy + 13); c.lineTo(ox + w / 2, oy + 7); c.lineTo(ox + w - 2, oy + 13); c.lineTo(ox + w - 2, oy + 16); c.lineTo(ox + 2, oy + 16); }
+    else { c.moveTo(ox + 2, oy + 12); c.lineTo(ox + w / 2, oy + 5); c.lineTo(ox + w - 2, oy + 12); }
     c.closePath(); c.fill();
   } else {
     c.fillStyle = tint; c.fillRect(ox + 4, oy + 4, w - 8, h - 8);

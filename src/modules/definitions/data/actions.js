@@ -29,15 +29,19 @@ export const actions = {
   // cook is a STANDING action (docs/game/16): walk to a repaired station building, then make `count` batches of a recipe one after
   // another (inputs come from base stock and are reserved per batch, outputs go straight into base stock) until the count is done or
   // a stop reason fires (NO_INGREDIENTS, STORAGE_FULL, EXHAUSTED). With no count she keeps cooking until one of those happens (capped at maxCount).
-  cook: { handler: 'cook', range: 1, ticksPerTile: 1, maxCount: 100,
+  cook: { handler: 'cook', skill: 'cooking', range: 1, ticksPerTile: 1, maxCount: 100, powerWaitTicks: 90,
     capability: { attributes: { agility: 1, intelligence: 1 }, skills: { cooking: 0 } },
+  },
+  // craft (O12) is the workshop twin of cook: the same standing batch job (same handler), for recipes whose `action` is 'craft'. It practises the Crafting skill.
+  craft: { handler: 'cook', skill: 'crafting', range: 1, ticksPerTile: 1, maxCount: 100, powerWaitTicks: 90,
+    capability: { attributes: { agility: 1, strength: 1 }, skills: { crafting: 0 } },
   },
   rest: { handler: 'rest', defaultTicks: 20, maxTicks: 200, energyPerTick: 2,
     capability: { attributes: { endurance: 1 }, skills: { rest: 0 } },
   },
   // eat / drink: `items` is what can be consumed - `restore` points of the need, `rank` = the default order (lowest rank first, so the
   // cheapest food goes first). A learner can ask for one by name: survivor.eat("bread").
-  eat: { handler: 'consume', need: 'hunger', ticks: 5, items: { food: { restore: 30, rank: 1 }, bread: { restore: 40, rank: 2 }, carrot: { restore: 12, rank: 3 }, potato: { restore: 18, rank: 4 } },
+  eat: { handler: 'consume', need: 'hunger', ticks: 5, items: { food: { restore: 30, rank: 1 }, bread: { restore: 40, rank: 2 }, carrot: { restore: 12, rank: 3 }, potato: { restore: 18, rank: 4 }, hot_meal: { restore: 60, rank: 5 }, mre: { restore: 100, rank: 6 } },
     capability: { attributes: { intelligence: 1 }, skills: { consume: 0 } },
   },
   drink: { handler: 'consume', need: 'thirst', ticks: 3, items: { water: { restore: 30, rank: 1 } },

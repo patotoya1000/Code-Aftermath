@@ -425,6 +425,7 @@ body::before {
   #code-panel .code-pane.api { grid-row:3; grid-column:1; }
 }
 @media (max-width: 600px) {
+  .mobile-tabs { display:flex !important; }
   #app-shell { grid-template-columns:1fr; grid-template-rows:minmax(280px,45vh) auto 200px; overflow-y:auto; }
   #world-region, #inspector-region, #command-region, #tutor-region { grid-column:1 / 2; }
   #world-region { grid-row:1 / 2; }
@@ -437,6 +438,24 @@ body::before {
   #top-bar .resources { order:2; width:100%; justify-content:space-between; }
   #cmd-bar { flex-direction:column; align-items:stretch; }
   #cmd-bar .cmd-btn { flex:1; text-align:center; }
+}
+
+.mobile-tabs {
+  display:none; width:100%; padding:8px 10px 0; gap:6px; background:var(--panel); border-bottom:1px solid var(--line); z-index:50;
+}
+.mobile-tab {
+  flex:1 1 0; min-width:0; padding:8px 6px; border-radius:6px; border:1px solid var(--line); background:var(--panel-light); color:var(--fg); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; cursor:pointer; transition:border-color .18s ease, background .18s ease, transform .12s ease, box-shadow .18s ease;
+}
+.mobile-tab:hover { border-color:var(--accent); }
+.mobile-tab:active { transform:translateY(1px); }
+.mobile-tab.active { background:var(--accent); color:#141311; border-color:var(--accent-dark); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+body.mobile-layout #app-shell { display:block; }
+body.mobile-layout #world-region, body.mobile-layout #inspector-region, body.mobile-layout #command-region, body.mobile-layout #tutor-region { display:none; }
+body.mobile-layout #world-region[data-mobile-visible="true"], body.mobile-layout #inspector-region[data-mobile-visible="true"], body.mobile-layout #command-region[data-mobile-visible="true"], body.mobile-layout #tutor-region[data-mobile-visible="true"] { display:block; }
+body.mobile-layout #codebook-panel, body.mobile-layout #code-panel, body.mobile-layout #lesson-player-panel { top:72px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important; }
 }
 
 /* Scrollbar styling */

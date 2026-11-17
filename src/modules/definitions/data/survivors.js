@@ -8,6 +8,7 @@ export const SKILLS = {
   move: { name: 'Movement', description: 'Walk between tiles faster.' },
   cooking: { name: 'Cooking', description: 'Cook faster at a kitchen.' },
   farming: { name: 'Farming', description: 'Plant, water and harvest faster.' },
+  crafting: { name: 'Crafting', description: 'Craft faster at a workshop.' },
 };
 
 // Skill progression (O4). Skills improve ONLY through simulation-awarded XP from real work (docs/game/07 §NPC skill learning).
@@ -28,6 +29,7 @@ export const progression = {
     eat:    { skill: 'consume',   xp: 1,    fullUntil: 1, teachesUpTo: 4 }, // per meal
     drink:  { skill: 'consume',   xp: 1,    fullUntil: 1, teachesUpTo: 4 }, // per drink
     cook:   { skill: 'cooking',   xp: 4,    fullUntil: 2, teachesUpTo: 6 }, // per finished batch
+    craft:  { skill: 'crafting',   xp: 4,    fullUntil: 2, teachesUpTo: 6 }, // per finished workshop batch
     farm:   { skill: 'farming',   xp: 2,    fullUntil: 2, teachesUpTo: 6 }, // per finished chore (plant, water, harvest)
   },
 };
@@ -49,7 +51,7 @@ export const survivorTemplates = {
     background: 'A trainee survivor.',
     needs: { health: 100, hunger: 80, thirst: 80, energy: 90, morale: 70 },
     attributes: { strength: 5, agility: 5, endurance: 5, intelligence: 5, perception: 5 },
-    skills: { gathering: 0, repair: 0, rest: 0, consume: 0, move: 0, cooking: 0, farming: 0 },
+    skills: { gathering: 0, repair: 0, rest: 0, consume: 0, move: 0, cooking: 0, farming: 0, crafting: 0 },
     traits: [],
   },
 };

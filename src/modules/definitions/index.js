@@ -90,7 +90,10 @@ export function validateDefinitions(d) {
       need(Number.isInteger(a.waitTicks) && a.waitTicks >= 1, `action ${id}: waitTicks must be a whole number >= 1`);
       for (const k of ['plant', 'water', 'harvest']) need(Number.isInteger(a.chore?.[k]) && a.chore[k] >= 1, `action ${id}: chore.${k} must be a whole number >= 1`);
     }
-    if (a.handler === 'cook') need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
+    if (a.handler === 'cook') {
+      need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
+      need(Number.isInteger(a.powerWaitTicks) && a.powerWaitTicks >= 1, `action ${id}: powerWaitTicks must be a whole number >= 1`);
+    }
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
   const wholeAtLeast = (n, min) => Number.isInteger(n) && n >= min;
@@ -139,7 +142,7 @@ export function validateDefinitions(d) {
       for (const [res, cap] of Object.entries(L.storage ?? {})) need(d.items[res] && cap > 0, `building ${id} level ${lvl}: storage for \"${res}\" needs a known item and a capacity > 0`);
       if (L.farm) {
         const f = L.farm;
-        need(wholeAtLeast(f.plots, 1) && wholeAtLeast(f.growth, 1) && wholeAtLeast(f.yield, 1) && typeof f.shelter === 'boolean', `building ${id} level ${lvl}: farm needs whole plots/growth/yield >= 1 and a true/false shelter`);
+        need(wholeAtLeast(f.plots, 1) && wholeAtLeast(f.growth, 1) && wholeAtLeast(f.yield, 1) && typeof f.shelter === 'boolean' && (f.indoor === undefined || typeof f.indoor === 'boolean'), `building ${id} level ${lvl}: farm needs whole plots/growth/yield >= 1, a true/false shelter and an optional true/false indoor`);
       }
       if (sourceSeen) need(L.source, `building ${id} level ${lvl}: a source must continue at every higher level`);
       if (L.source) {
@@ -151,8 +154,9 @@ export function validateDefinitions(d) {
       }
       if (L.power) {
         const p = L.power;
-        const producer = p.output !== undefined; const consumer = p.use !== undefined;
-        need(producer !== consumer, `building ${id} level ${lvl}: power must be EITHER a producer (output) OR a consumer (use)`);
+        const producer = p.output !== undefined; const consumer = p.use !== undefined; const storage = p.store !== undefined;
+        need([producer, consumer, storage].filter(Boolean).length === 1, `building ${id} level ${lvl}: power must be EITHER a producer (output) OR a consumer (use) OR a battery (store)`);
+        if (storage) need(whole(p.store.capacity) && whole(p.store.rate), `building ${id} level ${lvl}: a battery needs a whole capacity and rate >= 1`);
         if (producer) {
           need(whole(p.output), `building ${id} level ${lvl}: power output must be a whole number >= 1`);
           need((p.solar === true) !== Boolean(p.fuel), `building ${id} level ${lvl}: a producer is either solar (solar: true) or fuelled (fuel), not both and not neither`);
@@ -175,7 +179,9 @@ export function validateDefinitions(d) {
     need(qtys(r.inputs), `recipe ${id}: inputs need known items with whole quantities >= 1`);
     need(qtys(r.outputs), `recipe ${id}: outputs need known items with whole quantities >= 1`);
     need(Number.isInteger(r.ticks) && r.ticks >= 1, `recipe ${id}: ticks must be a whole number >= 1`);
-    need(d.skills[r.skill] && d.progression?.awards?.cook?.skill === r.skill, `recipe ${id}: skill "${r.skill}" must be a known skill that the "cook" award teaches`);
+    need(d.actions[r.action]?.handler === 'cook', `recipe ${id}: action "${r.action}" must be an action that uses the cook handler (cook or craft)`);
+    need(d.skills[r.skill] && d.progression?.awards?.[r.action]?.skill === r.skill, `recipe ${id}: skill "${r.skill}" must be a known skill that the "${r.action}" award teaches`);
+    need(r.power === undefined || (Number.isInteger(r.power) && r.power >= 1), `recipe ${id}: power must be a whole number >= 1`);
     need(Number.isInteger(r.minSkill) && r.minSkill >= 0, `recipe ${id}: minSkill must be a whole number >= 0`);
   }
   for (const [id, s] of Object.entries(d.scenarios)) {
