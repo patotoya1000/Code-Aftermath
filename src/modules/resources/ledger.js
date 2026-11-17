@@ -7,6 +7,8 @@ export const stockKey = (item) => `stock.${item}`;
 export const nodeKey = (id) => `node.${id}`;
 // A renewable source building (a well): its reservoir is an account too, so gatherers reserve from it exactly like from a node.
 export const sourceKey = (id) => `source.${id}`;
+// A farming plot: harvested crop units are reserved from the plot's ledger account before they move into a survivor's inventory.
+export const plotKey = (id) => `plot.${id}`;
 
 function acct(state, key) {
   const a = state.ledger[key];

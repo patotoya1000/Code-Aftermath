@@ -89,6 +89,27 @@ export const buildings = {
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 4 }, healthPerAction: 20, ticks: 20 },
   },
+  // --- Farming buildings (added for the field → greenhouse phase) ---
+  // Field (L1): open ground, survivors can walk through it. Plots are placed on field tiles.
+  field: {
+    name: 'Field',
+    levels: { 1: { maxHealth: 100 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    blocks: false,
+    repair: { cost: { wood: 3 }, healthPerAction: 20, ticks: 15 },
+  },
+  // Greenhouse (L2): blocks storm/heat/cold hazards; clear/rain still pass through (crops get water).
+  // Growth and yield bonuses apply while the greenhouse is fully repaired.
+  greenhouse: {
+    name: 'Greenhouse',
+    levels: { 1: { maxHealth: 120 }, 2: { maxHealth: 150 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    blocks: true,
+    growthMultiplier: 1.5,
+    yieldMultiplier: 1.5,
+    repair: { cost: { wood: 5, stone: 3 }, healthPerAction: 30, ticks: 25 },
+    upgrade: { 2: { cost: { wood: 10, stone: 8, glass: 15 }, ticks: 40 } }, // hydroponic (L3) arrives with power
+  },
 };
 
 const stage1 = {
@@ -116,6 +137,12 @@ const stage1 = {
     { id: 'tree_2', type: 'tree', x: 20, y: 7 },
     { id: 'tree_3', type: 'tree', x: 21, y: 11 },
     { id: 'rock_1', type: 'rock', x: 3, y: 13 },
+  ],
+  plots: [
+    { id: 'plot_1', x: 7, y: 3, crop: 'potato', stage: 'empty', growthProgress: 0 },
+    { id: 'plot_2', x: 8, y: 3, crop: 'potato', stage: 'empty', growthProgress: 0 },
+    { id: 'plot_3', x: 9, y: 3, crop: 'carrot', stage: 'empty', growthProgress: 0 },
+    { id: 'plot_4', x: 10, y: 3, crop: 'carrot', stage: 'empty', growthProgress: 0 },
   ],
   survivors: [{ id: 'survivor_1', template: 'rookie', name: 'Mara', x: 11, y: 9 }],
 };

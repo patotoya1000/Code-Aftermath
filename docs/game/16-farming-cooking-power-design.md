@@ -1,6 +1,6 @@
 # Farming, cooking, crafting and power — agreed design (2026-11-16)
 
-Status: **build steps 3–4 are implemented (O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar)**; farming, power (and the freezer) and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
+Status: **build steps 1–4 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar)**; farming field→greenhouse handler is DONE; power (generator/solar → hydroponic, freezer) and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
 
 ## Principles (decided with the project owner)
 - **No free construction.** Every building is placed by the scenario as a ruin. Learners repair it (`survivor.repair`) and then raise it (`survivor.upgrade`). Fixed world ⇒ fixed lessons and replays.
@@ -62,6 +62,6 @@ Status: **build steps 3–4 are implemented (O8 recipe engine/kitchen/bread, O9 
 2b. ✅ Water source (O7, `17-water-wells.md`) — bread, crops and later the pump all draw on it
 3. ✅ Recipe engine + kitchen + bread + `eat` choosing among foods (wheat given as starting stock until farming exists) — O8
 4. ✅ Spoilage (batches) + storehouse cold cellar (L2) — O9
-5. Farming: field → greenhouse (weather hazards go live)
+5. ✅ Farming: field → greenhouse (handler + plot storage + ledger reservations DONE; weather hazards and greenhouse multipliers pending)
 6. Power: generator (+ upgrade branches) → hydroponic, freezer (storehouse L3)
 7. Crafting / workshop recipes (packaging, fuel, glass, fertilizer), hot meals, MRE

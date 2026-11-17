@@ -10,10 +10,10 @@
 - [x] **R2** standing actions: looping `gather(resource, load, total)`, stop reasons, `task.*` events, `survivor.lastTask`, replace-vs-queue (+ `survivor.queue()`), storage reserved per batch
 - [x] **S0–S5 stabilization (2026-11-13)** — engine/lesson/UI bug fixes, free-play save/load, regression + soak tests. See `IMPLEMENTATION_PLAN_2026-11-13.md`
 - [x] **R4a** needs policies (interrupt → act → resume) — 2026-11-14, see `game/15-realtime-simulation-and-tasks.md` §R4a · [x] **R4b** learner event hooks — 2026-11-14 · [x] **R3** carry + deposit trips — 2026-11-16, see `game/15-realtime-simulation-and-tasks.md` §R3 · [x] **R5** lessons on the timeline model · [x] **O3** collision/pathing — 2026-11-16 (A*, gate is the only opening in the fence; see `game/15-realtime-simulation-and-tasks.md` §O3)
-- [x] **O5** building upgrades (2026-11-16) — design: no free construction; buildings start ruined, are repaired, then upgraded. Planned: environment → farming (field/greenhouse/hydroponic) → cooking (kitchen) → crafting (workshop).
+- [x] **O5** building upgrades (2026-11-16) — design: no free construction; buildings start ruined, are repaired, then upgraded. Planned: environment → farming (field/greenhouse/hydroponic, farming handler DONE) → cooking (kitchen) → crafting (workshop).
 - [x] **O6** environment: day/night + public weather calendar (2026-11-16)
-- [x] **O9** spoilage + cold cellar (2026-11-16) — bread spoils after 4 days; storehouse level 2 slows it. Next: farming → power (freezer) → crafting.
-- [x] **O8** recipe engine + kitchen + bread (2026-11-16) — `survivor.cook(recipe, count)`, ruined kitchen to repair, wheat → bread (+40 hunger), `eat(item)` / `policy("eat", { prefer })`; design in `docs/game/16-farming-cooking-power-design.md`. Next: spoilage + cold cellar → farming → power → crafting.
+- [x] **O9** spoilage + cold cellar (2026-11-16) — bread spoils after 4 days; storehouse level 2 slows it. Next: power (freezer) → crafting (farming field→greenhouse handler done).
+- [x] **O8** recipe engine + kitchen + bread (2026-11-16) — `survivor.cook(recipe, count)`, ruined kitchen to repair, wheat → bread (+40 hunger), `eat(item)` / `policy("eat", { prefer })`; design in `docs/game/16-farming-cooking-power-design.md`. Next: spoilage + cold cellar → power → crafting (farming field→greenhouse handler done).
 - [x] **O7** water: deep well, aquifer recharge, siphon, water tank (2026-11-16) — design in `docs/game/17-water-wells.md`
 - [x] **UI-1** Codebook (2026-11-17) — API-generated manual, BOOK panel, search, insert example; spec `game/19-codebook-and-ui-display.md`. Next UI: UI-2 live inspection (resource/building/task panels), UI-3 contextual help, UI-4 lesson links, UI-5 mobile tabs, UI-6 polish.
 - [x] **PA-1** (2026-11-17) shared grid↔pixel + camera (`viewport` module), renderer migrated, no visual change at the default camera
@@ -82,7 +82,7 @@ Legend: [x] done and tested · [ ] to do. A phase is finished only when its **ga
 - [ ] Training buildings, specialization unlocks
 
 ## Phase 7 — Production & environment
-- [ ] Farming, crafting, cooking, day/night, weather, reusable planning routines
+- [ ] Farming (field→greenhouse handler done), crafting, reusable planning routines (cooking and day/night/weather already done)
 
 ## Phase 8 — Events & defense
 - [ ] Event framework (preparation → travel → execution → risk → recovery → result)

@@ -110,7 +110,7 @@ Lesson `m3_e_policy` (scenario `stage1_weary`) is passable with a policy or with
 - `survivor.upgrade(building)`: walk to the building, work `upgrade[level].ticks`, spend `upgrade[level].cost` (reserved up front, released if cancelled), then `level + 1`, full health at the new maximum, `levels[n].storage` replaces the building's storage table when present. Event `building.upgraded`.
 - Preconditions (failures): `UNKNOWN_TARGET`, `MAX_LEVEL` (no higher level / no upgrade table), `NEEDS_REPAIR` (not fully repaired — ruined or damaged buildings are fixed with `repair` first), `INSUFFICIENT_RESOURCE`, `CAPABILITY_INSUFFICIENT` (needs Repair skill ≥ 1: advanced work unlocks through practice).
 - Data: HQ 1→2 (wood 30, stone 15, 60 ticks; storage 150→300 per item, food/water 100→200) and fence 1→2 (wood 20, stone 10, 50 ticks). Upgrading earns Repair XP (12). The learner reads `building.upgrade` = `{ level, cost, ticks }` or `null`.
-- Next: farming tiers (field → greenhouse → hydroponic) are planned as building *levels* using this mechanism; cooking needs a kitchen building; see the design notes in the project conversation / PHASES.
+- Next: farming tiers (field → greenhouse handler DONE; hydroponic planned as building level using this mechanism); cooking needs a kitchen building; see the design notes in the project conversation / PHASES.
 
 ## O6 — Environment: day/night and the weather calendar (2026-11-16)
 - **The weather is a calendar, not dice.** Every day's weather is written in `definitions/data/environment.js`, so a learner can read the future and plan (stock up before the storm, harvest before the cold snap). Time and weather are pure functions of the tick: nothing is saved, nothing is random, replays cannot disagree.
