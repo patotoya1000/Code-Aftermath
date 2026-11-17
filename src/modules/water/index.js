@@ -11,7 +11,7 @@ import { weatherAt } from '../environment/index.js';
 //             The reservoir never holds more than `reservoir`; what would overflow is simply lost. A RUINED well refills nothing.
 //   siphon    (level 2+) every `siphon.every` ticks it moves `siphon.amount` from the reservoir into base stock - but only while
 //             it is CONNECTED: a working building that stores water stands within `siphon.reach` tiles, and base storage has room.
-//   status    'OFF' (no siphon yet) · 'BROKEN' (well ruined) · 'NO_STORAGE' (nothing that stores water within reach) ·
+//   status    'OFF' (no siphon yet) · 'BROKEN' (well ruined) · 'NO_POWER' (a pump the grid is not powering) · 'NO_STORAGE' (nothing that stores water within reach) ·
 //             'FULL' (base water storage is full) · 'ACTIVE'. It describes the CONNECTION, not whether water is flowing this
 //             very tick, so it only changes (and emits `siphon.status`) when something about the structure changes.
 //
@@ -45,9 +45,10 @@ export function siphonTarget(state, b, resource, reach) {
   return best?.o ?? null;
 }
 
-function siphonStatus(state, b, src, sp) {
+function siphonStatus(state, defs, b, src, sp) {
   if (!sp) return 'OFF';
   if (!isOperational(b)) return 'BROKEN';
+  if (defs.buildings[b.type].levels[b.level].power?.use !== undefined && !b.power?.powered) return 'NO_POWER';
   if (!siphonTarget(state, b, src.resource, sp.reach)) return 'NO_STORAGE';
   if (storageRoom(state, src.resource) < 1) return 'FULL';
   return 'ACTIVE';
@@ -74,7 +75,7 @@ export function tickWater(ctx) {
     }
 
     const sp = siphonDefOf(defs, b);
-    const status = siphonStatus(state, b, src, sp);
+    const status = siphonStatus(state, defs, b, src, sp);
     if (status !== b.water.siphon.status) {
       emit('siphon.status', { buildingId: b.id, from: b.water.siphon.status, to: status });
       b.water.siphon.status = status;

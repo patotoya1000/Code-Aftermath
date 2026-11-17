@@ -4,11 +4,11 @@
 
 # Purpose
 
-**PLANNED / NOT IMPLEMENTED.** Zombies, nests, waves and variants are design topics only. No source file exists for it; do not assume one.
+**Data + wave entities (O19 + Z1 + Z2).** `src/modules/threats/` holds the zombie taxonomy DATA and the WAVE: at dusk a raid spawns zombie entities that walk (A*), chase survivors outside the wall first, hit the fence/gate, and retreat at dawn (resolved: repelled / breached + looting). NO combat yet (zombies cannot die or hurt survivors), special behaviours (explode/throw/scream), loot on the ground and final sprites are PLANNED. Design: `docs/game/20-zombies-waves-loot-design.md`.
 
 # Responsibilities
 
-None in code. When built: enemy definitions, behaviour, variants and combat interaction.
+Raid schedule, wave lifecycle, zombie spawn/targeting/movement/wall hits, dawn resolution, learner `threats` read, render projection of zombies. When built (Z3+): combat, special behaviours, loot.
 
 # Does NOT Own
 
@@ -16,19 +16,19 @@ Everything — nothing exists.
 
 # Core Data
 
-None. Open design in `docs/game/14-enemies-resources-items-open.md`.
+`data/threats.js`: `zombies` (walker=common, runner, boomer, thrower, screamer, brute=tank: `role`, `threat`, `weight`, `firstDay`, `health`, `damage`, `speed`, `armor`, `behaviour`), `bosses` + `bossSchedule` (fixed milestone, never in the random budget), `waveRules`, `lootTables`, `raidSchedule`. `data/arsenal.js`: `weapons`, `towers`, `noise` (see COMBAT_INDEX). Pure helpers in `threats/index.js`: `zombiesAvailable`, `bossForDay`, `upcomingBosses`.
 
 # State
 
-None.
+`state.threats = { history, wave, zombies, counter }`: `wave` (day, strength, composition, queue, spawned, gateClosed, breached, wallDamage) while a wave is on, `zombies` id -> { type, x, y, direction, state walk|attack|idle, health, route... }.
 
 # Commands / API
 
-None.
+Read only: `threats.wave`, `threats.zombies`, `threats.upcoming`, `threats.bosses`, `threats.weapons`, `threats.towers`, `threats.noise`. No attack command yet.
 
 # Events
 
-None.
+`raid.warning`, `wave.started`, `zombie.spawned`, `zombie.reached_wall`, `zombie.reached_survivor`, `wall.breached`, `building.condition_changed` (hits), `raid.resolved`, `wave.ended`.
 
 # Dependencies
 
@@ -40,7 +40,7 @@ None.
 
 # Source Files
 
-None (grep of `src/` for zombie/enemy finds nothing).
+- `src/modules/threats/index.js`, `src/modules/definitions/data/threats.js`, `src/modules/definitions/data/arsenal.js`, `src/modules/definitions/index.js` (validation)
 
 # UI Files
 
@@ -52,28 +52,31 @@ None.
 
 # Tests
 
-None.
+- `tests/threats.test.js` (Z1 section: taxonomy, day gates, boss, loot, validation)
 
 # Current Status
 
-PLANNED / NOT IMPLEMENTED.
+DATA (Z1) + wave entities (Z2) IMPLEMENTED (`SIM_VERSION` 0.25.0). Combat PLANNED / NOT IMPLEMENTED.
 
 # Known Problems
 
-None (nothing to break).
+- A survivor outside at dusk is stranded (closed gate) until dawn; by design (learner must bring everyone in).
+- Boomer/thrower/screamer have damage 0 and only walk to the wall until Z7.
+- All zombies of a wave enter from one edge; a fence segment is not a separate health pool.
 
 # Planned Changes
 
-After pathing, events and combat foundations (Phase 8). Do not start before core simulation/API/state are stable.
+Z3: survivor damage, equipment + reach, `attack`/`guard`, the wave ends when its zombies are dead (docs/game/20 section 15). Special behaviours after.
 
 # Forbidden Changes
 
 - Do not reintroduce turns (`startTurn`, `executeTurn`, `getTurnInfo`, NEXT TURN, per-turn command caps). See `AI_MEMORY/DECISIONS.md` ADR-001.
 - Do not let the renderer, UI or learner code write authoritative state. See `AI_MEMORY/RULES.md`.
-- Do not add enemies or combat before pathing and the event framework exist.
+- Do not auto-recall survivors (`waveRules.recall` is `learner`); do not pick bosses from the random raid budget.
 - Do not pretend this domain exists in the UI.
 
 # Related Documentation
 
+- `docs/game/20-zombies-waves-loot-design.md` (decided design: types, waves, loot, weapons, towers — NOT implemented)
 - `docs/game/14-enemies-resources-items-open.md`
 - `docs/game/08-events.md`

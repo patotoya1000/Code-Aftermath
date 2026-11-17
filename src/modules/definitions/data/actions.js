@@ -54,7 +54,7 @@ export const actions = {
   // is empty - in that order - for ONE crop, until a stop reason fires. `chore` = work ticks per chore (before skill). A harvest is
   // carried to storage and unloaded like a gather trip. When nothing needs doing yet but the crop is still growing she WAITS at the
   // farm (up to `waitTicks`, then stops with NOTHING_TO_DO). `count` (optional) = how many plots to harvest before stopping.
-  farm: { handler: 'farm', range: 1, ticksPerTile: 1, unloadTicks: 2, maxCount: 100, waitTicks: 480, chore: { plant: 6, water: 4, harvest: 8 },
+  farm: { handler: 'farm', range: 1, ticksPerTile: 1, unloadTicks: 2, maxCount: 100, waitTicks: 480, chore: { plant: 6, water: 4, nourish: 4, fertilize: 4, harvest: 8 },
     capability: { attributes: { strength: 1, agility: 1 }, skills: { farming: 0 } },
   },
 };

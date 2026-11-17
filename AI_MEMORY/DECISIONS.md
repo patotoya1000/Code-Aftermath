@@ -144,3 +144,33 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 - **Consequence:** No battery (surplus is lost), so night and storms matter. Fuel is wood for now (competes with building materials); workshop fuel comes with crafting. Hydroponics and a powered pump are the next consumers. Behaviour change ⇒ `SIM_VERSION` 0.15.0.
 - **Forbidden Alternative:** random outages; per-unit power accounting in the ledger; a generator that burns fuel when nothing needs it; a freezer that silently falls back to the cellar rate.
 - **Status:** ACCEPTED, implemented.
+
+## Fertilizer is opt-in, charcoal is automatic (O15, 2026-11-17)
+
+Fertilizer is only spread when the learner passes `{ fertilize: true }` to `survivor.farm`, so stock is never spent silently and the choice stays in the learner's code. Running out of fertilizer never stops the farming (it only improves a harvest). Generators prefer `fuel.better` (charcoal) over wood automatically, because it needs no decision and existing wood-only behaviour is unchanged when there is no charcoal.
+
+## The pump draws power all the time (O16, 2026-11-18)
+
+The Pump House is a plain grid consumer (`power.use`), like the freezer, instead of a demand-based draw. This reuses the existing all-or-nothing grid with no new rules; a demand-based pump is a later refinement. Its siphon status reports `NO_POWER` so learners can see why water stopped.
+
+## Nutrients are required, not a bonus (O17, 2026-11-18)
+
+The design says the hydroponic tier "stops without nutrients", so a starved plot holds like an unpowered one. This makes the workshop -> fertilizer -> nutrients chain necessary for level 3, and the existing hydroponic tests were updated to supply nutrients.
+
+## Events are a public pure schedule, not a random roll (O18, 2026-11-18)
+
+Whether a day has an event, which one, and its roll are hashes of (seed, day): no RNG state is saved, replays cannot diverge, and the schedule is readable `warnDays` ahead so learners can prepare (a lesson in planning, like the weather calendar). Effects use the ledger and building health only. The shared test world runs with `chancePercent: 0` so older exact-stock tests stay valid; `tests/events.test.js` uses its own world with events on. Combat/zombie raids are NOT events yet.
+
+## Raids are abstract until the enemy design is decided (O19, 2026-11-18)
+
+The enemy taxonomy, sprites and animation list are still OPEN in docs/game/14, so this phase adds only what is safe: stat blocks marked provisional, a public pure schedule (same idea as risk events) and a dusk resolution against the fence defence. The point for learners is planning (read `threats.upcoming`, repair/upgrade the fence), not fighting. No zombie entity, movement, combat or survivor damage exists; the render projection's `zombies` stays empty. The shared test world runs with raids OFF so older tests stay valid.
+
+## Zombie, wave, weapon and tower design is decided on paper (2026-11-18)
+
+Seven zombie types (common, runner, boomer with radius explosion, thrower, screamer, tank, fixed-milestone boss), learner-enforced "inside the wall" during waves, a gate that closes during a wave, loot collected by sortie, equipment-driven combat (knife/spear -> advanced spear -> bow -> crossbow -> rifle with ammo items) and towers on the fence line that add range to ranged weapons. Full detail and placeholders in `docs/game/20-zombies-waves-loot-design.md`. Nothing is implemented; build order is movement before combat, special types last. Forbidden: auto-recalling survivors, combat hidden inside existing actions, towers that grant range to melee weapons.
+
+Addendum (2026-11-18, second round): rifle is loud (noise is a real mechanic), ammo is carried by the survivor, and towers can host mounted weapons up to a minigun that needs grid power. Mounted weapons use a hopper that survivors stock. See `docs/game/20-zombies-waves-loot-design.md` sections 12-14.
+
+## Z2: waves are entities; wall armor stands in for defence until combat exists (2026-11-18)
+
+A raid is a wave of zombie entities (spawn at dusk on one edge, walk with the same A* as survivors, retreat at dawn) instead of an abstract dusk comparison. Because nobody can kill a zombie before Z3, a wall's strength is expressed as flat ARMOR per level (`wallArmorPerLevel`): damage dealt is `zombie damage - armor`, so upgrading the fence is the way to survive early waves, mirroring the zombie-armor / weapon-pierce rule. The outcome is real: a wall at 0 health = breached = looting at dawn. The gate closes for BOTH sides during a wave (a survivor left outside is stranded and chased; "inside the wall" stays the learner's job, no auto-recall). The old `defense` number stays as an informational rating. Forbidden: restoring the abstract `raidDusk`, auto-recalling survivors, letting zombies pass a standing gate, damaging survivors before Z3.

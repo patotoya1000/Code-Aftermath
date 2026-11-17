@@ -19,3 +19,8 @@ Events are simulation activities with participants, requirements, duration, diff
 Events must not be resolved as a single arbitrary success percentage. They should progress through stages where appropriate: preparation, travel, execution, risk checks, recovery and result application.
 
 The event engine should produce explicit event records and consequences so the learner can inspect what happened and why.
+
+## Built so far (O18 / O19)
+
+- **Risk events (O18):** public seed+day schedule, dawn effects (rats, equipment fault, supply cache). See `docs/game/16`.
+- **Raids (O19, groundwork):** a night raid may come at dusk (pure function of seed + day, strength and zombie composition public 2 days ahead). It is resolved abstractly against the fence defence: defence >= strength repels it (small fence wear), otherwise the fence is damaged and 25 % of available food and water is looted. Learner read: `threats`; log: `raid.warning`, `raid.resolved`. Zombies do not exist on the map yet.

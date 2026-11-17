@@ -97,7 +97,7 @@ Legend: [x] done and tested · [ ] to do. A phase is finished only when its **ga
 - [ ] Supply scavenge, zombie nest raid, defense waves, capstone automation
 
 ## Phase 9 — Later
-- [ ] Weapons/infrastructure, instructor tools, balancing, final art
+- [ ] Weapons/infrastructure (zombie phases Z2-Z7: docs/game/20), instructor tools, balancing, final art
 
 ## Open design items (from the docs) that gate later phases
 attribute & skill lists · formula coefficients · building level effects · event curves · XP thresholds · trait catalog ·

@@ -57,11 +57,13 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `water` | `resources`, `buildings`, `environment` |
 | `spoilage` | `resources`, `buildings` |
 | `power` | `resources`, `buildings`, `environment` |
+| `events` | `resources`, `buildings`, `spoilage`, `environment` |
+| `threats` | `resources`, `buildings`, `spoilage`, `environment` |
 | `farming` | `resources`, `buildings`, `environment`, `survivors` |
 | `world` | `resources`, `survivors`, `buildings`, `spoilage`, `farming` |
-| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming`, `power` |
+| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `threats` |
 | `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage`, `farming` |
-| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming`, `power` |
+| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `threats` |
 | `environment` | — |
 | `api` | — |
 | `sandbox` | `api` |

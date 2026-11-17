@@ -66,12 +66,19 @@ export const COMMANDS = {
     },
   },
   farm: {
-    type: 'farm', signature: 'survivor.farm(farm, crop, count)',
-    doc: 'Work one farm for one crop, e.g. survivor.farm(field_1, "potato"). She harvests what is ripe (and carries it to storage), waters dry plots, and plants empty ones, again and again. Planting spends seeds from base stock (a crop is its own seed), watering spends water; rain waters the plots for free. She waits at the farm while the crop grows. Stops when `count` plots are harvested, seeds or water run out, storage is full, or she is too tired. The farm must be repaired. See crops and the farm\'s plots (field_1.farm).',
+    type: 'farm', options: true, signature: 'survivor.farm(farm, crop, count, { fertilize })',
+    doc: 'Work one farm for one crop, e.g. survivor.farm(field_1, "potato"). She harvests what is ripe (and carries it to storage), waters dry plots, and plants empty ones, again and again. Planting spends seeds from base stock (a crop is its own seed), watering spends water; rain waters the plots for free. Add { fertilize: true } (after the optional count) to also spread fertilizer on growing plots while there is some in base stock: +50 % harvest for that plot. She waits at the farm while the crop grows. Stops when `count` plots are harvested, seeds or water run out, storage is full, or she is too tired. The farm must be repaired. See crops and the farm\'s plots (field_1.farm).',
     params(args) {
-      if (args.length < 2 || args.length > 3 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('farm', 'use farm(field_1, "potato") or farm(field_1, "potato", 4)');
-      const count = optInt('farm', 'count', args[2], 1, 100);
-      return { targetId: args[0], crop: args[1], ...(count !== undefined ? { count } : {}) };
+      const rest = args.slice(2);
+      const last = rest.at(-1);
+      const hasOptions = last !== null && typeof last === 'object' && !Array.isArray(last);
+      const countArg = hasOptions ? rest.slice(0, -1) : rest;
+      if (args.length < 2 || args.length > 4 || countArg.length > 1 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('farm', 'use farm(field_1, "potato"), farm(field_1, "potato", 4) or farm(field_1, "potato", 4, { fertilize: true })');
+      const count = optInt('farm', 'count', countArg[0], 1, 100);
+      const o = hasOptions ? cleanOptions('farm', last) : {};
+      for (const k of Object.keys(o)) if (k !== 'fertilize') throw bad('farm', `unknown option "${k}" (only fertilize)`);
+      if (o.fertilize !== undefined && typeof o.fertilize !== 'boolean') throw bad('farm', 'fertilize must be true or false');
+      return { targetId: args[0], crop: args[1], ...(count !== undefined ? { count } : {}), ...(o.fertilize ? { fertilize: true } : {}) };
     },
   },
   rest: {
@@ -159,7 +166,7 @@ export const READ_SURFACE = [
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory   (what she carries)',
   'survivor.carry   ({ load, capacity } in weight units)',
   'survivors   (array of all survivors)',
-  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread, base.potato, base.carrot, base.hot_meal, base.mre, base.packaging, base.glass   (available amounts in storage, not what survivors carry)',
+  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread, base.potato, base.carrot, base.hot_meal, base.mre, base.packaging, base.glass, base.fertilizer, base.charcoal   (available amounts in storage, not what survivors carry)',
   'base.perishables   (food that can spoil, oldest first: [{ item, qty, daysLeft, cold }]; spoiled units are lost - eat or protect them)',
   'base.capacity.wood …   (how much the working storage buildings hold in total)',
   'fence, hq, buildings   (id, type, level, health, maxHealth, condition, x, y)',
@@ -171,6 +178,8 @@ export const READ_SURFACE = [
   'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',
   'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
+  'events   (risk events: { upcoming: [{ day, inDays, id, name, kind, harm }] scheduled soon - the schedule is public, prepare for it; history: [{ day, id, name, outcome, detail }] what has happened })',
+  'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, ... }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
   'world.width, world.height, tick',

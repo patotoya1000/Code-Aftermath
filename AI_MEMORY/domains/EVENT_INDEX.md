@@ -12,7 +12,7 @@ Each event states something that already happened in authoritative state. Consum
 
 # Does NOT Own
 
-- Environmental/risk events (M9) — a different, planned "event system".
+- Risk events (O18, `src/modules/events/`) are a separate system that EMITS `event.warning { day, inDays, event, harm }` and `event.happened { day, event, kind, outcome, detail }` into this log.
 - Any state change; the log is output only.
 
 # Core Data

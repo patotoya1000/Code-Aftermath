@@ -17,6 +17,24 @@ export const items = {
   // O12 workshop goods: packaging seals MREs; glass is for the hydroponic level (next phase).
   packaging: { name: 'Packaging', unitWeight: 1 },
   glass: { name: 'Glass', unitWeight: 2 },
+  // O15 workshop goods: fertilizer boosts the harvest of a growing plot; charcoal is a better generator fuel than raw wood. Neither spoils.
+  fertilizer: { name: 'Fertilizer', unitWeight: 1 },
+  charcoal: { name: 'Charcoal', unitWeight: 1 },
+  // O17: nutrient solution for hydroponic plots (workshop). One unit feeds a plot for `farming.nutrients.ticksPerUnit` ticks of growth.
+  nutrients: { name: 'Nutrients', unitWeight: 1 },
+  // Zombie loot (doc 20 section 4): dropped on the ground outside the wall, collected by sortie. Bones feed bone meal (later recipe), hide and rags go into
+  // crafting, scrap into blades/bolts/fence work, a volatile gland into gunpowder and traps. None of it spoils yet.
+  bones: { name: 'Bones', unitWeight: 1 },
+  hide: { name: 'Hide', unitWeight: 1 },
+  rags: { name: 'Rags', unitWeight: 1 },
+  scrap: { name: 'Scrap metal', unitWeight: 2 },
+  gland: { name: 'Volatile gland', unitWeight: 1 },
+  noise_lure: { name: 'Noise lure', unitWeight: 1 },
+  boss_core: { name: 'Boss core', unitWeight: 2 },
+  // Ammo (doc 20 section 9): carried by the survivor, spent per shot; mounted weapons are stocked into a hopper from it.
+  arrows: { name: 'Arrows', unitWeight: 1 },
+  bolts: { name: 'Bolts', unitWeight: 1 },
+  bullets: { name: 'Bullets', unitWeight: 1 },
 };
 
 // Carry capacity (R3), in weight units: (base + perStrength x strength) x every matching trait multiplier, rounded down.

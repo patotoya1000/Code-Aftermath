@@ -5,6 +5,8 @@ import { tickWater } from '../water/index.js';
 import { tickPower } from '../power/index.js';
 import { ageFood } from '../spoilage/index.js';
 import { tickFarms, farmDay } from '../farming/index.js';
+import { eventDay } from '../events/index.js';
+import { raidWarning, waveStart, waveDawn, tickWave } from '../threats/index.js';
 import { createActionEngine } from '../actions/index.js';
 import { studentView, renderProjection, inspectorCard } from '../projection/index.js';
 
@@ -56,11 +58,13 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
   function announceTime() {
     const before = timeOf(defs, state.tick - 1);
     const now = timeOf(defs, state.tick);
-    if (before.isNight && !now.isNight) ctx.emit('time.dawn', { day: now.day });
-    if (!before.isNight && now.isNight) ctx.emit('time.dusk', { day: now.day });
+    if (before.isNight && !now.isNight) { ctx.emit('time.dawn', { day: now.day }); waveDawn(ctx); } // the wave retreats and is resolved at dawn
+    if (!before.isNight && now.isNight) { ctx.emit('time.dusk', { day: now.day }); waveStart(ctx, now.day); } // a raid, if one is scheduled, starts as a wave of zombies at dusk
     if (now.day !== before.day) {
       ageFood(ctx, now.day); // food ages once a day, at dawn
       farmDay(ctx, now.day); // today's weather hazard hits unsheltered crops
+      raidWarning(ctx, now.day); // announce a raid scheduled `warnDays` ahead
+      eventDay(ctx, now.day); // warn about a coming risk event, then apply today's (if any)
       const from = weatherForDay(defs, before.day);
       const to = weatherForDay(defs, now.day);
       if (from !== to) ctx.emit('weather.changed', { from, to, day: now.day });
@@ -78,6 +82,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     if (state.tick % cfg.regenEvery === 0 && state.strategyPoints < cfg.max) state.strategyPoints += 1;
     engine.applyPolicies(ctx);
     engine.step(ctx);
+    tickWave(ctx); // the wave's zombies spawn, walk, and hit the wall (after survivors acted this tick)
   }
 
   /** Clock + strategy-point info for the UI. */

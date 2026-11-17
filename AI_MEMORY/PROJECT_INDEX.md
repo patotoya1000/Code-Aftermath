@@ -43,6 +43,7 @@ Active model: **real-time simulation** (continuous ticks, standing actions, lear
 | Building | `AI_MEMORY/domains/BUILDING_INDEX.md` | `src/modules/buildings/index.js`, `src/modules/actions/handlers/repair.js` |
 | Resource | `AI_MEMORY/domains/RESOURCE_INDEX.md` | `src/modules/resources/ledger.js`, `src/modules/actions/handlers/gather.js` |
 | Item | `AI_MEMORY/domains/ITEM_INDEX.md` | `src/modules/definitions/data/items.js` |
+| Zombie / combat data (Z1) | `AI_MEMORY/domains/ZOMBIE_INDEX.md`, `COMBAT_INDEX.md` | `src/modules/definitions/data/threats.js`, `arsenal.js` |
 | Zombie | `AI_MEMORY/domains/ZOMBIE_INDEX.md` | none (planned) |
 | Needs | `AI_MEMORY/domains/NEEDS_INDEX.md` | `src/modules/survivors/index.js`, `src/modules/actions/policies.js` |
 | Task | `AI_MEMORY/domains/TASK_INDEX.md` | `src/modules/actions/engine.js` |

@@ -4,7 +4,12 @@ import { createSimulation } from '../src/modules/simulation/index.js';
 import { buildCommand } from '../src/modules/api/index.js';
 import { createSandbox } from '../src/modules/sandbox/index.js';
 
-export const defs = createDefinitions();
+import { eventSchedule } from '../src/modules/definitions/data/events.js';
+import { raidSchedule } from '../src/modules/definitions/data/threats.js';
+
+// Risk events (O18) change stock and buildings on random-looking days; the older tests count exact stock over many days, so the shared test world has them
+// OFF (chancePercent 0). tests/events.test.js turns them on.
+export const defs = createDefinitions({ eventSchedule: { ...eventSchedule, chancePercent: 0 }, raidSchedule: { ...raidSchedule, chancePercent: 0 } });
 export const sandbox = createSandbox();
 
 /** The farm's starting seeds are edible, perishable stock; tests about hunger or spoilage of OTHER foods remove them first. */

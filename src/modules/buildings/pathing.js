@@ -5,7 +5,7 @@
 //   - a building with `blocks: true` (copied from its definition) blocks its own tile — or, with a `footprint` (PA-5), every tile of it;
 //     the building's (x, y) stays its DOOR: the place survivors walk to,
 //   - a fence (a building with `bounds`) blocks every tile of its rectangle's PERIMETER,
-//   - except a tile where a non-blocking building stands (the gate): that perimeter tile is open.
+//   - except a tile where a non-blocking building stands (the gate): that perimeter tile is open - unless a zombie wave is on (Z2), when the gate is closed.
 // Nodes (trees, rocks) do not block; they are things you walk up to. The DESTINATION tile is always enterable, so
 // `moveTo(hq)` and "walk to the storehouse" still work even though those tiles are blocked for passing through.
 
@@ -30,6 +30,8 @@ export function blockedTiles(state) {
     } else blocked.add(key(b.x, b.y));
   }
   for (const k of open) blocked.delete(k);
+  // Z2: while a wave is on, the gate is a closed wall piece (until it is destroyed). Survivors cannot pass either way.
+  if (state.threats?.wave?.gateClosed) for (const b of all) if (b.type === 'gate' && b.health > 0) blocked.add(key(b.x, b.y));
   return blocked;
 }
 

@@ -11,7 +11,7 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40 } } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40, fertilizer: 60, charcoal: 80, nutrients: 60 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     // PA-5: the HQ is a 3x3 building. The scenario's (x, y) is its DOOR cell (bottom middle); `footprint` is the rectangle it occupies,
     // relative to the door: x/y = offset of its top-left cell, w/h = size. Every footprint cell blocks walking; survivors still walk to the door.
@@ -19,7 +19,7 @@ export const buildings = {
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
-    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20 },
+    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20, fertilizer: 30, charcoal: 40, nutrients: 30 },
   },
   fence: {
     name: 'Perimeter Fence',
@@ -52,16 +52,19 @@ export const buildings = {
   // weather table). A ruined well gives and refills nothing. Survivors draw from it with gather("water"); they WAIT at an empty well.
   // `siphon` (level 2+) is the first automation: a tube that moves reservoir water into base stock by itself - but only while a WORKING
   // building that stores water (a repaired water tank, the HQ, a tent) stands within `reach` tiles of the well. The machine tier
-  // (a powered pump) arrives with the power phase.
+  // (level 3, a powered pump) draws power from the grid.
   well: {
     name: 'Deep Well',
     levels: {
       1: { maxHealth: 90, source: { resource: 'water', reservoir: 40, recharge: { every: 24, amount: 1 } } },
       2: { maxHealth: 130, source: { resource: 'water', reservoir: 80, recharge: { every: 16, amount: 1 } }, siphon: { every: 6, amount: 1, reach: 3 } },
+      // O16 machine tier: a Pump House. A bigger, faster aquifer and a pump (the siphon table, 3x faster, longer reach) that only runs while
+      // the grid powers it (`power.use`, drawn all the time like the freezer). Unpowered it pumps nothing: status NO_POWER.
+      3: { name: 'Pump House', maxHealth: 180, source: { resource: 'water', reservoir: 160, recharge: { every: 10, amount: 1 } }, siphon: { every: 2, amount: 1, reach: 4 }, power: { use: 3 } },
     },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 6 }, healthPerAction: 30, ticks: 30 },
-    upgrade: { 2: { cost: { wood: 25, stone: 20 }, ticks: 70 } },
+    upgrade: { 2: { cost: { wood: 25, stone: 20 }, ticks: 70 }, 3: { cost: { wood: 30, stone: 30, packaging: 6 }, ticks: 90 } }, // level 3 needs workshop packaging (pipe seals)
   },
   // Water storage. Pooled like every storage table: it adds room for water once it is repaired (the siphon needs one within reach).
   water_tank: {
@@ -97,8 +100,8 @@ export const buildings = {
   generator: {
     name: 'Generator',
     levels: {
-      1: { maxHealth: 110, power: { output: 10, fuel: { item: 'wood', every: 20 } } },
-      2: { name: 'Advanced Generator', maxHealth: 160, power: { output: 24, fuel: { item: 'wood', every: 40 } } }, // more output per fuel
+      1: { maxHealth: 110, power: { output: 10, fuel: { item: 'wood', every: 20, better: { item: 'charcoal', every: 50 } } } },
+      2: { name: 'Advanced Generator', maxHealth: 160, power: { output: 24, fuel: { item: 'wood', every: 40, better: { item: 'charcoal', every: 100 } } } }, // more output per fuel; charcoal (workshop) lasts 2.5x longer per unit
     },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 6, stone: 4 }, healthPerAction: 30, ticks: 30 },
@@ -142,7 +145,7 @@ export const buildings = {
       2: { name: 'Greenhouse', maxHealth: 150, farm: { plots: 6, growth: 150, yield: 150, shelter: true } },
       // O13: level 3 = HYDROPONIC farm. Indoors (no weather at all, rain does not water it), the fastest and richest tier, but it only grows while the
       // grid powers it (`power.use`, drawn all the time like the freezer). Unpowered it holds its crops. Still hand-watered; nutrients (fertilizer) come later.
-      3: { name: 'Hydroponic Farm', maxHealth: 200, farm: { plots: 8, growth: 200, yield: 250, shelter: true, indoor: true }, power: { use: 5 } },
+      3: { name: 'Hydroponic Farm', maxHealth: 200, farm: { plots: 8, growth: 200, yield: 250, shelter: true, indoor: true, nutrients: true }, power: { use: 5 } }, // O17: also needs a nutrient solution (a plot without nutrients does not grow)
     },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     blocks: false,

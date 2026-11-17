@@ -191,7 +191,7 @@ function taskSection(task, queued = 0, lastTask = null) {
 // A well: reservoir bar, how fast the aquifer refills right now (weather changes it), and the siphon's connection status.
 const SIPHON_TEXT = {
   OFF: 'No siphon yet. Upgrade the well to add one.', BROKEN: 'Siphon is down: repair the well.',
-  NO_STORAGE: 'Not connected: no working water storage within reach. Repair a water tank near the well.', FULL: 'Connected, but base water storage is full.', ACTIVE: 'Connected: it fills base storage by itself.',
+  NO_POWER: 'Not pumping: the grid is not powering the pump. Repair a generator or solar panel and keep it fuelled.', NO_STORAGE: 'Not connected: no working water storage within reach. Repair a water tank near the well.', FULL: 'Connected, but base water storage is full.', ACTIVE: 'Connected: it fills base storage by itself.',
 };
 function waterSection(b) {
   const w = b.water;

@@ -52,6 +52,7 @@ export const StopReason = Object.freeze({
   NO_POWER: 'NO_POWER',             // cook/craft: a powered recipe waited too long for the grid (generator out of fuel, night, ...)
   NO_FARM: 'NO_FARM',               // farm: the farm stopped working (ruined / damaged) or is gone
   NO_SEED: 'NO_SEED',               // farm: empty plots wait but base stock has no seeds of the crop
+  NO_NUTRIENTS: 'NO_NUTRIENTS',     // farm: a hydroponic plot needs nutrients but base stock has none
   NO_WATER: 'NO_WATER',             // farm: dry plots wait but base stock has no water
   NOTHING_TO_DO: 'NOTHING_TO_DO',   // farm: nothing grew ripe or needed work within the waiting time
 });

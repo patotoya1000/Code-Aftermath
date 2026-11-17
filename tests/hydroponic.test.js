@@ -18,12 +18,12 @@ const hydro = (st, { grid = true, wood = 60 } = {}) => {
   give(st, { wood });
   Object.assign(st.survivors.survivor_1.needs, { hunger: 100, thirst: 100, energy: 100 });
 };
-const growing = (st, id, crop, extra = {}) => Object.assign(st.plots[id], { crop, stage: 'growing', progress: 0, water: 200, damage: 0, ...extra });
+const growing = (st, id, crop, extra = {}) => Object.assign(st.plots[id], { crop, stage: 'growing', progress: 0, water: 200, nutrients: 200, damage: 0, ...extra });
 const tickWhere = (predicate, from = 0) => { for (let t = from; t < 20000; t++) if (predicate(weatherAt(defs, t))) return t; throw new Error('no such weather'); };
 
 test('level 3 is a hydroponic farm in the data: indoor, 8 plots, 200 % growth, 250 % yield, power use 5, glass in the upgrade', () => {
   const L = defs.buildings.field.levels[3];
-  assert.deepEqual(L.farm, { plots: 8, growth: 200, yield: 250, shelter: true, indoor: true });
+  assert.deepEqual(L.farm, { plots: 8, growth: 200, yield: 250, shelter: true, indoor: true, nutrients: true });
   assert.equal(L.power.use, 5);
   assert.equal(L.name, 'Hydroponic Farm');
   assert.equal(defs.buildings.field.upgrade[3].cost.glass, 12);
@@ -100,7 +100,7 @@ test('indoors: rain does not water the plots (hand watering is still needed) and
 });
 
 test('survivor.farm works a hydroponic farm end to end: plant, water by hand, wait for growth, harvest 250 %; ledger balanced', () => {
-  const sim = newSim('stage1', 1, (st) => { hydro(st); give(st, { potato: 8, water: 40 }); });
+  const sim = newSim('stage1', 1, (st) => { hydro(st); give(st, { potato: 8, water: 40, nutrients: 40 }); });
   call(sim, 'farm', 'field_1', 'potato', 8);
   runUntilIdle(sim, 6000);
   const st = sim.snapshot();
@@ -118,4 +118,39 @@ test('definitions validation: indoor must be true/false', () => {
 test('hydroponics is deterministic and replays exactly', () => {
   const run = () => { const s = newSim('stage1', 5, (st) => { hydro(st); give(st, { potato: 8, water: 40 }); }); call(s, 'farm', 'field_1', 'potato', 4); runUntilIdle(s, 4000); return s.stateHash(); };
   assert.equal(run(), run());
+});
+
+// ---- O17 nutrients ----
+const nutri = (sim) => farm(sim).plots;
+test('O17: a hydroponic plot without nutrients does not grow (water and power are not used); with nutrients it grows and uses 1 per tick', () => {
+  const dry = newSim('stage1', 1, (st) => { hydro(st); growing(st, 'field_1_1', 'potato', { nutrients: 0 }); });
+  for (let i = 0; i < 50; i++) dry.step(1);
+  assert.equal(dry.snapshot().plots.field_1_1.progress, 0);
+  assert.equal(dry.snapshot().plots.field_1_1.water, 200, 'water is held too');
+  assert.equal(nutri(dry)[0].starved, true);
+  const fed = newSim('stage1', 1, (st) => { hydro(st); growing(st, 'field_1_1', 'potato'); });
+  for (let i = 0; i < 50; i++) fed.step(1);
+  const fp = fed.snapshot().plots.field_1_1;
+  assert.equal(200 - fp.nutrients, 200 - fp.water, 'one tick of nutrients per tick of water, i.e. per tick grown');
+  assert.ok(fp.nutrients < 200 && fp.nutrients >= 140);
+  assert.ok(fed.snapshot().plots.field_1_1.progress > 0);
+});
+
+test('O17: survivor.farm feeds a low plot from stock (1 unit = 120 ticks, capped) and stops with NO_NUTRIENTS when there are none', () => {
+  const sim = newSim('stage1', 1, (st) => { hydro(st); give(st, { nutrients: 3, water: 20, potato: 0 }); growing(st, 'field_1_1', 'potato', { nutrients: 0 }); });
+  call(sim, 'farm', 'field_1', 'potato', 1);
+  for (let i = 0; i < 40; i++) sim.step(1);
+  assert.ok(stock(sim, 'nutrients') < 3, 'a unit was spent on the plot');
+  assert.ok(sim.snapshot().plots.field_1_1.nutrients > 100);
+  const none = newSim('stage1', 1, (st) => { hydro(st); give(st, { nutrients: 0, water: 20, potato: 0 }); growing(st, 'field_1_1', 'potato', { nutrients: 0 }); });
+  call(none, 'farm', 'field_1', 'potato', 1); runUntilIdle(none, 200);
+  assert.equal(none.snapshot().survivors.survivor_1.lastTask.reason, 'NO_NUTRIENTS');
+  assert.deepEqual(ledgerViolations(sim.snapshot()), []);
+});
+
+test('O17: only hydroponic farms need nutrients (a greenhouse grows without); the nutrients recipe is fertilizer + 2 water -> 2', () => {
+  assert.equal(defs.buildings.field.levels[2].farm.nutrients, undefined);
+  assert.deepEqual(defs.recipes.nutrients.inputs, { fertilizer: 1, water: 2 });
+  assert.equal(farm(newSim('stage1', 1, (st) => { hydro(st); })).needsNutrients, true);
+  assert.throws(() => createDefinitions({ farming: { ...defs.farming, nutrients: { item: 'nutrients', ticksPerUnit: 0, cap: 5 } } }), /nutrients/);
 });

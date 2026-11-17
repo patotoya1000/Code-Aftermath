@@ -7,6 +7,9 @@ import { lessons } from './data/lessons.js';
 import { environment } from './data/environment.js';
 import { recipes } from './data/recipes.js';
 import { crops, farming } from './data/crops.js';
+import { events, eventSchedule } from './data/events.js';
+import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
+import { weapons, towers, noise } from './data/arsenal.js';
 
 const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm'];
 
@@ -88,7 +91,7 @@ export function validateDefinitions(d) {
     if (a.handler === 'farm') {
       need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
       need(Number.isInteger(a.waitTicks) && a.waitTicks >= 1, `action ${id}: waitTicks must be a whole number >= 1`);
-      for (const k of ['plant', 'water', 'harvest']) need(Number.isInteger(a.chore?.[k]) && a.chore[k] >= 1, `action ${id}: chore.${k} must be a whole number >= 1`);
+      for (const k of ['plant', 'water', 'nourish', 'fertilize', 'harvest']) need(Number.isInteger(a.chore?.[k]) && a.chore[k] >= 1, `action ${id}: chore.${k} must be a whole number >= 1`);
     }
     if (a.handler === 'cook') {
       need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
@@ -97,7 +100,66 @@ export function validateDefinitions(d) {
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
   const wholeAtLeast = (n, min) => Number.isInteger(n) && n >= min;
+  const ROLES = ['common', 'runner', 'boomer', 'thrower', 'screamer', 'tank'];
+  const whole = (n, min) => Number.isInteger(n) && n >= min;
+  for (const [id, z] of Object.entries(d.zombies ?? {})) {
+    need(typeof z.name === 'string' && ['threat', 'weight', 'health', 'speed'].every((k) => whole(z[k], 1)), `zombie ${id}: needs a name and whole threat, weight, health and speed >= 1`);
+    need(whole(z.damage, 0) && whole(z.armor ?? 0, 0) && whole(z.firstDay ?? 1, 1), `zombie ${id}: damage and armor must be whole numbers >= 0 and firstDay a whole number >= 1`);
+    need(ROLES.includes(z.role), `zombie ${id}: role must be one of ${ROLES.join(', ')}`);
+    const bh = z.behaviour;
+    if (bh) {
+      need(['explode', 'throw', 'scream'].includes(bh.type), `zombie ${id}: unknown behaviour "${bh.type}"`);
+      if (bh.type === 'explode') need(whole(bh.radius, 1) && whole(bh.fenceDamage, 0) && whole(bh.survivorDamage, 0), `zombie ${id}: explode needs a whole radius >= 1 and fenceDamage/survivorDamage >= 0`);
+      if (bh.type === 'throw') need(whole(bh.range, 1) && whole(bh.damage, 1) && whole(bh.everyTicks, 1) && whole(bh.rubble, 0), `zombie ${id}: throw needs whole range, damage, everyTicks >= 1 and rubble >= 0`);
+      if (bh.type === 'scream') need(whole(bh.cooldownTicks, 1) && whole(bh.summons, 1) && whole(bh.waveCap, bh.summons ?? 1), `zombie ${id}: scream needs whole cooldownTicks, summons >= 1 and waveCap >= summons`);
+    }
+  }
+  for (const [id, b] of Object.entries(d.bosses ?? {})) {
+    need(typeof b.name === 'string' && ['health', 'speed'].every((k) => whole(b[k], 1)) && whole(b.damage, 0) && whole(b.armor ?? 0, 0), `boss ${id}: needs a name, whole health and speed >= 1, damage and armor >= 0`);
+    need(Object.entries(b.escorts ?? {}).every(([z, n]) => d.zombies?.[z] && whole(n, 1)), `boss ${id}: escorts must be known zombies with a whole count >= 1`);
+  }
+  const bs = d.bossSchedule;
+  need(bs && d.bosses?.[bs.boss] && ['firstDay', 'everyDays', 'warnDays'].every((k) => whole(bs[k], 1)), 'bossSchedule: needs a known boss and whole firstDay, everyDays and warnDays >= 1');
+  const wr = d.waveRules;
+  need(wr && wr.recall === 'learner' && typeof wr.outsideFirst === 'boolean' && typeof wr.gateClosesDuringWave === 'boolean' && typeof wr.sortieOnlyAfterClear === 'boolean' && whole(wr.lootLingerDays, 0) && ['spawnEveryTicks', 'zombieStepTicks', 'attackEveryTicks'].every((k) => whole(wr[k], 1)) && whole(wr.wallArmorPerLevel, 0), 'waveRules: recall must be "learner", the flags booleans, lootLingerDays and wallArmorPerLevel whole numbers >= 0, spawnEveryTicks, zombieStepTicks and attackEveryTicks whole numbers >= 1');
+  for (const [id, rows] of Object.entries(d.lootTables ?? {})) {
+    need(d.zombies?.[id] || d.bosses?.[id], `lootTable ${id}: unknown zombie or boss`);
+    for (const r of rows) need(d.items[r.item] && whole(r.min, 0) && whole(r.max, r.min ?? 0) && whole(r.chancePercent, 1) && r.chancePercent <= 100 && (r.requires === undefined || r.requires === 'not_exploded'), `lootTable ${id}: "${r.item}" needs a known item, whole min <= max and chancePercent 1..100`);
+  }
+  for (const id of [...Object.keys(d.zombies ?? {}), ...Object.keys(d.bosses ?? {})]) need((d.lootTables?.[id] ?? []).length > 0, `lootTable ${id}: every zombie and boss needs a loot table`);
+  const WK = ['melee', 'ranged', 'mounted'];
+  for (const [id, w] of Object.entries(d.weapons ?? {})) {
+    need(typeof w.name === 'string' && WK.includes(w.kind) && whole(w.tier, 0) && whole(w.damage, 1) && whole(w.pierce, 0) && whole(w.noise, 0) && whole(w.reload, 1), `weapon ${id}: needs a name, a kind (${WK.join('/')}) and whole tier, damage >= 1, pierce, noise >= 0, reload >= 1`);
+    need(w.kind === 'melee' ? whole(w.reach, 2) && w.ammo === null : whole(w.range, 1) && d.items[w.ammo], `weapon ${id}: melee needs reach >= 2 (the fence cell counts) and no ammo; ranged/mounted need a range and a known ammo item`);
+    if (w.kind === 'mounted') need(whole(w.minTowerLevel, 2) && whole(w.hopper, 1) && (w.power === undefined || whole(w.power, 1)), `weapon ${id}: mounted needs minTowerLevel >= 2 (level 1 mounts nothing), hopper >= 1 and a whole power >= 1 if it uses the grid`);
+    else need(w.power === undefined && w.hopper === undefined && w.minTowerLevel === undefined, `weapon ${id}: only mounted weapons have power, hopper or minTowerLevel`);
+    if (w.craft) need(whole(w.craft.stationLevel, 1) && whole(w.craft.minSkill, 0) && Object.keys(w.craft.materials ?? {}).length > 0 && Object.entries(w.craft.materials).every(([i, n]) => d.items[i] && whole(n, 1)), `weapon ${id}: craft needs a station level, a minSkill and known materials with whole counts >= 1`);
+    else need(w.starter === true, `weapon ${id}: only a starter weapon may have no craft recipe`);
+  }
+  need(Object.values(d.weapons ?? {}).some((w) => w.starter && w.kind === 'melee'), 'weapons: at least one starter melee weapon is required (a survivor always starts armed)');
+  const tl = Object.keys(d.towers ?? {}).map(Number).sort((a, b) => a - b);
+  need(tl.length > 0 && tl.every((l, i) => l === i + 1), 'towers: levels must be 1..n without gaps');
+  for (const [lv, t] of Object.entries(d.towers ?? {})) {
+    need(typeof t.name === 'string' && whole(t.maxHealth, 1) && whole(t.slots, 1) && whole(t.rangeBonus, 0), `tower ${lv}: needs a name and whole maxHealth, slots >= 1 and rangeBonus >= 0`);
+    for (const m of t.mounts ?? []) need(d.weapons?.[m]?.kind === 'mounted' && d.weapons[m].minTowerLevel <= Number(lv), `tower ${lv}: "${m}" must be a mounted weapon whose minTowerLevel is at most ${lv}`);
+  }
+  const nz = d.noise;
+  need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100, 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest and suppressorPercent 0..100');
+  const rs = d.raidSchedule;
+  need(rs && Object.keys(d.zombies ?? {}).length > 0 && ['startDay', 'warnDays', 'historyLimit', 'strengthBase'].every((k) => Number.isInteger(rs[k]) && rs[k] >= 1) && Number.isInteger(rs.strengthPerDay) && rs.strengthPerDay >= 0 && Number.isInteger(rs.chancePercent) && rs.chancePercent >= 0 && rs.chancePercent <= 100 && Number.isInteger(rs.variancePercent) && rs.variancePercent >= 0 && rs.variancePercent <= 99, 'raidSchedule: whole numbers (chancePercent 0..100, variancePercent 0..99) and at least one zombie are required');
+  need(rs && Number.isInteger(rs.defense?.perLevel) && rs.defense.perLevel >= 1 && Number.isInteger(rs.defense.damagedPercent) && rs.defense.damagedPercent >= 0 && rs.defense.damagedPercent <= 100 && Number.isInteger(rs.breached?.lootPercent) && rs.breached.lootPercent >= 0 && rs.breached.lootPercent <= 100 && Array.isArray(rs.breached?.loot) && rs.breached.loot.every((i) => d.items[i]), 'raidSchedule: defense and breached tables need whole numbers and known loot items');
+  const es = d.eventSchedule;
+  need(es && Number.isInteger(es.startDay) && es.startDay >= 1 && Number.isInteger(es.chancePercent) && es.chancePercent >= 0 && es.chancePercent <= 100 && Number.isInteger(es.warnDays) && es.warnDays >= 1 && Number.isInteger(es.historyLimit) && es.historyLimit >= 1, 'eventSchedule: startDay >= 1, chancePercent 0..100, warnDays >= 1 and historyLimit >= 1 must be whole numbers');
+  for (const [id, ev] of Object.entries(d.events ?? {})) {
+    need(typeof ev.name === 'string' && Number.isInteger(ev.weight) && ev.weight >= 1 && typeof ev.harm === 'boolean', `event ${id}: needs a name, a whole weight >= 1 and a true/false harm`);
+    if (ev.kind === 'lose_stock') need(Array.isArray(ev.items) && ev.items.length > 0 && ev.items.every((i) => d.items[i]) && Number.isInteger(ev.percent) && ev.percent >= 1 && ev.percent <= 100, `event ${id}: lose_stock needs known items and a whole percent 1..100`);
+    else if (ev.kind === 'damage_building') need(Array.isArray(ev.types) && ev.types.length > 0 && ev.types.every((t) => d.buildings[t]) && Number.isInteger(ev.healthPercent) && ev.healthPercent >= 1 && ev.healthPercent <= 99, `event ${id}: damage_building needs known building types and a whole healthPercent 1..99`);
+    else if (ev.kind === 'gain_stock') need(ev.items && Object.keys(ev.items).length > 0 && Object.entries(ev.items).every(([i, q]) => d.items[i] && Number.isInteger(q) && q >= 1), `event ${id}: gain_stock needs known items with whole quantities`);
+    else need(false, `event ${id}: unknown kind "${ev.kind}"`);
+  }
   const fm = d.farming;
+  need(fm?.nutrients && d.items[fm.nutrients.item] && Number.isInteger(fm.nutrients.ticksPerUnit) && fm.nutrients.ticksPerUnit >= 1 && Number.isInteger(fm.nutrients.cap) && fm.nutrients.cap >= fm.nutrients.ticksPerUnit, 'farming: nutrients needs a known item, whole ticksPerUnit >= 1 and cap >= ticksPerUnit');
+  need(fm?.fertilizer && d.items[fm.fertilizer.item] && Number.isInteger(fm.fertilizer.yieldBonus) && fm.fertilizer.yieldBonus >= 1, 'farming: fertilizer needs a known item and a whole yieldBonus % >= 1');
   need(fm && wholeAtLeast(fm.ticksPerWater, 1) && wholeAtLeast(fm.cap, fm.ticksPerWater ?? 1) && wholeAtLeast(fm.maxDamage, 0) && fm.maxDamage <= 99, 'farming: ticksPerWater >= 1, cap >= ticksPerWater and maxDamage 0..99 must be whole numbers');
   const hazards = new Set(Object.values(d.environment?.weather ?? {}).map((w) => w.hazard).filter(Boolean));
   for (const [id, crop] of Object.entries(d.crops ?? {})) {
@@ -142,7 +204,7 @@ export function validateDefinitions(d) {
       for (const [res, cap] of Object.entries(L.storage ?? {})) need(d.items[res] && cap > 0, `building ${id} level ${lvl}: storage for \"${res}\" needs a known item and a capacity > 0`);
       if (L.farm) {
         const f = L.farm;
-        need(wholeAtLeast(f.plots, 1) && wholeAtLeast(f.growth, 1) && wholeAtLeast(f.yield, 1) && typeof f.shelter === 'boolean' && (f.indoor === undefined || typeof f.indoor === 'boolean'), `building ${id} level ${lvl}: farm needs whole plots/growth/yield >= 1, a true/false shelter and an optional true/false indoor`);
+        need(wholeAtLeast(f.plots, 1) && wholeAtLeast(f.growth, 1) && wholeAtLeast(f.yield, 1) && typeof f.shelter === 'boolean' && (f.indoor === undefined || typeof f.indoor === 'boolean') && (f.nutrients === undefined || typeof f.nutrients === 'boolean'), `building ${id} level ${lvl}: farm needs whole plots/growth/yield >= 1, a true/false shelter and an optional true/false indoor`);
       }
       if (sourceSeen) need(L.source, `building ${id} level ${lvl}: a source must continue at every higher level`);
       if (L.source) {
@@ -161,6 +223,7 @@ export function validateDefinitions(d) {
           need(whole(p.output), `building ${id} level ${lvl}: power output must be a whole number >= 1`);
           need((p.solar === true) !== Boolean(p.fuel), `building ${id} level ${lvl}: a producer is either solar (solar: true) or fuelled (fuel), not both and not neither`);
           if (p.fuel) need(d.items[p.fuel.item] && whole(p.fuel.every), `building ${id} level ${lvl}: fuel needs a known item and a whole number of ticks (every) >= 1`);
+          if (p.fuel?.better) need(d.items[p.fuel.better.item] && whole(p.fuel.better.every) && p.fuel.better.item !== p.fuel.item, `building ${id} level ${lvl}: fuel.better needs a different known item and a whole number of ticks (every) >= 1`);
         }
         if (consumer) need(whole(p.use), `building ${id} level ${lvl}: power use must be a whole number >= 1`);
       }
@@ -238,7 +301,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

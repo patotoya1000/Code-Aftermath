@@ -4,7 +4,7 @@
 
 # Purpose
 
-**PLANNED / NOT IMPLEMENTED.** Attack, defence, damage to survivors from enemies, weapons. No source file exists for it; do not assume one.
+**Weapon/tower/noise DATA only (Z1).** Attack, defence, damage and equipment are PLANNED / NOT IMPLEMENTED. `data/arsenal.js` defines `weapons` (knife/spear starters, advanced spear, bow, crossbow, rifle, mounted ballista/repeating crossbow/minigun), `towers` (levels 1-3: range bonus, slots, mounts) and `noise`; pure helpers `effectiveRange`, `canMount`, `shotNoise` live in `threats/index.js`. Nothing equips, shoots or builds yet.
 
 # Responsibilities
 
@@ -40,7 +40,7 @@ None.
 
 # Source Files
 
-None.
+- `src/modules/definitions/data/arsenal.js`, `src/modules/threats/index.js` (helpers), `src/modules/definitions/index.js` (validation)
 
 # UI Files
 
@@ -52,11 +52,11 @@ None.
 
 # Tests
 
-None.
+- `tests/threats.test.js` (Z1 section)
 
 # Current Status
 
-PLANNED / NOT IMPLEMENTED.
+DATA ONLY (Z1). Behaviour PLANNED: Z3 equipment/attack/guard, Z5 crafting ladder, Z6 towers + mounts + power + noise.
 
 # Known Problems
 
@@ -71,8 +71,10 @@ Phase 8 (events and defence); advanced systems after the core is stable.
 - Do not reintroduce turns (`startTurn`, `executeTurn`, `getTurnInfo`, NEXT TURN, per-turn command caps). See `AI_MEMORY/DECISIONS.md` ADR-001.
 - Do not let the renderer, UI or learner code write authoritative state. See `AI_MEMORY/RULES.md`.
 - Do not implement combat as a hidden side effect of an existing action.
+- Melee weapons never get a tower range bonus; the suppressor never applies to mounted weapons; the minigun draws grid power only while firing.
 
 # Related Documentation
 
+- `docs/game/20-zombies-waves-loot-design.md` (decided design: types, waves, loot, weapons, towers — NOT implemented)
 - `docs/game/14-enemies-resources-items-open.md`
 - `docs/game/08-events.md`

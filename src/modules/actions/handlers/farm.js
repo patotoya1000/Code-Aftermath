@@ -12,6 +12,9 @@ import { ok, fail, failTick, RUNNING, approachThenWork, tooTired } from './share
  * farm is a STANDING action made of CHORES at ONE farm building (docs/game/16, O10). For one crop she repeats, in this order:
  *   HARVEST a ripe plot (units go from the plot's ledger account into her hands, then she unloads them at storage)
  *   WATER a dry growing plot (1 water from base stock; rain makes this unnecessary)
+ *   NOURISH a growing plot of a hydroponic farm that is low on nutrients (1 nutrients from base stock; stop reason NO_NUTRIENTS when none)
+ *   FERTILIZE a growing plot that has none yet (1 fertilizer from base stock; ONLY when she was asked with `{ fertilize: true }`, and only
+ *     while fertilizer is in stock — running out never stops the farming). A fertilized plot yields `farming.fertilizer.yieldBonus` % more.
  *   PLANT an empty plot (`crop.seeds` units of the crop from base stock)
  * Every chore reserves what it spends in the ledger when it is chosen and commits it when the work finishes, so two survivors never
  * spend or harvest the same unit, and a cancelled chore gives everything back. A plot being worked by someone else is skipped.
@@ -60,20 +63,38 @@ function planChore(ctx, a) {
     if (available(state, stockKey('water')) >= 1) return { chore: { kind: 'water', plotId: p.id, qty: 1 } };
     blocked ??= StopReason.NO_WATER;
   }
-  // 3. plant
+  // 3. nourish (hydroponic farms only): a growing plot below one unit's worth of nutrients gets 1 unit
+  if (farmDefOf(defs, farm).nutrients) {
+    for (const p of plots) {
+      if (p.crop !== a.params.crop || p.stage !== 'growing' || (p.nutrients ?? 0) >= cfg.nutrients.ticksPerUnit) continue;
+      if (available(state, stockKey(cfg.nutrients.item)) >= 1) return { chore: { kind: 'nourish', plotId: p.id, qty: 1 } };
+      blocked ??= StopReason.NO_NUTRIENTS;
+    }
+  }
+  // 4. fertilize (opt-in; silently skipped when there is none, because it only improves the harvest)
+  if (a.params.fertilize) {
+    for (const p of plots) {
+      if (p.crop !== a.params.crop || p.stage !== 'growing' || p.fertilized) continue;
+      if (available(state, stockKey(cfg.fertilizer.item)) >= 1) return { chore: { kind: 'fertilize', plotId: p.id, qty: 1 } };
+      break;
+    }
+  }
+  // 5. plant
   for (const p of plots) {
     if (p.stage !== 'empty') continue;
     if (available(state, stockKey(a.params.crop)) >= crop.seeds) return { chore: { kind: 'plant', plotId: p.id, qty: crop.seeds } };
     blocked ??= StopReason.NO_SEED;
   }
   // nothing to do right now: is something still growing (or being worked by a friend)? then wait for it.
-  const growing = plotsOf(state, farm.id).some((p) => p.crop === a.params.crop && (p.stage === 'growing' || p.stage === 'ready') && (p.water > 0 || rain || taken.has(p.id) || p.stage === 'ready'));
+  const growing = plotsOf(state, farm.id).some((p) => p.crop === a.params.crop && (p.stage === 'growing' || p.stage === 'ready') && ((p.water > 0 && (!farmDefOf(defs, farm).nutrients || p.nutrients > 0)) || (rain && !farmDefOf(defs, farm).nutrients) || taken.has(p.id) || p.stage === 'ready'));
   if (growing && blocked !== StopReason.STORAGE_FULL) return { wait: true };
   return { stop: blocked ?? StopReason.NOTHING_TO_DO };
 }
 
-const accountsOf = (chore, a) => (chore.kind === 'harvest' ? [{ account: plotKey(chore.plotId), qty: chore.qty }]
-  : chore.kind === 'water' ? [{ account: stockKey('water'), qty: 1 }] : [{ account: stockKey(a.params.crop), qty: chore.qty }]);
+const accountsOf = (ctx, chore, a) => (chore.kind === 'harvest' ? [{ account: plotKey(chore.plotId), qty: chore.qty }]
+  : chore.kind === 'water' ? [{ account: stockKey('water'), qty: 1 }]
+    : chore.kind === 'nourish' ? [{ account: stockKey(ctx.defs.farming.nutrients.item), qty: 1 }]
+    : chore.kind === 'fertilize' ? [{ account: stockKey(ctx.defs.farming.fertilizer.item), qty: 1 }] : [{ account: stockKey(a.params.crop), qty: chore.qty }]);
 
 function releaseAll(ctx, a) {
   for (const id of a.reservationIds) release(ctx.state, id);
@@ -89,7 +110,7 @@ function stopWith(ctx, a, reason) {
 
 /** Start a chosen chore: reserve what it spends and set its work time (skill-adjusted). */
 function begin(ctx, a, chore) {
-  for (const r of accountsOf(chore, a)) a.reservationIds.push(reserve(ctx.state, { owner: a.actionId, account: r.account, qty: r.qty }));
+  for (const r of accountsOf(ctx, chore, a)) a.reservationIds.push(reserve(ctx.state, { owner: a.actionId, account: r.account, qty: r.qty }));
   a.chore = { ...chore, ticks: Math.max(1, Math.ceil(ctx.defs.actions.farm.chore[chore.kind] * (a.durationModifier ?? 1))) };
   a.targetPlotId = chore.plotId;
   a.progress = 0;
@@ -107,15 +128,20 @@ function finish(ctx, a) {
   a.reservationIds = [];
   if (kind === 'plant') {
     syncStock(state, defs, cropId); // the seeds came out of stock: the oldest units were used
-    Object.assign(plot, { crop: cropId, stage: 'growing', progress: 0, water: 0, damage: 0 });
+    Object.assign(plot, { crop: cropId, stage: 'growing', progress: 0, water: 0, damage: 0, fertilized: false, nutrients: 0 });
     ctx.emit('crop.planted', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId });
   } else if (kind === 'water') {
     plot.water = Math.min(defs.farming.cap, plot.water + defs.farming.ticksPerWater);
+  } else if (kind === 'nourish') {
+    plot.nutrients = Math.min(defs.farming.nutrients.cap, (plot.nutrients ?? 0) + defs.farming.nutrients.ticksPerUnit);
+  } else if (kind === 'fertilize') {
+    plot.fertilized = true;
+    ctx.emit('crop.fertilized', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId });
   } else {
     addCarried(state.survivors[a.actorId], defs, cropId, qty);
     ctx.emit('crop.harvested', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId, qty });
     if (available(state, plotKey(plotId)) === 0 && !Object.values(state.reservations).some((r) => r.account === plotKey(plotId))) {
-      Object.assign(plot, { crop: null, stage: 'empty', progress: 0, water: 0, damage: 0 });
+      Object.assign(plot, { crop: null, stage: 'empty', progress: 0, water: 0, damage: 0, fertilized: false, nutrients: 0 });
       a.stats.harvested += 1;
     }
     a.leg = 'depot'; // carry it to storage before anything else
@@ -134,6 +160,7 @@ export const farmHandler = {
     const farm = own(state.buildings, a.params.targetId);
     if (!farm || !farmDefOf(defs, farm)) return fail('UNKNOWN_TARGET');
     if (typeof crop !== 'string' || !hasOwn(defs.crops, crop)) return fail('INVALID_PARAMS');
+    if (a.params.fertilize !== undefined && typeof a.params.fertilize !== 'boolean') return fail('INVALID_PARAMS');
     if (count !== undefined && (!Number.isInteger(count) || count < 1 || count > defs.actions.farm.maxCount)) return fail('INVALID_PARAMS');
     if (!farmWorking(defs, farm)) return fail('NEEDS_REPAIR');
     if (tooTired(ctx, a.actorId)) return fail('EXHAUSTED');
@@ -185,7 +212,7 @@ export const farmHandler = {
 
     // The plot must still be what the chore expects (a hazard, or the farm, may have changed it).
     const plot = state.plots[a.chore.plotId];
-    const stillValid = a.chore.kind === 'plant' ? plot.stage === 'empty' : a.chore.kind === 'water' ? plot.stage === 'growing' : plot.stage === 'ready';
+    const stillValid = a.chore.kind === 'plant' ? plot.stage === 'empty' : a.chore.kind === 'water' || a.chore.kind === 'nourish' ? plot.stage === 'growing' : a.chore.kind === 'fertilize' ? plot.stage === 'growing' && !plot.fertilized : plot.stage === 'ready';
     if (!stillValid) { releaseAll(ctx, a); a.chore = null; return RUNNING; }
 
     const r = approachThenWork(ctx, a, { x: farm.x, y: farm.y }, { range: def.range, ticksPerTile: def.ticksPerTile, workTicks: a.chore.ticks });

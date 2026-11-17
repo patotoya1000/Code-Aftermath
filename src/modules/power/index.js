@@ -94,9 +94,9 @@ export function tickPower(ctx) {
     b.power.output = 0;
     if (!isOperational(b)) { set(b, 'BROKEN'); continue; }
     if (needed <= 0) { set(b, 'IDLE'); continue; }
-    if (b.power.burn <= 0 && available(state, stockKey(p.fuel.item)) >= 1) {
-      discard(state, stockKey(p.fuel.item), 1);
-      b.power.burn = p.fuel.every;
+    if (b.power.burn <= 0) { // light the better fuel (charcoal) first when there is any, otherwise the plain one (wood)
+      const f = [p.fuel.better, p.fuel].find((x) => x && available(state, stockKey(x.item)) >= 1);
+      if (f) { discard(state, stockKey(f.item), 1); b.power.burn = f.every; }
     }
     if (b.power.burn <= 0) { set(b, 'NO_FUEL'); continue; }
     b.power.burn -= 1;
@@ -153,6 +153,6 @@ export function powerInfoFor(state, defs, b) {
   if (!p || !b.power) return undefined;
   if (isStorage(p)) return { role: 'storage', capacity: p.store.capacity, rate: p.store.rate, charge: b.power.charge, status: b.power.status, working: isOperational(b) };
   if (isConsumer(p)) return { role: 'consumer', use: p.use, powered: Boolean(b.power.powered), status: b.power.status, working: isOperational(b) };
-  const fuel = p.fuel ? { item: p.fuel.item, every: p.fuel.every, burnLeft: b.power.burn, inStock: available(state, stockKey(p.fuel.item)) } : null;
+  const fuel = p.fuel ? { item: p.fuel.item, every: p.fuel.every, burnLeft: b.power.burn, inStock: available(state, stockKey(p.fuel.item)), ...(p.fuel.better ? { better: { item: p.fuel.better.item, every: p.fuel.better.every, inStock: available(state, stockKey(p.fuel.better.item)) } } : {}) } : null;
   return { role: 'producer', kind: p.solar ? 'solar' : 'generator', output: p.output, producing: b.power.output, status: b.power.status, working: isOperational(b), fuel };
 }

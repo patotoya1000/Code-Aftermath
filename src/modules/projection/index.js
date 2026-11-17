@@ -6,6 +6,8 @@ import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, sta
 import { waterInfoFor } from '../water/index.js';
 import { perishableView, coldInfoFor } from '../spoilage/index.js';
 import { farmInfoFor, cropBook } from '../farming/index.js';
+import { eventsView } from '../events/index.js';
+import { threatsView, zombieProjection } from '../threats/index.js';
 import { powerInfoFor, gridView } from '../power/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
@@ -115,6 +117,7 @@ export function studentView(state, defs) {
     survivor: survivors[0] ?? null, survivors, base,
     buildings, fence: buildings.find((b) => b.type === 'fence') ?? null, hq: buildings.find((b) => b.type === 'hq') ?? null,
     power: gridView(state, defs), recipes: recipeBook(state, defs), foods: foodTable(state, defs), crops: cropBook(state, defs, (id) => available(state, stockKey(id))),
+    events: eventsView(state, defs), threats: threatsView(state, defs),
     nodes,
   });
 }
@@ -162,7 +165,7 @@ export function renderProjection(state, defs) {
       return { id: n.id, type: n.type, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left };
     }),
     stock: Object.fromEntries(Object.keys(defs.items).map((i) => [i, total(state, stockKey(i))])),
-    zombies: [],
+    zombies: zombieProjection(state, defs),
   });
 }
 

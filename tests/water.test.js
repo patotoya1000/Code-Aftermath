@@ -215,7 +215,7 @@ test('upgrading the well: needs a fully repaired well, costs materials, deepens 
   assert.equal(w.level, 2);
   assert.equal(w.water.capacity, 80);
   assert.equal(w.water.recharge.every, 16);
-  assert.deepEqual(w.upgrade, null, 'no level 3 yet: the pumped machine tier arrives with power');
+  assert.deepEqual(w.upgrade, { level: 3, cost: { wood: 30, stone: 30, packaging: 6 }, ticks: 90 }, 'level 3 is the powered Pump House');
   assert.ok(w.water.siphon && w.water.siphon.reach === 3);
   assert.equal(sim.snapshot().ledger['stock.wood'].total, 300 - 25);
   assert.equal(sim.snapshot().ledger['stock.stone'].total, 300 - 20);

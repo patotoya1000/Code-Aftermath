@@ -43,7 +43,7 @@ None.
 
 # Source Files
 
-- `src/modules/definitions/data/items.js`
+- `src/modules/definitions/data/items.js` (Z1 added loot: bones, hide, rags, scrap, gland, noise_lure, boss_core; ammo: arrows, bolts, bullets — no recipes or drops yet)
 - `src/modules/projection/index.js` (`inventoryDetail`)
 
 # UI Files

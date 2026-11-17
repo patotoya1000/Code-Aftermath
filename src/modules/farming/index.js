@@ -30,14 +30,14 @@ export function syncPlots(state, defs, b) {
     const id = `${b.id}_${i}`;
     if (state.plots[id]) continue;
     openAccount(state, plotKey(id), 0);
-    state.plots[id] = { id, farmId: b.id, index: i, crop: null, stage: 'empty', progress: 0, water: 0, damage: 0 };
+    state.plots[id] = { id, farmId: b.id, index: i, crop: null, stage: 'empty', progress: 0, water: 0, damage: 0, fertilized: false, nutrients: 0 };
   }
 }
 
 const needed = (defs, crop) => crop.growthTicks * 100; // progress is counted in percent-ticks, so a 150 % greenhouse stays an integer
 
 /** Units a plot will give when it ripens: the crop's yield x the farm's yield % x what the weather left (>= 1). */
-export const yieldFor = (defs, farm, cropId, damage) => Math.max(1, Math.floor((defs.crops[cropId].yield * farm.yield * (100 - damage)) / 10000));
+export const yieldFor = (defs, farm, cropId, damage, fertilized = false) => Math.max(1, Math.floor((defs.crops[cropId].yield * farm.yield * (100 - damage) * (100 + (fertilized ? defs.farming.fertilizer.yieldBonus : 0))) / 1000000));
 
 /** True while rain is falling today. */
 export const raining = (defs, tick) => Boolean(defs.environment.weather[weatherAt(defs, tick)].rainfall);
@@ -56,10 +56,12 @@ export function tickFarms(ctx) {
       if (p.stage !== 'growing') continue;
       if (rain) p.water = defs.farming.cap;
       if (p.water <= 0) continue;
+      if (farm.nutrients && (p.nutrients ?? 0) <= 0) continue; // hydroponic plots starve without a nutrient solution
       p.water -= 1;
+      if (farm.nutrients) p.nutrients -= 1;
       p.progress += farm.growth;
       if (p.progress >= needed(defs, defs.crops[p.crop])) {
-        const qty = yieldFor(defs, farm, p.crop, p.damage);
+        const qty = yieldFor(defs, farm, p.crop, p.damage, p.fertilized);
         p.stage = 'ready';
         p.progress = needed(defs, defs.crops[p.crop]);
         credit(state, plotKey(p.id), qty);
@@ -105,10 +107,10 @@ export function farmInfoFor(state, defs, b) {
   const rain = raining(defs, state.tick) && !f.indoor;
   const needsPower = defs.buildings[b.type].levels[b.level].power?.use !== undefined;
   return {
-    working: b.condition === 'repaired', sheltered: f.shelter, growth: f.growth, yield: f.yield, indoor: Boolean(f.indoor), needsPower, powered: !needsPower || Boolean(b.power?.powered),
+    working: b.condition === 'repaired', fertilizerBonus: defs.farming.fertilizer.yieldBonus, sheltered: f.shelter, growth: f.growth, yield: f.yield, indoor: Boolean(f.indoor), needsNutrients: Boolean(f.nutrients), needsPower, powered: !needsPower || Boolean(b.power?.powered),
     plots: plotsOf(state, b.id).map((p) => ({
-      id: p.id, crop: p.crop, stage: p.stage, percent: percentOf(defs, p), water: p.water, dry: p.stage === 'growing' && p.water <= 0 && !rain,
-      damage: p.damage, ready: p.stage === 'ready' ? available(state, plotKey(p.id)) : 0,
+      id: p.id, crop: p.crop, stage: p.stage, percent: percentOf(defs, p), water: p.water, dry: p.stage === 'growing' && p.water <= 0 && !rain, nutrients: p.nutrients ?? 0, starved: Boolean(f.nutrients) && p.stage === 'growing' && (p.nutrients ?? 0) <= 0,
+      damage: p.damage, fertilized: Boolean(p.fertilized), ready: p.stage === 'ready' ? available(state, plotKey(p.id)) : 0,
     })),
   };
 }

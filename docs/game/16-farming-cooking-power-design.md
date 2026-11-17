@@ -96,3 +96,25 @@ Status: **build steps 1–7 are implemented (O5 upgrades, O6 environment, O7 wat
 6. ✅ Power: generator + solar panel (two buildings) and the freezer (storehouse L3) — O11. Hydroponic needs glass: it moves to step 7
 7. ✅ Crafting / workshop (packaging, glass), kitchen levels 2-3, hot meals, MRE — O12. Fuel + fertilizer recipes: later
 8. ✅ Hydroponic farm level 3 (glass + power) — O13. O14 battery done. Next: fertilizer/nutrients, powered pump
+
+## O15 fertilizer + charcoal (built)
+
+- Workshop level 1 recipes: **fertilizer** (1 carrot + 1 wood + 1 water -> 2) and **charcoal** (4 wood -> 3). Both are items with pooled storage capacity and never spoil.
+- `survivor.farm(field_1, "wheat", 4, { fertilize: true })`: while fertilizer is in base stock she spreads 1 unit on each growing, unfertilized plot of that crop (4 ticks, between watering and planting). The plot yields +50 % (`farming.fertilizer.yieldBonus`) when it ripens; harvest clears the flag. Without the option fertilizer is never used, and running out never stops the farming.
+- Generators light **charcoal first** (`fuel.better`: level 1 every 50 ticks, level 2 every 100) and fall back to wood. Reads: `farm.fertilizerBonus`, plot `fertilized`, `generator_1.power.fuel.better`, `base.fertilizer`, `base.charcoal`.
+- **Not yet:** a powered pump, hydroponic nutrients, compost from spoiled food.
+
+## O16 powered pump (built)
+
+- `survivor.upgrade(well)` from a repaired level-2 well (30 wood + 30 stone + 6 packaging) gives the level-3 **Pump House**: reservoir 160, recharge 1 per 10 ticks, a pump that moves 1 water every 2 ticks into storage within 4 tiles. It is a grid consumer (`power.use` 3, drawn all the time like the freezer); when the grid does not serve it the siphon status is `NO_POWER` and nothing is pumped. Hand gathering is unaffected.
+- **Not yet:** hydroponic nutrients, a pump that draws power only while it is moving water.
+
+## O17 hydroponic nutrients (built)
+
+- Workshop recipe **nutrients** (1 fertilizer + 2 water -> 2). Only the hydroponic farm (`farm.nutrients: true`) needs them: a plot grows only while it holds nutrients, using 1 tick per tick of growth (1 unit = 120 ticks, cap 240). `survivor.farm` feeds low growing plots from base stock (`nourish` chore) and stops with `NO_NUTRIENTS` when there are none. Without nutrients a plot holds (nothing grows, nothing is lost, water is not used).
+- **Not yet:** nutrient quality, compost from spoiled food.
+
+## O18 risk events (built)
+
+- Each day from day 3 has a 35 % chance of one event, chosen by a pure function of (seed, day) and public 2 days ahead (`events.upcoming`). At dawn: **rat infestation** (30 % of available wheat/bread/potato/carrot lost), **equipment fault** (one repaired generator/panel/battery/workshop/kitchen drops to 50 % health: repair it), **supply cache** (+12 wood, +8 stone, as storage allows). Reads: `events.upcoming`, `events.history`; log: `event.warning`, `event.happened`.
+- **Not yet:** mitigation buildings, zombie/combat events.
