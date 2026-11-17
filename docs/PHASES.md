@@ -82,7 +82,8 @@ Legend: [x] done and tested · [ ] to do. A phase is finished only when its **ga
 - [ ] Training buildings, specialization unlocks
 
 ## Phase 7 — Production & environment
-- [ ] Farming (field→greenhouse handler done), crafting, reusable planning routines (cooking and day/night/weather already done)
+- [x] Farming (O10) and power: generator, solar panel, freezer (O11)
+- [ ] Crafting / workshop, hydroponic level, battery, reusable planning routines (cooking and day/night/weather already done)
 
 ## Phase 8 — Events & defense
 - [ ] Event framework (preparation → travel → execution → risk → recovery → result)

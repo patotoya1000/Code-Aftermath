@@ -1,6 +1,6 @@
 # Farming, cooking, crafting and power — agreed design (2026-11-16)
 
-Status: **build steps 1–4 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar)**; farming field→greenhouse is DONE (O10, as built below); power (generator/solar → hydroponic, freezer) and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
+Status: **build steps 1–6 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar, O10 farming, O11 power + freezer)**; hydroponics, battery and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
 
 ## Principles (decided with the project owner)
 - **No free construction.** Every building is placed by the scenario as a ruin. Learners repair it (`survivor.repair`) and then raise it (`survivor.upgrade`). Fixed world ⇒ fixed lessons and replays.
@@ -66,11 +66,18 @@ Status: **build steps 1–4 are implemented (O5 upgrades, O6 environment, O7 wat
 - **Learner API**: `survivor.farm(field_1, "potato", 2)` — chores in order harvest → water → plant for one crop; she waits while crops grow (up to 480 ticks, then `NOTHING_TO_DO`); `count` = plots harvested. Stop reasons `TARGET_REACHED`, `NO_SEED`, `NO_WATER`, `NO_FARM`, `STORAGE_FULL`, `EXHAUSTED`, `NO_PATH`, `NO_DEPOT`, `NOTHING_TO_DO`. Reads: `crops` (growthTicks, seeds, yield, hazards, inStock), `field_1.farm` (working, sheltered, growth, yield, plots with stage / percent / water / dry / damage / ready), `base.potato`, `base.carrot`. Farming skill speeds chores up and earns XP per chore.
 - **Not yet:** plot/crop art in the renderer, fertilizer, pests, crop rotation, several survivors sharing one farm in the tests (the claim logic exists), hydroponics.
 
+## As built (O11, 2026-11-17)
+- **Two buildings, one grid.** `generator` (level 1: 10 power for 1 wood per 20 ticks; level 2 "Advanced Generator": 24 power for 1 wood per 40 ticks, via `survivor.upgrade(generator_1)`: 20 wood + 25 stone) and `solar_panel` (8 power x the weather's `solar` %: clear 100, rain 40, storm 15, heat wave 110, cold snap 90; nothing at night). Both start as ruins in stage 1 (`generator_1` at (13,9), `solar_1` at (7,11)). The design's upgrade *branch* is realised as these two separate buildings (DECISIONS, O11).
+- **Grid:** demand = sum of `power.use` of working consumers; solar covers it first, then generators in id order burn fuel only while demand remains; consumers are served in id order from what was produced, all-or-nothing; surplus is lost (no battery). Statuses: producer `OFF | BROKEN | IDLE | RUNNING | NO_FUEL | DARK`, consumer `BROKEN | POWERED | NO_POWER`; changes emit `power.status`.
+- **Freezer:** storehouse level 3 (`survivor.upgrade(storage_1)`: 30 wood + 40 stone, after the cellar). Cold capacity 60, factor 5, `power.use` 6. While it is not powered it protects NOTHING (normal rate), which is visible as `storage_1.cold.powered === false`.
+- **Learner reads:** `power` ({ produced, demand, balance, ok, sun, producers, working }), `generator_1.power` / `solar_1.power` ({ role, kind, output, producing, status, working, fuel }), `storage_1.power` and `storage_1.cold` ({ ..., needsPower, powered }) at level 3.
+- **Not yet:** battery, hydroponic level 3 (needs glass from the workshop), powered pump, plot/power art beyond placeholder building sprites, power-on/off commands (the grid is automatic).
+
 ## Build order
 1. ✅ Upgrade existing buildings (O5)  2. ✅ Environment / weather calendar (O6)
 2b. ✅ Water source (O7, `17-water-wells.md`) — bread, crops and later the pump all draw on it
 3. ✅ Recipe engine + kitchen + bread + `eat` choosing among foods (wheat given as starting stock until farming exists) — O8
 4. ✅ Spoilage (batches) + storehouse cold cellar (L2) — O9
 5. ✅ Farming: field → greenhouse, plots, `survivor.farm`, rain, weather hazards, greenhouse multipliers — O10
-6. Power: generator (+ upgrade branches) → hydroponic, freezer (storehouse L3)
+6. ✅ Power: generator + solar panel (two buildings) and the freezer (storehouse L3) — O11. Hydroponic needs glass: it moves to step 7
 7. Crafting / workshop recipes (packaging, fuel, glass, fertilizer), hot meals, MRE

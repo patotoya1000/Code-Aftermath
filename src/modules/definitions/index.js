@@ -149,6 +149,17 @@ export function validateDefinitions(d) {
         need(whole(s.reservoir), `building ${id} level ${lvl}: source reservoir must be a whole number >= 1`);
         need(s.recharge && whole(s.recharge.every) && whole(s.recharge.amount), `building ${id} level ${lvl}: source recharge needs whole numbers every >= 1 and amount >= 1`);
       }
+      if (L.power) {
+        const p = L.power;
+        const producer = p.output !== undefined; const consumer = p.use !== undefined;
+        need(producer !== consumer, `building ${id} level ${lvl}: power must be EITHER a producer (output) OR a consumer (use)`);
+        if (producer) {
+          need(whole(p.output), `building ${id} level ${lvl}: power output must be a whole number >= 1`);
+          need((p.solar === true) !== Boolean(p.fuel), `building ${id} level ${lvl}: a producer is either solar (solar: true) or fuelled (fuel), not both and not neither`);
+          if (p.fuel) need(d.items[p.fuel.item] && whole(p.fuel.every), `building ${id} level ${lvl}: fuel needs a known item and a whole number of ticks (every) >= 1`);
+        }
+        if (consumer) need(whole(p.use), `building ${id} level ${lvl}: power use must be a whole number >= 1`);
+      }
       if (L.cold) need(Number.isInteger(L.cold.capacity) && L.cold.capacity >= 1 && Number.isInteger(L.cold.factor) && L.cold.factor >= 2, `building ${id} level ${lvl}: cold needs a whole capacity >= 1 and a whole factor >= 2`);
       if (L.siphon) {
         need(L.source, `building ${id} level ${lvl}: a siphon needs a source at the same level`);
@@ -191,7 +202,10 @@ export function validateDefinitions(d) {
     need(s.days >= 1 && (s.phases ?? []).reduce((n, p) => n + p.days, 0) === s.days, `environment season ${s.id}: phase lengths must add up to ${s.days} days`);
     for (const p of s.phases ?? []) need(en.weather[p.weather] && p.days >= 1, `environment season ${s.id}: unknown weather "${p.weather}" or empty phase`);
   }
-  for (const [wid, w] of Object.entries(en?.weather ?? {})) need(Number.isInteger(w.recharge) && w.recharge >= 0 && w.recharge <= 1000, `environment weather ${wid}: recharge must be a whole number of percent from 0 to 1000`);
+  for (const [wid, w] of Object.entries(en?.weather ?? {})) {
+    need(Number.isInteger(w.recharge) && w.recharge >= 0 && w.recharge <= 1000, `environment weather ${wid}: recharge must be a whole number of percent from 0 to 1000`);
+    need(Number.isInteger(w.solar) && w.solar >= 0 && w.solar <= 200, `environment weather ${wid}: solar must be a whole number of percent from 0 to 200`);
+  }
   need((en?.seasons ?? []).length > 0, 'environment: needs at least one season');
   const pr = d.progression;
   need(pr && Array.isArray(pr.thresholds) && pr.thresholds[0] === 0 && pr.thresholds.every((t, i) => i === 0 || t > pr.thresholds[i - 1]), 'progression: thresholds must start at 0 and strictly increase');
@@ -219,6 +233,7 @@ export function validateDefinitions(d) {
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
   const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

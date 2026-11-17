@@ -13,6 +13,9 @@ export function createBuilding(defs, spec) {
     // A building that has a water source at any level keeps its own small bookkeeping here (the reservoir itself is a ledger account):
     //   progress = aquifer recharge accumulator (percent-ticks), siphon = { status, progress }.
     ...(Object.values(def.levels).some((l) => l.source) ? { water: { progress: 0, siphon: { status: 'OFF', progress: 0 } } } : {}),
+    // Power (O11): producers and consumers keep their own small bookkeeping (burn = ticks of the current fuel unit left, output = produced this tick,
+    // powered = a consumer got its power this tick, status = last reported status).
+    ...(Object.values(def.levels).some((l) => l.power) ? { power: { burn: 0, output: 0, powered: false, status: 'OFF' } } : {}),
   };
   if (spec.bounds) b.bounds = { ...spec.bounds };
   if (def.footprint) b.footprint = footprintRect(def.footprint, spec.x, spec.y);

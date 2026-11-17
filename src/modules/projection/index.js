@@ -6,6 +6,7 @@ import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, sta
 import { waterInfoFor } from '../water/index.js';
 import { perishableView, coldInfoFor } from '../spoilage/index.js';
 import { farmInfoFor, cropBook } from '../farming/index.js';
+import { powerInfoFor, gridView } from '../power/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
 // the Inspector/Survivor Card and the renderer all consume these and can never mutate the simulation.
@@ -62,12 +63,13 @@ function buildingView(state, defs, b) {
   const recipesHere = recipesAt(defs, b);
   const cold = coldInfoFor(state, defs, b); // cold cellar: { capacity, factor, working }
   const farm = farmInfoFor(state, defs, b); // farms: plots, shelter, growth/yield %
+  const power = powerInfoFor(state, defs, b); // generators, panels, freezers: output / use, status, fuel
   return {
     id: b.id, type: b.type, name: def.levels[b.level]?.name ?? def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
     upgrade: nextUpgrade(defs, b), // { level, cost, ticks } or null
     ...(storageInfo ? { storageInfo } : {}), ...(water ? { water } : {}), ...(def.note ? { note: def.note } : {}),
-    ...(cold ? { cold } : {}), ...(farm ? { farm } : {}),
+    ...(cold ? { cold } : {}), ...(farm ? { farm } : {}), ...(power ? { power } : {}),
     ...(recipesHere.length ? { recipes: recipesHere } : {}), // station buildings: which recipes are cooked here (and from which level)
   };
 }
@@ -112,7 +114,7 @@ export function studentView(state, defs) {
     apiVersion: API_VERSION, tick: state.tick, world: { ...state.map, ...environmentView(defs, state.tick) },
     survivor: survivors[0] ?? null, survivors, base,
     buildings, fence: buildings.find((b) => b.type === 'fence') ?? null, hq: buildings.find((b) => b.type === 'hq') ?? null,
-    recipes: recipeBook(state, defs), foods: foodTable(state, defs), crops: cropBook(state, defs, (id) => available(state, stockKey(id))),
+    power: gridView(state, defs), recipes: recipeBook(state, defs), foods: foodTable(state, defs), crops: cropBook(state, defs, (id) => available(state, stockKey(id))),
     nodes,
   });
 }

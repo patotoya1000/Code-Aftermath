@@ -6,7 +6,7 @@ import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, vis
 // Every grid↔pixel conversion goes through the viewport module (PA-1); this file has no coordinate math of its own.
 // It is read-only with respect to gameplay: animation timing, selection and debug overlays live here and nowhere else.
 
-const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1, 2], tent: [1], storage: [1, 2], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1] }, nodes: { tree: true, rock: true } });
+const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1, 2], tent: [1], storage: [1, 2, 3], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1], generator: [1, 2], solar_panel: [1] }, nodes: { tree: true, rock: true } });
 const COLORS = {
   terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
   zone: 'rgba(63,143,79,0.14)', zoneEdge: 'rgba(63,143,79,0.45)', path: '#4a4333', labelOutline: 'rgba(15,14,12,0.85)',

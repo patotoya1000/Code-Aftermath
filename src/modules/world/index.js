@@ -19,6 +19,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     nodes: {}, buildings: {}, survivors: {},
     actions: {}, activeActions: [], hooks: {},
     perishables: {}, // spoilage batches per perishable item: [{ qty, age }], oldest first (see the spoilage module)
+    power: { produced: 0, demand: 0 }, // the grid totals of the last tick (see the power module)
     plots: {}, // farming plots (see the farming module): { id, farmId, index, crop, stage, progress, water, damage }
   };
   for (const item of Object.keys(defs.items)) openAccount(state, stockKey(item), sc.stock[item] ?? 0);

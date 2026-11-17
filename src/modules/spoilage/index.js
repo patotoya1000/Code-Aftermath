@@ -40,12 +40,16 @@ export function syncStock(state, defs, item) {
   }
 }
 
+// A cold level that also has a `power.use` (the freezer) only cools while the grid powers it (`b.power.powered`, set by the power module).
+// Without power it protects nothing: food ages at the normal rate.
+const coolingPowered = (L, b) => L.power?.use === undefined || Boolean(b.power?.powered);
+
 /** The best cold storage that works: { capacity (summed over working buildings), factor (the best one) } or null. */
 export function coldOf(state, defs) {
   let capacity = 0; let factor = 0;
   for (const b of Object.values(state.buildings)) {
-    const c = defs.buildings[b.type].levels[b.level]?.cold;
-    if (c && isOperational(b)) { capacity += c.capacity; factor = Math.max(factor, c.factor); }
+    const L = defs.buildings[b.type].levels[b.level];
+    if (L?.cold && isOperational(b) && coolingPowered(L, b)) { capacity += L.cold.capacity; factor = Math.max(factor, L.cold.factor); }
   }
   return capacity > 0 ? { capacity, factor } : null;
 }
@@ -118,7 +122,10 @@ export function perishableView(state, defs) {
 
 /** Read-only: a cold building's table and how many units of food it protects right now (0 while ruined). */
 export function coldInfoFor(state, defs, b) {
-  const c = defs.buildings[b.type].levels[b.level]?.cold;
+  const L = defs.buildings[b.type].levels[b.level];
+  const c = L?.cold;
   if (!c) return null;
-  return { capacity: c.capacity, factor: c.factor, working: isOperational(b) };
+  if (L.power?.use === undefined) return { capacity: c.capacity, factor: c.factor, working: isOperational(b) }; // the cellar: no power needed
+  const powered = coolingPowered(L, b); // the freezer: also says whether the grid powers it right now
+  return { capacity: c.capacity, factor: c.factor, working: isOperational(b) && powered, needsPower: true, powered };
 }

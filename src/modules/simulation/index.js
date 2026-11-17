@@ -2,6 +2,7 @@ import { AftermathError, createEventLog, hashValue, hasOwn, SUPPORTED_API_VERSIO
 import { applyNeedsDecay } from '../survivors/index.js';
 import { timeOf, weatherForDay } from '../environment/index.js';
 import { tickWater } from '../water/index.js';
+import { tickPower } from '../power/index.js';
 import { ageFood } from '../spoilage/index.js';
 import { tickFarms, farmDay } from '../farming/index.js';
 import { createActionEngine } from '../actions/index.js';
@@ -71,6 +72,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     state.tick += 1;
     announceTime();
     tickFarms(ctx); // crops grow (rain waters them); ripe plots fill their ledger account
+    tickPower(ctx); // the grid: solar, then generators (burning fuel only while needed), then consumers
     tickWater(ctx); // aquifers refill, siphons move water (before survivors act, so a waiting gatherer sees new water at once)
     for (const id of applyNeedsDecay(ctx)) engine.cancelFor(ctx, id, 'ACTOR_DOWNED');
     if (state.tick % cfg.regenEvery === 0 && state.strategyPoints < cfg.max) state.strategyPoints += 1;

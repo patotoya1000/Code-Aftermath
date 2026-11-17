@@ -198,6 +198,22 @@ function waterSection(b) {
   return section('💧', 'Water', `<div class="needs-grid">${bar('reservoir', w.amount, w.capacity, !w.working ? 'bad' : w.amount < 5 ? 'warn' : 'good').replace(/<div class="value">\d+<\/div>/, `<div class="value">${w.amount}/${w.capacity}</div>`)}</div><div style="margin-top:6px;font-size:11px;">${esc(refill)}</div><div style="margin-top:4px;font-size:11px;">${siphon}</div>`);
 }
 
+// Power (O11): a producer's output and status (and fuel), or a consumer's use and whether the grid powers it.
+const POWER_TEXT = {
+  RUNNING: 'Running: it is feeding the grid.', IDLE: 'Idle: nothing needs power, so it burns no fuel.', NO_FUEL: 'Out of fuel: keep wood in base stock.',
+  DARK: 'No light right now (night or heavy cloud): a panel makes nothing.', BROKEN: 'Ruined: repair it.', OFF: 'Not running yet.',
+  POWERED: 'Powered.', NO_POWER: 'Not enough power: it is switched off until the grid can supply it.',
+};
+function powerSection(b) {
+  const p = b.power;
+  if (!p) return '';
+  const status = esc(POWER_TEXT[p.status] ?? p.status);
+  const body = p.role === 'consumer'
+    ? `Uses ${p.use} power per tick. <b>${esc(p.status)}</b>: ${status}`
+    : `${esc(p.kind === 'solar' ? 'Solar panel' : 'Generator')}: up to ${p.output} power, making ${p.producing} now. <b>${esc(p.status)}</b>: ${status}${p.fuel ? `<div style="margin-top:4px;">Fuel: 1 ${esc(p.fuel.item)} lasts ${p.fuel.every} ticks (${p.fuel.inStock} in stock, ${p.fuel.burnLeft} ticks left in the current one).</div>` : ''}`;
+  return section('⚡', 'Power', `<div style="font-size:11px;">${body}</div>`);
+}
+
 function buildingActions(b) {
   const lines = [`survivor.repair(${b.id})`];
   if (b.water) lines.push('survivor.gather("water", 10)');
@@ -215,7 +231,8 @@ function buildingSections(b) {
     section('🏗', 'Building', `<div class="needs-grid">${bar('health', b.health, b.maxHealth, pct < 25 ? 'bad' : pct < 60 ? 'warn' : 'good')}</div><div style="margin-top:6px;font-size:11px;">Condition: <b>${esc(b.condition)}</b> · Level ${b.level}</div>`),
     storage ? section('📦', 'Storage', `<div class="needs-grid">${storage}</div>`) : '',
     waterSection(b),
-    b.cold ? section('❄', 'Cold storage', `<div style="font-size:11px;">${b.cold.working ? `Keeps the ${b.cold.capacity} oldest food units fresh: they age ${b.cold.factor}× slower. Needs no power.` : 'Ruined: it protects nothing until it is repaired.'}</div>`) : '',
+    powerSection(b),
+    b.cold ? section('❄', 'Cold storage', `<div style="font-size:11px;">${b.cold.working ? `Keeps the ${b.cold.capacity} oldest food units fresh: they age ${b.cold.factor}× slower.${b.cold.needsPower ? ' Powered.' : ' Needs no power.'}` : b.cold.needsPower && b.condition !== 'ruined' ? 'Freezer is off: it needs power, so food ages at the normal rate. Repair a generator or solar panel and keep it fuelled.' : 'Ruined: it protects nothing until it is repaired.'}</div>`) : '',
     section('🔧', 'Actions', buildingActions(b)),
   ].join('');
 }
@@ -542,6 +559,7 @@ const SHOWN_EVENTS = {
   'task.resumed': (e) => `${nameOf(e.actorId)} resumed ${e.taskType}`,
   'node.depleted': (e) => `${e.nodeId} is empty`,
   'siphon.status': (e) => `${e.buildingId} siphon: ${e.to}`,
+  'power.status': (e) => `${e.buildingId} power: ${e.to}`,
   'building.upgraded': (e) => `${e.buildingId} upgraded to level ${e.to}`,
   'building.condition_changed': (e) => `${e.buildingId}: ${e.from} → ${e.to}`,
   'food.spoiled': (e) => `${e.qty} ${e.item} spoiled`,

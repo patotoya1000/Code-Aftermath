@@ -116,3 +116,10 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 - **Consequence:** Stock changed outside the game rules counts as fresh. Freezer (power) tier = another `cold` level later. Behaviour change ⇒ `SIM_VERSION` 0.12.0.
 - **Forbidden Alternative:** random spoilage; per-unit timers; spoiling inside the ledger; ageing every tick.
 - **Status:** ACCEPTED, implemented.
+
+## Power: producers and a freezer on one grid (O11, 2026-11-17)
+- **Decision:** Power is one integer budget per tick. Producers: a fuelled generator (burns 1 wood per `every` ticks, only on ticks when the grid still needs power) and a solar panel (output x weather `solar` %, 0 at night). Consumers (the level-3 freezer storehouse) are served in id order, all-or-nothing; an unpowered freezer protects nothing. Fuel leaves base stock through `ledger.discard`. The design's "upgrade branch" (generator → advanced generator OR solar) is built as TWO separate buildings in the scenario (`generator_1` with level 2 = advanced, and `solar_1`): the player repairs/upgrades what they want, so the O5 upgrade table stays linear.
+- **Reason:** Demand-driven burning makes solar-first a real planning choice without a second action type; separate buildings avoid extending `upgrade` with branches before there is a lesson that needs it; all-or-nothing keeps a learner's mental model simple ("is it powered?").
+- **Consequence:** No battery (surplus is lost), so night and storms matter. Fuel is wood for now (competes with building materials); workshop fuel comes with crafting. Hydroponics and a powered pump are the next consumers. Behaviour change ⇒ `SIM_VERSION` 0.15.0.
+- **Forbidden Alternative:** random outages; per-unit power accounting in the ledger; a generator that burns fuel when nothing needs it; a freezer that silently falls back to the cellar rate.
+- **Status:** ACCEPTED, implemented.

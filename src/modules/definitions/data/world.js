@@ -40,10 +40,11 @@ export const buildings = {
   storage: {
     name: 'Storehouse',
     // Level 2 is a COLD CELLAR: `cold.capacity` units of perishable food (the oldest first) age `factor` times slower. No power needed.
-    levels: { 1: { maxHealth: 120 }, 2: { maxHealth: 170, cold: { capacity: 30, factor: 2 } } },
+    // Level 3 is a FREEZER (O11): bigger and colder, but `power.use` means it only protects food while the grid powers it (see the power module).
+    levels: { 1: { maxHealth: 120 }, 2: { maxHealth: 170, cold: { capacity: 30, factor: 2 } }, 3: { name: 'Freezer Storehouse', maxHealth: 220, cold: { capacity: 60, factor: 5 }, power: { use: 6 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 8 }, healthPerAction: 30, ticks: 30 },
-    upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 } },
+    upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 }, 3: { cost: { wood: 30, stone: 40 }, ticks: 90 } },
     storage: { wood: 100, stone: 100 },
   },
   // O7 water. A DEEP WELL is a renewable source: its `source` table (per level) says how much water the reservoir holds and how fast the
@@ -78,6 +79,27 @@ export const buildings = {
     levels: { 1: { maxHealth: 110 } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 6, stone: 4 }, healthPerAction: 30, ticks: 30 },
+  },
+  // O11 power (docs/game/16). A level's `power` table is either a PRODUCER (`output`, plus `fuel` for a generator or `solar: true` for a panel)
+  // or a CONSUMER (`use`). The grid is one number per tick: produced vs demanded. Demand is met by solar first (free, but only in daylight and
+  // scaled by the weather's `solar` %), then by generators in id order, which burn one `fuel.item` from base stock per `fuel.every` ticks
+  // and only while something needs them. Consumers are served in id order; one that cannot be powered stops working (a freezer stops cooling).
+  generator: {
+    name: 'Generator',
+    levels: {
+      1: { maxHealth: 110, power: { output: 10, fuel: { item: 'wood', every: 20 } } },
+      2: { name: 'Advanced Generator', maxHealth: 160, power: { output: 24, fuel: { item: 'wood', every: 40 } } }, // more output per fuel
+    },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 6, stone: 4 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 20, stone: 25 }, ticks: 70 } },
+  },
+  // The fuel-free path: output follows daylight and weather (night = 0), so it needs planning around the forecast.
+  solar_panel: {
+    name: 'Solar Panel',
+    levels: { 1: { maxHealth: 80, power: { output: 8, solar: true } } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 4, stone: 6 }, healthPerAction: 25, ticks: 30 },
   },
   // I2 world object: the gap in the fence that connects the base to the outside path. `perimeter: true` means the
   // scenario must place it on the fence line (validated) and the renderer leaves that fence cell open.
@@ -121,6 +143,8 @@ const stage1 = {
     { id: 'kitchen', type: 'kitchen', level: 1, x: 9, y: 9, health: 15 },    // ruined; repair it, then survivor.cook("bread")
     { id: 'field_1', type: 'field', level: 1, x: 8, y: 4, health: 12 },       // ruined; repair it, then survivor.farm(field_1, "potato")
     { id: 'tank', type: 'water_tank', level: 1, x: 15, y: 10, health: 10 },   // ruined; within siphon reach (2 tiles) of the well once repaired
+    { id: 'generator_1', type: 'generator', level: 1, x: 13, y: 9, health: 12 }, // ruined; burns wood while something needs power (the freezer)
+    { id: 'solar_1', type: 'solar_panel', level: 1, x: 7, y: 11, health: 10 },    // ruined; free power in daylight only
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
   // gameplay; they reach the renderer through the render projection.

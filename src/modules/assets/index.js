@@ -228,6 +228,7 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     c.fillStyle = '#7a6244'; c.fillRect(ox + 4, oy + 14, w - 8, h - 18);
     c.fillStyle = '#5b4730'; c.fillRect(ox + 7, oy + 18, 8, 8); c.fillRect(ox + w - 15, oy + 18, 8, 8);
     if (level > 1) { c.fillStyle = '#9fc4e0'; c.fillRect(ox + 4, oy + 26, w - 8, 3); } // cold cellar: a frosty band
+    if (level > 2) { c.fillStyle = '#e8f4ff'; c.fillRect(ox + 4, oy + 20, w - 8, 2); c.fillStyle = '#5d6168'; c.fillRect(ox + w - 10, oy + 4, 4, 8); } // freezer: a second band and a vent
     c.fillStyle = tint; c.beginPath();
     if (condition === 'ruined') { c.moveTo(ox + 2, oy + 16); c.lineTo(ox + w - 6, oy + 12); c.lineTo(ox + w - 3, oy + 17); c.lineTo(ox + 2, oy + 19); }
     else if (condition === 'damaged') { c.moveTo(ox + 2, oy + 10); c.lineTo(ox + w - 2, oy + 13); c.lineTo(ox + w - 2, oy + 17); c.lineTo(ox + 2, oy + 14); }
@@ -262,6 +263,23 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     c.fillStyle = tint; c.fillRect(ox + 7, oy + top + 4, w - 14, 3); if (level > 1) c.fillRect(ox + 7, oy + top + 12, w - 14, 3);
     c.fillStyle = '#4d6b82'; c.beginPath(); c.ellipse(ox + w / 2, oy + top, (w - 14) / 2, 3, 0, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#9fb6c9'; c.fillRect(ox + w - 6, oy + 21, 5, 3);
+  } else if (type === 'generator') {
+    // Generator: an engine block on a base with an exhaust pipe. Ruined = tilted, no pipe; damaged = pipe stub, dented; repaired = pipe with a
+    // glowing indicator. Level 2 (advanced) is bigger with a second cooling fin bank.
+    const lift = level > 1 ? 4 : 0;
+    c.fillStyle = '#4a4f55'; c.fillRect(ox + 4, oy + h - 8, w - 8, 5);
+    c.fillStyle = condition === 'ruined' ? '#5f5a52' : '#7d8a96'; c.fillRect(ox + 6, oy + 12 - lift, w - 12, h - 20 + lift);
+    c.fillStyle = tint; c.fillRect(ox + 6, oy + 12 - lift, w - 12, 4);
+    c.fillStyle = '#3a3f45'; for (let i = 0; i < (level > 1 ? 4 : 2); i++) c.fillRect(ox + 9 + i * 5, oy + 19 - lift, 3, 8 + lift);
+    if (condition !== 'ruined') { c.fillStyle = '#5d6168'; c.fillRect(ox + w - 10, oy + (condition === 'repaired' ? 3 : 7), 4, condition === 'repaired' ? 11 : 6); }
+    c.fillStyle = condition === 'repaired' ? '#7fe07f' : '#3a2f2a'; c.fillRect(ox + w - 12, oy + 22, 4, 3);
+  } else if (type === 'solar_panel') {
+    // Solar panel: a tilted blue panel on a stand. Ruined = cracked and fallen flat; damaged = half the cells dark; repaired = bright grid.
+    c.fillStyle = '#5b4730'; c.fillRect(ox + w / 2 - 1.5, oy + 18, 3, h - 22);
+    c.fillStyle = condition === 'ruined' ? '#3a3f4a' : '#2f5fa8';
+    c.beginPath(); c.moveTo(ox + 4, oy + 18); c.lineTo(ox + 9, oy + (condition === 'ruined' ? 14 : 7)); c.lineTo(ox + w - 4, oy + (condition === 'ruined' ? 16 : 7)); c.lineTo(ox + w - 7, oy + 18); c.closePath(); c.fill();
+    if (condition !== 'ruined') { c.strokeStyle = condition === 'repaired' ? '#9fc4e0' : '#5f7fa8'; c.lineWidth = 1; c.beginPath(); c.moveTo(ox + w / 2, oy + 7); c.lineTo(ox + w / 2 - 2, oy + 18); c.moveTo(ox + 7, oy + 12); c.lineTo(ox + w - 6, oy + 12); c.stroke(); }
+    c.strokeStyle = tint; c.lineWidth = 2; c.beginPath(); c.moveTo(ox + 4, oy + 18); c.lineTo(ox + w - 7, oy + 18); c.stroke();
   } else if (type === 'kitchen') {
     // Kitchen: a small hut with a chimney and an oven opening. Ruined = no chimney, roof caved in; damaged = chimney stub, sagging roof;
     // repaired = chimney with a puff of smoke and a lit oven.
