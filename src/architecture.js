@@ -23,5 +23,6 @@ export const MODULES = {
   persistence: [],
   capability: ['definitions'],
   assets: [],
-  render: ['assets'],
+  viewport: [],
+  render: ['assets', 'viewport'],
 };

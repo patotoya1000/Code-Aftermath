@@ -50,10 +50,12 @@ kernel only (`src/architecture.js`: `api: []`).
 
 - `src/modules/api/v1.js`
 - `src/modules/api/index.js`
+- `src/modules/api/codebook.js`
+- `src/modules/api/codebook-data.js`
 
 # UI Files
 
-`src/app/mainscreen.js` (`renderCodeAPI`, `renderHints` from `app.apiDocs`)
+`src/app/mainscreen.js` (`renderCodeAPI`, `renderHints` from `app.apiDocs` / `app.codebook`). The Codebook (`AI_MEMORY/systems/CODEBOOK_UI_INDEX.md`) is generated from this API: adding a command or a read line also needs `src/modules/api/codebook-data.js` metadata or `tests/codebook.test.js` fails.
 
 # Asset Files
 
@@ -62,6 +64,7 @@ None.
 # Tests
 
 - `tests/sandbox-api.test.js`
+- `tests/codebook.test.js`
 - `tests/policies.test.js` (options through the sandbox)
 - `tests/invariants.test.js` (every command maps to a validated type)
 - `tests/gate-phase0.test.js` (learner cannot mutate state)

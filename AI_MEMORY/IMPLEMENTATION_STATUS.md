@@ -1,6 +1,6 @@
 # Implementation status
 
-Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`: 260 tests, 0 failing). Legend: IMPLEMENTED · PARTIALLY IMPLEMENTED · PLANNED · BLOCKED · OBSOLETE · NEEDS REFACTOR · NEEDS TESTS · NEEDS DOCUMENTATION. Nothing is listed IMPLEMENTED without source evidence.
+Authoritative for: what exists *now* (verified in code on 2026-11-17; `npm test`: see the tests table below; 260+ tests, 0 failing). Legend: IMPLEMENTED · PARTIALLY IMPLEMENTED · PLANNED · BLOCKED · OBSOLETE · NEEDS REFACTOR · NEEDS TESTS · NEEDS DOCUMENTATION. Nothing is listed IMPLEMENTED without source evidence.
 
 ## Systems and domains
 
@@ -49,6 +49,9 @@ Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`
 | Free-play save/load, campaign progress | IMPLEMENTED | `src/modules/persistence/index.js`, `src/app/index.js` |
 | Replay verification | IMPLEMENTED | `src/modules/replay/index.js` |
 | UI shell (editor, inspector, lessons, save/load) | IMPLEMENTED | `src/app/mainscreen.js` |
+| Codebook (UI-1): API-generated manual (commands, variables, concepts, glossary), BOOK panel + search, compact searchable API list, insert example, rejected-command chip → entry | IMPLEMENTED (UI-2 live inspection … UI-6 PLANNED; no mobile tabs yet) | `src/modules/api/codebook.js`, `codebook-data.js`, `src/app/ui/codebook.js`, `tests/codebook.test.js`, `AI_MEMORY/systems/CODEBOOK_UI_INDEX.md` |
+| Grid pixel-art integration PA-1: one grid↔pixel utility + camera (pan, bounded zoom, zoom-at-point, optional integer scale, `visibleCells`); the renderer has no coordinate math of its own; `renderer.pan/zoomAt/setZoom/centerOn/resetCamera/viewport` | IMPLEMENTED (no on-screen pan/zoom controls yet; default view unchanged) | `src/modules/viewport/index.js`, `src/modules/render/index.js`, `tests/viewport.test.js` |
+| Grid pixel-art integration PA-2 … PA-8 (terrain tiles, paths, objects + fence autotiling, multi-cell buildings, NPC sprites, zombies, interaction) — spec `docs/game/18-grid-pixel-art-asset-integration.md` | PLANNED | none |
 | Seven bottom-bar controls (ASSIGN TASK … SETTINGS) | PLANNED (disabled in UI) | `index.html` |
 | Step/inspect mode UI | PLANNED | state reserved in `mainscreen.js` |
 | Browser smoke (`npm run smoke`) | IMPLEMENTED — 20/20 checks passed on 2026-11-16 after R3 (real Chromium) | `scripts/smoke.mjs` |
@@ -71,7 +74,7 @@ Authoritative for: what exists *now* (verified in code on 2026-11-16; `npm test`
 
 ## Priority (master prompt §19)
 
-S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4b Learner Event Hooks — done. R3 Carry + Deposit — done (2026-11-16). R5 Timeline Lessons — done. Collision/pathing (O3) — done (2026-11-16). Skills/XP (O4) — done (2026-11-16). Building upgrade (O5) — done (2026-11-16). Environment (O6) — done (2026-11-16). Water (O7) — done (2026-11-16). Recipe engine + kitchen + bread (O8) — done (2026-11-16). Spoilage + cold cellar (O9) — done (2026-11-16). **Next: farming (field → greenhouse), power (pump tier, freezer), crafting / workshop + hot meals + MRE.** Then production, environment, events, combat, enemies, buildings, final assets, offline/release. Do not start combat or final art while core foundations are unstable.
+S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4b Learner Event Hooks — done. R3 Carry + Deposit — done (2026-11-16). R5 Timeline Lessons — done. Collision/pathing (O3) — done (2026-11-16). Skills/XP (O4) — done (2026-11-16). Building upgrade (O5) — done (2026-11-16). Environment (O6) — done (2026-11-16). Water (O7) — done (2026-11-16). Recipe engine + kitchen + bread (O8) — done (2026-11-16). Spoilage + cold cellar (O9) — done (2026-11-16). Codebook UI-1 — done (2026-11-17); pixel-art PA-1 viewport/camera — done (2026-11-17); specs for the Codebook/UI and grid pixel-art integration filed as `docs/game/18-…` and `19-…`. **Next: farming (field → greenhouse), power (pump tier, freezer), crafting / workshop + hot meals + MRE.** Then production, environment, events, combat, enemies, buildings, final assets, offline/release. Do not start combat or final art while core foundations are unstable.
 
 ## Tests (every file in `tests/`)
 
@@ -97,10 +100,12 @@ S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4
 | `tests/carry.test.js` | R3 carry capacity, per-tick conservation (node + hands + stock), trip caps, stop-while-carrying, `deposit()`, storehouse pooling, storage never overfilled, determinism |
 | `tests/cook.test.js` | O8 kitchen as a ruin, exact batch inputs/outputs, work ticks, standing cook + stop reasons, STORAGE_FULL/NO_INGREDIENTS/EXHAUSTED, cancel releases inputs, eat choice + policy prefer, interrupt/resume of a cook job, sandbox reads `recipes`/`foods`, view, definitions validation, determinism, soak |
 | `tests/spoilage.test.js` | O9 daily ageing, spoilage + ledger sink, non-perishables, oldest eaten first, cold cellar rate/capacity/oldest-first, ruined cellar, build path (repair → upgrade), reserved units, untracked stock, learner reads, validation, conservation soak, determinism |
+| `tests/codebook.test.js` | UI-1 Codebook: commands/reads match the API (no drift), examples pass the real sandbox, outcome codes are real engine reasons, links resolve, search, frozen |
+| `tests/viewport.test.js` | PA-1: default view equals the old fit layout, stable gap-free cells, round trips, integer scale, camera clamps/zoom-at-point, NaN-safe empty canvas, camera never changes draw-list grid positions or the state hash, pick follows the camera, no private coordinate math in the renderer |
 | `tests/water.test.js` | O7 aquifer by ticks and weather, capacity cap, drawing + waiting, siphon status/reach/FULL/BROKEN, tank, upgrade, shared reservoir, exact conservation soak, replay |
 | `tests/world-i2.test.js` | stage layout, storage info, gate/storehouse repair, ids in learner code |
 | `tests/assets-render.test.js` | asset keys, fallback chain, renderer is projection-only |
-| `tests/ui-wiring.test.js` | main screen wiring |
+| `tests/ui-wiring.test.js` | main screen wiring, Codebook panel flow |
 | `tests/soak.test.js` | seeded random play, invariants every 50 ticks (`SOAK_SEEDS=300` deep) |
 | `tests/serve-script.test.js` | dev-server entry detection |
 | `tests/helpers.js` | shared helpers (not a test) |

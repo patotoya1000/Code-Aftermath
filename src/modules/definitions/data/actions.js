@@ -46,6 +46,11 @@ export const actions = {
   repair: { handler: 'repair', range: 1, ticksPerTile: 1,
     capability: { attributes: { agility: 1, intelligence: 1 }, skills: { repair: 0 } },
   },
+  // farm is a STANDING action: it repeats TRIPS (walk to a plot, grow crop, harvest, unload)
+  // until a stop reason fires (target reached, no plot, no crop, too tired).
+  // Each trip: grow one growth cycle, then harvest units into inventory, then unload to base stock.
+  // Crop data lives in `defs.crops[params.crop]`; plots are in `state.plots`.
+  farm: { handler: 'farm', range: 1, ticksPerTile: 1, maxAmount: 20, maxTotal: 500, capability: { attributes: { strength: 1, agility: 1 }, skills: { farming: 0 } } },
 };
 
 // Needs policies (R4a): a standing rule "when this need drops below X, do this action". A policy INTERRUPTS the survivor's

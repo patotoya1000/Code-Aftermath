@@ -20,3 +20,7 @@ Nothing was rewritten; sections were only moved. The logic doc is the **logic au
 | [13-events-visual-spec.md](13-events-visual-spec.md) | Event visuals |
 | [14-enemies-resources-items-open.md](14-enemies-resources-items-open.md) | Enemies, resources, materials, consumables, weapons (open) |
 | [15-realtime-simulation-and-tasks.md](15-realtime-simulation-and-tasks.md) | **Added 2026-11-12:** continuous clock (no turns), standing actions, stop reasons, replace/queue rules |
+| [16-farming-cooking-power-design.md](16-farming-cooking-power-design.md) | Farming, cooking, power design (O8/O9 implemented parts marked inside) |
+| [17-water-wells.md](17-water-wells.md) | Deep well, aquifer, siphon, tank (O7) |
+| [18-grid-pixel-art-asset-integration.md](18-grid-pixel-art-asset-integration.md) | **Added 2026-11-17:** grid-based pixel-art renderer integration (PA-1 … PA-8, planned) |
+| [19-codebook-and-ui-display.md](19-codebook-and-ui-display.md) | **Added 2026-11-17:** API-driven Codebook + UI display plan (UI-1 implemented, UI-2 … UI-6 planned) |

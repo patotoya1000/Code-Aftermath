@@ -35,3 +35,5 @@ Purpose: stop future agents from following stale documentation. When an old docu
 ## Upcoming (not done)
 
 production · environment · events · combat · enemies · buildings (BUILD/upgrade) · final assets · offline/release. See `AI_MEMORY/IMPLEMENTATION_STATUS.md`.
+| 2026-11-17 (PA-1) | the renderer kept its own `scale`/`offsetX`/`offsetY` and `x * scale + offset` formulas in ~20 places; no camera | **`viewport` module** is the only grid↔pixel conversion; camera (pan, zoom) is presentation-only; default view identical; a stray undefined `scale` in the marker fallback fixed |
+| 2026-11-17 (UI-1) | the "Available API" pane printed `describeApi()` as a flat list; no manual for reads, stop reasons or concepts | **Codebook** generated from the Game API + curated metadata, drift-tested; `docs/game/18-…` (pixel-art integration) and `19-…` (Codebook/UI) filed as specs |

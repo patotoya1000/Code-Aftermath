@@ -10,6 +10,7 @@ import { mountRenderer } from '../modules/render/index.js';
 import { placeholderManifestFor } from '../modules/assets/index.js';
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
+import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -276,7 +277,30 @@ function toggleCodePanel() {
 function renderCodeAPI() {
   const list = $('code-api-list');
   if (!list) return;
-  list.innerHTML = app.apiDocs.commands.map((c) => `<div class="api-item"><span class="sig">${esc(c.signature)}</span><span class="doc">${esc(c.doc)}</span></div>`).join('');
+  const q = $('code-api-search')?.value?.trim() ?? '';
+  list.innerHTML = renderCompactList(app.codebook, q ? app.searchCodebook(q) : null);
+}
+
+// ---------- Codebook (UI-1): a read-only view generated from the Game API ----------
+let bookEntryId = null;
+function renderBook() {
+  const q = $('codebook-search')?.value?.trim() ?? '';
+  const nav = $('codebook-nav'); const entry = $('codebook-entry');
+  if (nav) nav.innerHTML = renderNav(app.codebook, { results: q ? app.searchCodebook(q) : null, activeId: bookEntryId });
+  if (entry) entry.innerHTML = renderEntry(app.codebook, bookEntryId);
+}
+function setBookOpen(on) { const p = $('codebook-panel'); if (p) p.style.display = on ? 'flex' : 'none'; document.body?.classList?.toggle('book-open', on); }
+function isBookOpen() { return $('codebook-panel')?.style?.display === 'flex'; }
+function openBook(entryId) {
+  if (entryId) bookEntryId = entryId; else if (!bookEntryId) bookEntryId = app.codebook.sections[0].groups[0].entryIds[0];
+  setBookOpen(true); renderBook();
+}
+function insertExample(entryId) {
+  const e = app.codebook.entries.find((x) => x.id === entryId); const ed = $('code-editor');
+  if (!e?.example || !ed) return;
+  ed.value = `${ed.value.trim() ? `${ed.value.replace(/\s+$/, '')}\n` : ''}${e.example}\n`;
+  setBookOpen(false);
+  if (!isCodePanelOpen) toggleCodePanel(); else ed.focus?.();
 }
 
 function renderHints() {
@@ -295,7 +319,7 @@ function friendlyError(res) {
   return `${e.message}${hints[e.code] ? `\n${hints[e.code]}` : ''}`;
 }
 
-const chip = (s) => `<span class="cmd-chip ${s.ok ? 'ok' : 'fail'}">${esc(s.name)}(${s.args.map((a) => JSON.stringify(a)).join(', ')})<small>${s.ok ? (s.mode === 'replace' ? 'now' : 'queued') : esc(s.error?.code ?? 'rejected')}</small></span>`;
+const chip = (s) => `<span class="cmd-chip ${s.ok ? 'ok' : 'fail'}"${!s.ok && app.entryForCommand(s.name) ? ` data-action="open-book" data-entry="command.${esc(s.name)}" title="Open ${esc(s.name)}() in the Codebook"` : ''}>${esc(s.name)}(${s.args.map((a) => JSON.stringify(a)).join(', ')})<small>${s.ok ? (s.mode === 'replace' ? 'now' : 'queued') : esc(s.error?.code ?? 'rejected')}</small></span>`;
 
 async function runCode() {
   const editor = $('code-editor'); const result = $('code-execution-result'); const list = $('code-commands'); const btn = $('btn-run-code');
@@ -304,7 +328,10 @@ async function runCode() {
   try {
     const res = await app.runCode(freeSim, editor.value, { actorId: selected?.kind === 'npc' ? selected.id : null });
     if (!res.ok) {
-      result.className = 'execution-result fail'; result.textContent = friendlyError(res); list.innerHTML = '';
+      result.className = 'execution-result fail'; result.textContent = friendlyError(res);
+      // INVALID_ARGUMENT messages start with the command name ("gather(): …"): link to that Codebook entry
+      const name = res.error.code === 'INVALID_ARGUMENT' ? /^(\w+)\(\)/.exec(res.error.message ?? '')?.[1] : null;
+      list.innerHTML = name && app.entryForCommand(name) ? `<span class="cmd-chip fail" data-action="open-book" data-entry="command.${esc(name)}" title="Open in the Codebook">📖 How ${esc(name)}() works</span>` : '';
       return;
     }
     const okCount = res.submitted.filter((s) => s.ok).length;
@@ -570,6 +597,10 @@ function bindEvents() {
     $('inspector-toggle').textContent = isInspectorOpen ? '◂' : '▸';
   });
   $('btn-code')?.addEventListener('click', toggleCodePanel);
+  $('btn-book')?.addEventListener('click', () => (isBookOpen() ? setBookOpen(false) : openBook(null)));
+  $('codebook-close')?.addEventListener('click', () => setBookOpen(false));
+  $('codebook-search')?.addEventListener('input', renderBook);
+  $('code-api-search')?.addEventListener('input', renderCodeAPI);
   $('code-close')?.addEventListener('click', toggleCodePanel);
   $('btn-run-code')?.addEventListener('click', handleRunCode);
   $('btn-play')?.addEventListener('click', togglePlay);
@@ -581,7 +612,9 @@ function bindEvents() {
   document.addEventListener('keydown', (e) => {
     const tag = document.activeElement?.tagName;
     const typing = tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT'; // shortcuts must never eat what the learner types
-    if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
+    if (e.key === 'Escape' && isBookOpen()) setBookOpen(false);
+    else if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
+    if ((e.key === 'b' || e.key === 'B') && e.altKey) (isBookOpen() ? setBookOpen(false) : openBook(null)); // Alt+B: Codebook
     if (e.key === ' ' && !isCodePanelOpen && !typing && tag !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
     if ((e.key === 'd' || e.key === 'D') && e.altKey) renderer.setDebug(!renderer.debug); // Alt+D: optional debug overlay
     if ((e.key === 'l' || e.key === 'L') && e.altKey) toggleLessonMode(); // Alt+L: lesson mode toggle
@@ -594,6 +627,8 @@ function bindEvents() {
     if (action === 'start-lesson') startLesson(el.dataset.lesson);
     else if (action === 'restart-lesson') restartLesson();
     else if (action === 'exit-lesson') exitLesson();
+    else if (action === 'open-book') openBook(el.dataset.entry || null);
+    else if (action === 'insert-example') insertExample(el.dataset.entry);
     else if (action === 'lesson-list') { renderLessonList(); }
     else if (action === 'lesson-progress') renderProgressScreen();
   });

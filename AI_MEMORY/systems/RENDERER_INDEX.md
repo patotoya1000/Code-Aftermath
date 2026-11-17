@@ -10,10 +10,12 @@ Show the world. The renderer consumes the RENDER PROJECTION only and never chang
 
 - `projection` module: `studentView` (what learner code may read), `renderProjection` (positions, directions, semantic animation, building `assetKey`, node visuals, terrain, stock), `inspectorCard` (survivor card). All deep-frozen plain data.
 - `render` module: `mountRenderer(canvas, opts)` → `{ draw(frame), pick, screenToTile, select, clearSelection, getSelected, setDebug, lastDrawList, resolver }`. Pipeline: projection → semantic state → asset resolver → atlas frame → animation player → canvas. Optional presentation-only smoothing; debug overlay (`?debug`).
+- `viewport` module (PA-1, `src/modules/viewport/index.js`): the ONLY grid↔pixel conversion (`gridToScreen`, `cellRect`, `cellCenter`, `cellFoot`, `screenToGrid`, `screenToCell`, `visibleCells`) and the camera (`panBy`, `zoomAt`, `setZoom`, `centerOn`, `resetCamera`, optional `integer` scale). Pure, frozen values. The renderer keeps one viewport as camera state and exposes `viewport`, `pan`, `panPixels`, `zoomAt`, `setZoom`, `centerOn`, `resetCamera`; no on-screen controls yet.
 - UI shell (`src/app/mainscreen.js`): frame loop → `clock.update(dt)` → projections → renderer/inspector/event feed; CODE editor → `app.runCode`; lesson panel; save/load; selection.
 
 # Does NOT Own
 
+- Private coordinate math: do not write `x * tileSize + offset` anywhere; use `src/modules/viewport/index.js` (`tests/viewport.test.js` greps the renderer).
 - Gameplay state, completion of actions (animation never decides completion).
 - Asset files/art (ASSETS).
 - Any import of `simulation` or `actions` (enforced by `tests/architecture.test.js`).

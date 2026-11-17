@@ -113,7 +113,7 @@ const MEMORY = join(ROOT, 'AI_MEMORY');
 const REQUIRED = [
   'PROJECT_INDEX.md', 'ARCHITECTURE_INDEX.md', 'IMPLEMENTATION_STATUS.md', 'CHANGELOG.md', 'DECISIONS.md', 'RULES.md',
   ...['NPC', 'BUILDING', 'RESOURCE', 'ITEM', 'ZOMBIE', 'COMBAT', 'NEEDS', 'SKILLS', 'TASK', 'EVENT', 'INVENTORY', 'WORLD', 'WATER'].map((n) => `domains/${n}_INDEX.md`),
-  ...['API', 'SIMULATION', 'SANDBOX', 'SAVELOAD', 'REPLAY', 'RENDERER', 'LESSON'].map((n) => `systems/${n}_INDEX.md`),
+  ...['API', 'SIMULATION', 'SANDBOX', 'SAVELOAD', 'REPLAY', 'RENDERER', 'LESSON', 'CODEBOOK_UI'].map((n) => `systems/${n}_INDEX.md`),
   'assets/ASSET_INDEX.md', 'assets/SPRITE_INDEX.md', 'assets/NPC_ASSETS.md', 'assets/BUILDING_ASSETS.md', 'assets/RESOURCE_ASSETS.md', 'assets/UI_ASSETS.md',
 ];
 const TEMPLATE = ['Purpose', 'Responsibilities', 'Does NOT Own', 'Core Data', 'State', 'Commands / API', 'Events', 'Dependencies', 'Dependents', 'Source Files', 'UI Files', 'Asset Files', 'Tests', 'Current Status', 'Known Problems', 'Planned Changes', 'Forbidden Changes', 'Related Documentation'];

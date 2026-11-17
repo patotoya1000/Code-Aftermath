@@ -521,3 +521,42 @@ body.lesson-open #code-panel { left:min(380px, 92vw); }
 .calendar-panel .cal-day.today { border-color:var(--good); outline:1px solid var(--good); }
 .calendar-panel .cal-n { display:block; font-size:10px; color:var(--muted); font-family:var(--font-mono); }
 .calendar-panel .cal-w { display:block; font-size:18px; }
+
+/* ---------- Codebook (UI-1) ---------- */
+#cmd-bar .cmd-btn.book { border-color:var(--accent-dark); }
+.bk-search { flex:1; min-width:0; margin:0 8px; padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:var(--code-bg); color:var(--fg); font:inherit; font-size:12px; }
+#code-panel .bk-search { margin:6px 12px; flex:none; }
+#code-panel .api-item { text-align:left; width:100%; cursor:pointer; background:var(--panel-light); color:inherit; font:inherit; }
+#code-panel .api-item:hover, #code-panel .api-item:focus-visible { border-color:var(--accent); outline:0; }
+.api-group, .bk-section, .bk-group { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin:10px 0 4px; }
+.bk-section { color:var(--accent); font-size:11px; margin-top:14px; }
+.cmd-chip.fail[data-action] { cursor:pointer; text-decoration:underline dotted; }
+#codebook-panel {
+  position:fixed; z-index:60; inset:72px 16px 16px 16px; flex-direction:column;
+  background:var(--panel); border:2px solid var(--line); border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.55); overflow:hidden;
+}
+#codebook-panel .code-header { display:flex; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); }
+#codebook-panel .code-title { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+#codebook-panel .code-close { background:var(--panel-light); color:var(--fg); border:1px solid var(--line); border-radius:6px; width:32px; height:32px; cursor:pointer; }
+.bk-body { flex:1; min-height:0; display:grid; grid-template-columns:240px 1fr; }
+#codebook-nav { overflow:auto; padding:6px 10px 16px; border-right:1px solid var(--line); }
+#codebook-entry { overflow:auto; padding:14px 18px 24px; font-size:13px; line-height:1.6; }
+.bk-nav-item { display:block; width:100%; text-align:left; padding:5px 8px; border:0; border-radius:5px; background:transparent; color:var(--fg); font:12px var(--font-mono); cursor:pointer; min-height:32px; }
+.bk-nav-item:hover { background:var(--panel-light); }
+.bk-nav-item.active { background:var(--accent); color:#141311; }
+.bk-title { margin:0; font-size:18px; color:var(--accent); }
+.bk-kind { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:8px; }
+#codebook-entry h4 { margin:16px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+#codebook-entry p, #codebook-entry ul { margin:4px 0; }
+.bk-sig, .bk-example { font-family:var(--font-mono); background:var(--code-bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:4px 0 8px; overflow:auto; white-space:pre; }
+.bk-params td { padding:2px 12px 2px 0; vertical-align:top; }
+.bk-surface { font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+.bk-chip { margin:2px 6px 2px 0; padding:4px 10px; border-radius:12px; border:1px solid var(--line); background:var(--panel-light); color:var(--fg); font:11px var(--font-mono); cursor:pointer; min-height:30px; }
+.bk-chip:hover { border-color:var(--accent); }
+.bk-empty { color:var(--muted); font-size:12px; padding:8px; }
+@media (max-width: 800px) {
+  #codebook-panel { inset:64px 0 0 0; border-radius:0; }
+  .bk-body { grid-template-columns:1fr; grid-template-rows:minmax(90px,34%) 1fr; }
+  #codebook-nav { border-right:0; border-bottom:1px solid var(--line); }
+  #codebook-panel .code-title { display:none; }
+}

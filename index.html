@@ -100,6 +100,7 @@
   <div id="command-region">
     <div id="cmd-bar">
       <button type="button" class="cmd-btn code" id="btn-code" aria-label="Open code interface">CODE</button>
+      <button type="button" class="cmd-btn book" id="btn-book" aria-label="Open the Codebook">📖 BOOK</button>
       <button type="button" class="cmd-btn" id="btn-assign" disabled>ASSIGN TASK<small class="soon">Coming in Phase I5</small></button>
       <button type="button" class="cmd-btn" id="btn-task" disabled>TASK<small class="soon">Coming in Phase I5</small></button>
       <button type="button" class="cmd-btn" id="btn-build" disabled>BUILD<small class="soon">Coming in Phase I11</small></button>
@@ -145,7 +146,8 @@
       <textarea class="code-content editor-content" id="code-editor" spellcheck="false" aria-label="JavaScript editor">survivor.gather("wood", 10);</textarea>
     </div>
     <div class="code-pane api">
-      <div id="code-pane-header">Available API</div>
+      <div id="code-pane-header">Available API <button type="button" class="btn-small" data-action="open-book" data-entry="">📖 Codebook</button></div>
+      <input type="search" id="code-api-search" class="bk-search" placeholder="Search commands…" aria-label="Search the API">
       <div class="code-content" id="code-api-list"></div>
     </div>
   </div>
@@ -155,6 +157,18 @@
     </div>
     <div class="execution-result" id="code-execution-result">Ready. Commands start working as soon as you run them; use PLAY if the simulation is paused.</div>
     <div id="code-commands"></div>
+  </div>
+</div>
+
+<div id="codebook-panel" style="display:none;" role="dialog" aria-label="Codebook">
+  <div class="code-header">
+    <div class="code-title">📖 Codebook</div>
+    <input type="search" id="codebook-search" class="bk-search" placeholder="Search the Codebook…" aria-label="Search the Codebook">
+    <button type="button" class="code-close" id="codebook-close" aria-label="Close the Codebook">✕</button>
+  </div>
+  <div class="bk-body">
+    <nav id="codebook-nav" aria-label="Codebook contents"></nav>
+    <article id="codebook-entry"></article>
   </div>
 </div>
 

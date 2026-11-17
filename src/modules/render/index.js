@@ -1,7 +1,9 @@
 import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest } from '../assets/index.js';
+import { createViewport, withView, gridToScreen, cellRect, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
 // Production world renderer. Input: the RENDER PROJECTION only (never GameState). Output: pixels.
 // Pipeline: projection → semantic state → asset resolver → atlas frame → animation player → canvas.
+// Every grid↔pixel conversion goes through the viewport module (PA-1); this file has no coordinate math of its own.
 // It is read-only with respect to gameplay: animation timing, selection and debug overlays live here and nowhere else.
 
 const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1], tent: [1], storage: [1, 2], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1] }, nodes: { tree: true, rock: true } });
@@ -22,7 +24,7 @@ export function perimeterCells({ x1, y1, x2, y2 }) {
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };
 
 export function mountRenderer(canvas, {
-  manifest = DEFAULT_MANIFEST(), atlasImage = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false,
+  manifest = DEFAULT_MANIFEST(), atlasImage = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
@@ -33,14 +35,14 @@ export function mountRenderer(canvas, {
     paintPlaceholderAtlas(atlas.getContext('2d'), manifest);
   }
 
-  let scale = 1; let offsetX = 0; let offsetY = 0;
+  let vp = createViewport({ map: { width: 1, height: 1 }, view: { width: 1, height: 1 }, integer: integerScale }); // camera state lives here
   let selected = { kind: null, id: null };
   let debugOn = debug;
   let drawList = [];
 
-  const k = () => scale / manifest.frame.w;
-  const tileCenterX = (x) => offsetX + x * scale + scale / 2;
-  const tileFootY = (y) => offsetY + y * scale + scale * 0.92;
+  const k = () => vp.cell / manifest.frame.w;
+  const tileCenterX = (x) => cellFoot(vp, x, 0).x;
+  const tileFootY = (y) => cellFoot(vp, 0, y).y;
 
   function blit(entry, frameIdx, cx, footY, sizeMul = 1) {
     const f = entry.frames[frameIdx] ?? entry.frames[0];
@@ -55,7 +57,7 @@ export function mountRenderer(canvas, {
     ctx.fillStyle = COLORS.label; ctx.fillText(text, x, y);
   }
   function marker(cx, footY) { // step-6 safety net: nothing resolved, still draw something visible
-    ctx.fillStyle = 'rgba(160,160,160,0.7)'; ctx.fillRect(cx - scale * 0.25, footY - scale * 0.5, scale * 0.5, scale * 0.5);
+    ctx.fillStyle = 'rgba(160,160,160,0.7)'; ctx.fillRect(cx - vp.cell * 0.25, footY - vp.cell * 0.5, vp.cell * 0.5, vp.cell * 0.5);
   }
   const note = (layer, kind, id, entry, extra = {}) => drawList.push({ layer, kind, id, key: entry.key, requested: entry.requested, step: entry.step, ...extra });
 
@@ -89,8 +91,9 @@ export function mountRenderer(canvas, {
     }
     ctx.setTransform?.(dpr, 0, 0, dpr, 0, 0);
     if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = false;
-    const t = Math.min(rect.width / mw, rect.height / mh);
-    scale = t; offsetX = (rect.width - mw * t) / 2; offsetY = (rect.height - mh * t) / 2;
+    vp = withView(vp, { map: frame.map, view: { width: rect.width, height: rect.height } });
+    const t = vp.cell;
+    const world = cellRect(vp, 0, 0, mw, mh);
     const time = now();
 
     // 1 terrain
@@ -98,14 +101,15 @@ export function mountRenderer(canvas, {
     ctx.fillStyle = COLORS.terrain; ctx.fillRect(0, 0, rect.width, rect.height);
     const terrain = frame.terrain || { zones: [], paths: [] };
     for (const z of terrain.zones) { // presentation-only ground areas (the forest)
-      ctx.fillStyle = COLORS.zone; ctx.fillRect(offsetX + z.x1 * t, offsetY + z.y1 * t, (z.x2 - z.x1 + 1) * t, (z.y2 - z.y1 + 1) * t);
-      ctx.strokeStyle = COLORS.zoneEdge; ctx.lineWidth = 1; ctx.strokeRect(offsetX + z.x1 * t + 0.5, offsetY + z.y1 * t + 0.5, (z.x2 - z.x1 + 1) * t - 1, (z.y2 - z.y1 + 1) * t - 1);
+      const r = cellRect(vp, z.x1, z.y1, z.x2 - z.x1 + 1, z.y2 - z.y1 + 1);
+      ctx.fillStyle = COLORS.zone; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = COLORS.zoneEdge; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     }
     ctx.fillStyle = COLORS.path;
-    for (const p of terrain.paths) for (const [x, y] of p.cells) ctx.fillRect(offsetX + x * t + t * 0.08, offsetY + y * t + t * 0.2, t * 0.84, t * 0.6);
+    for (const p of terrain.paths) for (const [x, y] of p.cells) { const r = cellRect(vp, x, y); ctx.fillRect(r.x + r.w * 0.08, r.y + r.h * 0.2, r.w * 0.84, r.h * 0.6); }
     ctx.strokeStyle = COLORS.grid; ctx.lineWidth = 1;
-    for (let x = 0; x <= mw; x++) { ctx.beginPath(); ctx.moveTo(offsetX + x * t, offsetY); ctx.lineTo(offsetX + x * t, offsetY + mh * t); ctx.stroke(); }
-    for (let y = 0; y <= mh; y++) { ctx.beginPath(); ctx.moveTo(offsetX, offsetY + y * t); ctx.lineTo(offsetX + mw * t, offsetY + y * t); ctx.stroke(); }
+    for (let x = 0; x <= mw; x++) { const sx = gridToScreen(vp, x, 0).x; ctx.beginPath(); ctx.moveTo(sx, world.y); ctx.lineTo(sx, world.y + world.h); ctx.stroke(); }
+    for (let y = 0; y <= mh; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.beginPath(); ctx.moveTo(world.x, sy); ctx.lineTo(world.x + world.w, sy); ctx.stroke(); }
 
     const buildings = frame.buildings || [];
     const drawBuilding = (b, x, y, layer) => {
@@ -113,9 +117,9 @@ export function mountRenderer(canvas, {
       note(layer, 'building', b.id, e, { x, y, condition: b.condition });
       if (!blit(e, 0, tileCenterX(x), tileFootY(y))) marker(tileCenterX(x), tileFootY(y));
       if (b.water?.working) { // reservoir gauge under a working well (presentation only; the amount comes from the projection)
-        const gw = scale * 0.7; const gx = tileCenterX(x) - gw / 2; const gy = offsetY + (y + 1) * scale - scale * 0.1;
-        ctx.fillStyle = 'rgba(10,18,28,0.75)'; ctx.fillRect(gx, gy, gw, Math.max(2, scale * 0.08));
-        ctx.fillStyle = '#4da3e8'; ctx.fillRect(gx, gy, gw * Math.min(1, b.water.amount / Math.max(1, b.water.capacity)), Math.max(2, scale * 0.08));
+        const gw = vp.cell * 0.7; const gx = tileCenterX(x) - gw / 2; const gy = gridToScreen(vp, x, y + 1).y - vp.cell * 0.1;
+        ctx.fillStyle = 'rgba(10,18,28,0.75)'; ctx.fillRect(gx, gy, gw, Math.max(2, vp.cell * 0.08));
+        ctx.fillStyle = '#4da3e8'; ctx.fillRect(gx, gy, gw * Math.min(1, b.water.amount / Math.max(1, b.water.capacity)), Math.max(2, vp.cell * 0.08));
       }
     };
     // 2 fence / settlement boundary (uses authoritative bounds, not just the origin tile). A building standing on the
@@ -125,10 +129,10 @@ export function mountRenderer(canvas, {
     // 3 buildings
     for (const b of buildings.filter((q) => !q.bounds)) drawBuilding(b, b.x, b.y, 'building');
     // 3b world labels (names come from definitions via the projection)
-    if (scale >= LABEL_MIN_TILE) {
-      const size = Math.max(9, scale * 0.26);
-      for (const b of buildings.filter((q) => !q.bounds && q.name)) worldLabel(b.name, tileCenterX(b.x), offsetY + (b.y + 1) * scale + 1, size, 'center');
-      for (const z of terrain.zones) worldLabel(z.label, offsetX + z.x1 * scale + 5, offsetY + z.y1 * scale + 4, size, 'left');
+    if (vp.cell >= LABEL_MIN_TILE) {
+      const size = Math.max(9, vp.cell * 0.26);
+      for (const b of buildings.filter((q) => !q.bounds && q.name)) worldLabel(b.name, tileCenterX(b.x), gridToScreen(vp, b.x, b.y + 1).y + 1, size, 'center');
+      for (const z of terrain.zones) { const o = gridToScreen(vp, z.x1, z.y1); worldLabel(z.label, o.x + 5, o.y + 4, size, 'left'); }
     }
     // 4 resource nodes
     for (const n of frame.nodes || []) {
@@ -144,17 +148,17 @@ export function mountRenderer(canvas, {
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
       if (!blit(e, idx, cx, fy)) marker(cx, fy);
       ctx.fillStyle = COLORS.label; ctx.font = `${Math.max(9, t * 0.3)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(p.name, cx, fy - scale * 0.95);
+      ctx.fillText(p.name, cx, fy - vp.cell * 0.95);
     }
     // 6 event markers (only if the projection carries them)
     for (const ev of events || []) if (ev.x !== undefined && ev.y !== undefined) {
-      ctx.fillStyle = COLORS.event; ctx.beginPath(); ctx.arc(tileCenterX(ev.x), offsetY + ev.y * t + t / 2, t * 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = COLORS.event; ctx.beginPath(); ctx.arc(cellCenter(vp, ev.x, ev.y).x, cellCenter(vp, ev.x, ev.y).y, t * 0.25, 0, Math.PI * 2); ctx.fill();
     }
     // 6b time of day and weather: a tint over the world (presentation only, read from the projection)
     const env = frame.environment;
     if (env) {
       const tint = (env.isNight ? 0.34 : 0) + (env.weather === 'storm' ? 0.18 : env.weather === 'rain' ? 0.08 : 0);
-      if (tint > 0) { ctx.fillStyle = `rgba(8,16,40,${Math.min(0.6, tint)})`; ctx.fillRect(offsetX, offsetY, mw * t, mh * t); }
+      if (tint > 0) { ctx.fillStyle = `rgba(8,16,40,${Math.min(0.6, tint)})`; ctx.fillRect(world.x, world.y, world.w, world.h); }
     }
     // 7 selection
     drawSelection(frame);
@@ -174,26 +178,29 @@ export function mountRenderer(canvas, {
     const r = selectionRect(frame);
     if (!r) return;
     ctx.strokeStyle = COLORS.select; ctx.lineWidth = 2.5; ctx.setLineDash?.([6, 5]);
-    ctx.strokeRect(offsetX + r.x * scale + 1, offsetY + r.y * scale + 1, r.w * scale - 2, r.h * scale - 2);
+    const px = cellRect(vp, r.x, r.y, r.w, r.h);
+    ctx.strokeRect(px.x + 1, px.y + 1, px.w - 2, px.h - 2);
     ctx.setLineDash?.([]);
   }
   function drawDebug(frame, mw, mh) {
-    ctx.fillStyle = COLORS.debug; ctx.font = `${Math.max(8, scale * 0.22)}px ui-monospace, monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    for (let x = 0; x < mw; x += 4) ctx.fillText(String(x), offsetX + x * scale + 2, offsetY + 2);
-    for (let y = 4; y < mh; y += 4) ctx.fillText(String(y), offsetX + 2, offsetY + y * scale + 2);
+    ctx.fillStyle = COLORS.debug; ctx.font = `${Math.max(8, vp.cell * 0.22)}px ui-monospace, monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (let x = 0; x < mw; x += 4) ctx.fillText(String(x), gridToScreen(vp, x, 0).x + 2, gridToScreen(vp, 0, 0).y + 2);
+    for (let y = 4; y < mh; y += 4) ctx.fillText(String(y), gridToScreen(vp, 0, 0).x + 2, gridToScreen(vp, 0, y).y + 2);
     for (const b of frame.buildings || []) {
-      if (b.bounds) ctx.strokeRect(offsetX + b.bounds.x1 * scale, offsetY + b.bounds.y1 * scale, (b.bounds.x2 - b.bounds.x1 + 1) * scale, (b.bounds.y2 - b.bounds.y1 + 1) * scale);
-      ctx.fillText(`${b.id} ${b.assetKey ?? ''}`, offsetX + b.x * scale, offsetY + b.y * scale + scale);
+      if (b.bounds) { const r = cellRect(vp, b.bounds.x1, b.bounds.y1, b.bounds.x2 - b.bounds.x1 + 1, b.bounds.y2 - b.bounds.y1 + 1); ctx.strokeRect(r.x, r.y, r.w, r.h); }
+      const o = gridToScreen(vp, b.x, b.y + 1); ctx.fillText(`${b.id} ${b.assetKey ?? ''}`, o.x, o.y);
     }
-    for (const n of frame.nodes || []) ctx.fillText(`${n.id}:${n.amount}`, offsetX + n.x * scale, offsetY + n.y * scale + scale);
-    for (const e of drawList) if (e.kind === 'npc') ctx.fillText(`${e.key} s${e.step}`, offsetX + e.x * scale, offsetY + e.y * scale + scale * 1.1);
+    for (const n of frame.nodes || []) { const o = gridToScreen(vp, n.x, n.y + 1); ctx.fillText(`${n.id}:${n.amount}`, o.x, o.y); }
+    for (const e of drawList) if (e.kind === 'npc') { const o = gridToScreen(vp, e.x, e.y + 1.1); ctx.fillText(`${e.key} s${e.step}`, o.x, o.y); }
   }
 
-  const screenToTile = (sx, sy) => ({ x: Math.floor((sx - offsetX) / scale), y: Math.floor((sy - offsetY) / scale) });
+  // Pixel → cell, unclamped (a tap just outside the map is a miss for pick(), never a wrong tile).
+  const screenToTile = (sx, sy) => { const g = screenToGrid(vp, sx, sy); return g ? { x: Math.floor(g.x), y: Math.floor(g.y) } : { x: NaN, y: NaN }; };
 
   /** Hit-test a point (canvas CSS pixels) against a projection: survivors first, then nodes, buildings, fence perimeter. */
   function pick(sx, sy, frame) {
-    const tx = (sx - offsetX) / scale - 0.5; const ty = (sy - offsetY) / scale - 0.5; // tile-center coordinates
+    const g = screenToGrid(vp, sx, sy); if (!g) return null;
+    const tx = g.x - 0.5; const ty = g.y - 0.5; // tile-center coordinates
     for (const n of frame.npcs || []) if (Math.abs(n.x - tx) < 0.7 && Math.abs(n.y - ty) < 0.7) return { kind: 'npc', id: n.id };
     const { x, y } = screenToTile(sx, sy);
     for (const n of frame.nodes || []) if (n.x === x && n.y === y) return { kind: 'node', id: n.id };
@@ -212,5 +219,13 @@ export function mountRenderer(canvas, {
     get debug() { return debugOn; },
     get lastDrawList() { return drawList; },
     resolver,
+    // Camera (PA-1): presentation only. None of these can change a logical position; picking and drawing both read the same viewport.
+    get viewport() { return vp; },
+    pan(dxCells, dyCells) { vp = panBy(vp, dxCells, dyCells); },
+    panPixels(dx, dy) { vp = panByPixels(vp, dx, dy); },
+    zoomAt(factor, sx, sy) { vp = zoomAt(vp, factor, sx, sy); },
+    setZoom(z) { vp = setZoom(vp, z); },
+    centerOn(gx, gy) { vp = centerOn(vp, gx, gy); },
+    resetCamera() { vp = resetCamera(vp); },
   };
 }

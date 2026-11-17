@@ -15,6 +15,9 @@
 - [x] **O9** spoilage + cold cellar (2026-11-16) — bread spoils after 4 days; storehouse level 2 slows it. Next: farming → power (freezer) → crafting.
 - [x] **O8** recipe engine + kitchen + bread (2026-11-16) — `survivor.cook(recipe, count)`, ruined kitchen to repair, wheat → bread (+40 hunger), `eat(item)` / `policy("eat", { prefer })`; design in `docs/game/16-farming-cooking-power-design.md`. Next: spoilage + cold cellar → farming → power → crafting.
 - [x] **O7** water: deep well, aquifer recharge, siphon, water tank (2026-11-16) — design in `docs/game/17-water-wells.md`
+- [x] **UI-1** Codebook (2026-11-17) — API-generated manual, BOOK panel, search, insert example; spec `game/19-codebook-and-ui-display.md`. Next UI: UI-2 live inspection (resource/building/task panels), UI-3 contextual help, UI-4 lesson links, UI-5 mobile tabs, UI-6 polish.
+- [x] **PA-1** (2026-11-17) shared grid↔pixel + camera (`viewport` module), renderer migrated, no visual change at the default camera
+- [ ] **PA-2 … PA-8** grid pixel-art integration (spec `game/18-grid-pixel-art-asset-integration.md`): PA-2 terrain tiles, PA-3 paths, PA-4 static objects + fence autotiling, PA-5 multi-cell buildings, PA-6 NPC sprites, PA-7 zombies, PA-8 interaction. Renderer/assets only; simulation tests must stay untouched.
 - Order changed: R4 before R3 — the learner must be able to *react* before the economy gets deeper (reasoning in the plan).
 - Spec: `docs/game/15-realtime-simulation-and-tasks.md`. The C2 line below ("turn-based free play") is historical.
 

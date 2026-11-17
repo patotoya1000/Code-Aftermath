@@ -114,3 +114,47 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   await els['btn-restart'].fire('click');
   assert.match(els['clock-detail'].textContent, /STRATEGY 10\/10 · TICK 0/);
 });
+
+test('codebook UI: opens from BOOK, searches, shows an API-built entry, inserts the example, links rejected commands', async () => {
+  const els = Object.fromEntries(ids.map((i) => [i, makeEl(i)]));
+  const docListeners = {};
+  globalThis.document = { getElementById: (i) => els[i] ?? null, createElement: () => makeEl('c'), addEventListener: (t, fn) => { (docListeners[t] ??= []).push(fn); }, body: { classList: { toggle() {} } } };
+  globalThis.window = { devicePixelRatio: 1, addEventListener() {} };
+  globalThis.location = { search: '' };
+  globalThis.requestAnimationFrame = () => 0;
+  await import('../src/app/mainscreen.js?codebook');
+  await new Promise((r) => setTimeout(r, 50));
+  const click = (action, extra = {}) => ({ target: { closest: () => ({ dataset: { action, ...extra } }) } });
+  const delegated = async (action, extra) => { for (const fn of docListeners.click) await fn(click(action, extra)); };
+
+  assert.match(els['code-api-list'].innerHTML, /survivor\.gather\(resource/, 'the compact API list is built from the Codebook');
+  assert.match(els['code-api-list'].innerHTML, /data-entry="command\.gather"/);
+  assert.notEqual(els['codebook-panel'].style.display, 'flex');
+  await els['btn-book'].fire('click');
+  assert.equal(els['codebook-panel'].style.display, 'flex');
+  assert.match(els['codebook-nav'].innerHTML, /Getting Started/);
+  await delegated('open-book', { entry: 'command.gather' });
+  assert.match(els['codebook-entry'].innerHTML, /survivor\.gather\(\)/);
+  assert.match(els['codebook-entry'].innerHTML, /Why it can stop/);
+  assert.match(els['codebook-entry'].innerHTML, /data-entry="term\.STORAGE_FULL"/);
+
+  els['codebook-search'].value = 'spoil';
+  await els['codebook-search'].fire('input');
+  assert.match(els['codebook-nav'].innerHTML, /perishables/i);
+  els['codebook-search'].value = '<script>';
+  await els['codebook-search'].fire('input');
+  assert.equal(/<script>/.test(els['codebook-nav'].innerHTML), false, 'search text is never injected as HTML');
+
+  els['code-editor'].value = 'survivor.rest(5);';
+  await delegated('insert-example', { entry: 'command.gather' });
+  assert.equal(els['code-editor'].value, 'survivor.rest(5);\nsurvivor.gather("wood", 20, 60);\n');
+  assert.equal(els['codebook-panel'].style.display, 'none', 'inserting closes the book so the editor is visible');
+
+  els['code-api-search'].value = 'water';
+  await els['code-api-search'].fire('input');
+  assert.match(els['code-api-list'].innerHTML, /well\.water|gather/);
+
+  els['code-editor'].value = 'survivor.gather("wood", 99);';
+  await els['btn-run-code'].fire('click');
+  assert.match(els['code-commands'].innerHTML, /data-action="open-book" data-entry="command\.gather"/, 'a rejected command links to its Codebook entry');
+});

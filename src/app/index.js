@@ -5,7 +5,7 @@ import { runLesson, listLessons } from '../modules/lessons/index.js';
 import { runAttempt, createFreeSim, runLiveCode, replayTimeline, createHookRunner } from '../modules/session/index.js';
 import { createClockDriver } from '../modules/simulation/index.js';
 import { verifyReplay } from '../modules/replay/index.js';
-import { describeApi } from '../modules/api/index.js';
+import { describeApi, describeCodebook, searchCodebook, entryForCommand } from '../modules/api/index.js';
 import { AftermathError, SIM_VERSION } from '../kernel/index.js';
 import { createSaveStore, createMemoryAdapter, emptyProgress, recordLessonResult } from '../modules/persistence/index.js';
 
@@ -15,10 +15,15 @@ export function createApp({ adapter = createMemoryAdapter(), sandbox = createSan
   const store = createSaveStore(adapter, { clock });
   let progress = emptyProgress();
   let lastAttempt = null;
+  const codebook = describeCodebook();
 
   return {
     defs,
     apiDocs: describeApi(),
+    /** Codebook (UI-1): a read-only view generated from the Game API; the UI never keeps its own command list. */
+    codebook,
+    searchCodebook: (query) => searchCodebook(codebook, query),
+    entryForCommand: (name) => entryForCommand(codebook, name),
     lessons: listLessons(defs),
     get progress() { return progress; },
     get lastAttempt() { return lastAttempt; },

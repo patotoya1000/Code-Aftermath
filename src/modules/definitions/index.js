@@ -6,8 +6,9 @@ import { nodeTypes, buildings, scenarios } from './data/world.js';
 import { lessons } from './data/lessons.js';
 import { environment } from './data/environment.js';
 import { recipes } from './data/recipes.js';
+import { crops } from './data/crops.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -73,6 +74,12 @@ export function validateDefinitions(d) {
     }
     if (a.handler === 'cook') need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
+  }
+  for (const [id, crop] of Object.entries(d.crops ?? {})) {
+    need(typeof crop.name === 'string' && crop.name, `crop ${id}: name must be non-empty text`);
+    need(Number.isInteger(crop.growthTicks) && crop.growthTicks >= 1, `crop ${id}: growthTicks must be a whole number >= 1`);
+    need(Number.isInteger(crop.yield) && crop.yield >= 1, `crop ${id}: yield must be a whole number >= 1`);
+    if (crop.shelfLife !== undefined) need(Number.isInteger(crop.shelfLife) && crop.shelfLife >= 0, `crop ${id}: shelfLife must be a whole number >= 0`);
   }
   for (const [id, p] of Object.entries(d.policies ?? {})) {
     need(d.actions[p.action], `policy ${id}: unknown action \"${p.action}\"`);
@@ -177,7 +184,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

@@ -36,6 +36,7 @@ Frame pacing: animation frame → `createClockDriver.update(dt)` → `sim.step(n
 | Day/night clock, season calendar, weather and forecast (pure functions of the tick) | `environment` |
 | Read-only views (student, render, inspector) | `projection` |
 | Semantic asset key → atlas frame, fallback chain, animation timing | `assets` |
+| Grid ↔ pixel conversion and camera (pure, PA-1) | `viewport` |
 | Drawing, picking, selection (no gameplay) | `render` |
 | Goal checks and feedback | `lessons` |
 | Replay verification | `replay` |
@@ -68,7 +69,8 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `persistence` | — |
 | `capability` | `definitions` |
 | `assets` | — |
-| `render` | `assets` |
+| `viewport` | — |
+| `render` | `assets`, `viewport` |
 
 ## Trace maps (implemented flows only)
 
