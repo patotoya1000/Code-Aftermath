@@ -56,10 +56,11 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `buildings` | `resources` |
 | `water` | `resources`, `buildings`, `environment` |
 | `spoilage` | `resources`, `buildings` |
-| `world` | `resources`, `survivors`, `buildings`, `spoilage` |
-| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage` |
-| `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage` |
-| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage` |
+| `farming` | `resources`, `buildings`, `environment`, `survivors` |
+| `world` | `resources`, `survivors`, `buildings`, `spoilage`, `farming` |
+| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming` |
+| `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage`, `farming` |
+| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming` |
 | `environment` | — |
 | `api` | — |
 | `sandbox` | `api` |

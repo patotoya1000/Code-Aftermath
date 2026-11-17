@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defs, newSim, call, runUntilIdle, types, sandbox } from './helpers.js';
+import { defs, newSim, call, runUntilIdle, types, sandbox, noCrops } from './helpers.js';
 import { createDefinitions } from '../src/modules/definitions/index.js';
 import { ledgerViolations, reserve } from '../src/modules/resources/index.js';
 
 const DAY = defs.environment.ticksPerDay;
-const setBread = (st, batches) => { st.perishables.bread = batches.map((b) => ({ ...b })); st.ledger['stock.bread'].total = batches.reduce((n, b) => n + b.qty, 0); };
+const setBread = (st, batches) => { noCrops(st); st.perishables.bread = batches.map((b) => ({ ...b })); st.ledger['stock.bread'].total = batches.reduce((n, b) => n + b.qty, 0); };
 const cellar = (st) => { st.buildings.storage_1.level = 2; st.buildings.storage_1.health = 170; st.buildings.storage_1.condition = 'repaired'; };
 const bread = (sim) => sim.snapshot().ledger['stock.bread'].total;
 const batches = (sim) => sim.snapshot().perishables.bread;
@@ -25,7 +25,7 @@ test('bread ages one day at a time and spoils when its shelf life is used up; th
 });
 
 test('items without a shelf life never spoil (canned food, wheat)', () => {
-  const sim = newSim('stage1', 1);
+  const sim = newSim('stage1', 1, noCrops);
   days(sim, 12);
   assert.equal(sim.snapshot().ledger['stock.food'].total, 6);
   assert.equal(sim.snapshot().ledger['stock.wheat'].total, 10);
@@ -119,7 +119,7 @@ test('definitions validation: shelfLife and cold tables', () => {
 test('soak: cooking, eating and ageing over 12 days keep the batches equal to the ledger and conserve every loaf', () => {
   for (let seed = 1; seed <= 12; seed++) {
     const sim = newSim('stage1', seed, (st) => {
-      st.buildings.kitchen.health = 110; st.buildings.kitchen.condition = 'repaired'; st.ledger['stock.wood'].total = 60; st.ledger['stock.wheat'].total = 60; st.ledger['stock.water'].total = 60;
+      st.buildings.kitchen.health = 110; st.buildings.kitchen.condition = 'repaired'; st.ledger['stock.wood'].total = 60; st.ledger['stock.wheat'].total = 60; st.ledger['stock.water'].total = 60; noCrops(st);
       if (seed % 2) cellar(st);
     });
     const picks = [['cook', 'bread', 3], ['eat', 'bread'], ['rest', 20], ['cook', 'bread'], ['eat'], ['drink']];

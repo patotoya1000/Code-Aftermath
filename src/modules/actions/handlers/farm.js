@@ -1,238 +1,201 @@
-import { chebyshev, hasOwn, own } from '../../../kernel/index.js';
-import { available, nodeKey, plotKey, reserve, commit, release, total, credit } from '../../resources/index.js';
+import { hasOwn, own } from '../../../kernel/index.js';
+import { stockKey, plotKey, available, reserve, commit, release } from '../../resources/index.js';
 import { StopReason } from '../lifecycle.js';
-import { checkCapability } from '../../capability/index.js';
-import { addCarried, awardSkillXp } from '../../survivors/index.js';
+import { addCarried, carryRoom, awardSkillXp } from '../../survivors/index.js';
 import { storageRoom } from '../../buildings/index.js';
+import { syncStock } from '../../spoilage/index.js';
+import { farmDefOf, farmWorking, plotsOf, raining } from '../../farming/index.js';
 import { stepDeposit } from './carry.js';
 import { ok, fail, failTick, RUNNING, approachThenWork, tooTired } from './shared.js';
 
-/** Standing action: farm is made of TRIPS (R3): walk to a plot → work one growth step → harvest → unload into base stock.
- *  Until a stop reason fires (TARGET_REACHED, NO_PLOT, NO_CROP, EXHAUSTED, NO_PATH, STORAGE_FULL).
- *  Each trip reserves its units from the plot's ledger account so two survivors never take the same crop,
- *  and room for them in storage is counted before pickup, so unloading can never overfill storage.
+/**
+ * farm is a STANDING action made of CHORES at ONE farm building (docs/game/16, O10). For one crop she repeats, in this order:
+ *   HARVEST a ripe plot (units go from the plot's ledger account into her hands, then she unloads them at storage)
+ *   WATER a dry growing plot (1 water from base stock; rain makes this unnecessary)
+ *   PLANT an empty plot (`crop.seeds` units of the crop from base stock)
+ * Every chore reserves what it spends in the ledger when it is chosen and commits it when the work finishes, so two survivors never
+ * spend or harvest the same unit, and a cancelled chore gives everything back. A plot being worked by someone else is skipped.
+ * When nothing needs doing but a plot of this crop is still growing she WAITS at the farm (up to `waitTicks`).
  *
- *  Crop data lives in `defs.crops[params.crop]`.
- *  Plots are in `state.plots` keyed by plot id, each plot has: { id, x, y, crop, stage, growthProgress }
- *  Plot cycle: empty → planted → growing → ready → harvested → (replant)
+ * Stop reasons: TARGET_REACHED (`count` plots harvested and unloaded) · NO_FARM (the farm stopped working) · NO_SEED · NO_WATER ·
+ * STORAGE_FULL · EXHAUSTED · NO_PATH · NO_DEPOT · NOTHING_TO_DO (waited `waitTicks` for nothing).
+ * Like gather: ending after some work COMPLETES with the reason; ending before any work FAILS with it.
+ * Skill makes chores faster (durationModifier, re-read per chore); it never changes what a chore spends or yields.
  */
 
-// Does any plot exist for this crop?
-function hasAnyPlot(ctx, crop) {
-  return Object.values(ctx.state.plots).some((p) => p.crop === crop);
-}
-
-// Find the nearest plot of `crop` that can be worked on or harvested.
-// Prefers ready plots (harvest) over non-ready ones, then by distance, ties by id.
-function nearestPlot(ctx, crop, from, want) {
-  let best = null;
-  for (const p of Object.values(ctx.state.plots)) {
-    if (p.crop !== crop) continue;
-    const ready = p.stage === 'ready';
-    const d = chebyshev(from, p);
-    const rank = ready ? 0 : 1;
-    if (!best || rank < best.rank || (rank === best.rank && (d < best.d || (d === best.d && p.id < best.p.id)))) {
-      best = { p, d, rank };
-    }
+const claimedByOthers = (ctx, a) => {
+  const out = new Set();
+  for (const id of ctx.state.activeActions) {
+    const o = ctx.state.actions[id];
+    if (o.actionId !== a.actionId && o.actionType === 'farm' && o.chore) out.add(o.chore.plotId);
   }
-  return best?.p ?? null;
-}
+  return out;
+};
 
-// Plan the next batch: find a suitable plot, set up the action leg.
-function planBatch(ctx, a) {
-  const def = ctx.defs.crops[a.params.crop];
-  if (!def) return { stop: StopReason.INVALID_PARAMS };
+/** The next chore: { chore }, { wait: true } or { stop: reason }. Pure: reserves nothing. */
+function planChore(ctx, a) {
+  const { state, defs } = ctx;
+  const farm = own(state.buildings, a.farmId);
+  if (!farm || !farmWorking(defs, farm)) return { stop: StopReason.NO_FARM };
+  if (a.params.count !== undefined && a.stats.harvested >= a.params.count) return { stop: StopReason.TARGET_REACHED };
+  if (tooTired(ctx, a.actorId)) return { stop: StopReason.EXHAUSTED };
+  const crop = defs.crops[a.params.crop];
+  const cfg = defs.farming;
+  const actor = state.survivors[a.actorId];
+  const taken = claimedByOthers(ctx, a);
+  const rain = raining(defs, state.tick);
+  const plots = plotsOf(state, farm.id).filter((p) => !taken.has(p.id));
 
-  const from = { x: ctx.state.survivors[a.actorId].position.x, y: ctx.state.survivors[a.actorId].position.y };
-  const plot = nearestPlot(ctx, a.params.crop, from, a.params.amount ?? 1);
-
-  if (!plot) {
-    if (!hasAnyPlot(ctx, a.params.crop)) return { stop: StopReason.NO_PLOT };
-    return { stop: StopReason.NO_CROP };
+  let blocked = null; // why work that exists cannot be done right now (the stop reason if nothing else is possible)
+  // 1. harvest
+  for (const p of plots) {
+    if (p.crop !== a.params.crop || p.stage !== 'ready') continue;
+    const units = Math.min(available(state, plotKey(p.id)), carryRoom(actor, defs, a.params.crop), storageRoom(state, a.params.crop, a.actionId));
+    if (units >= 1) return { chore: { kind: 'harvest', plotId: p.id, qty: units } };
+    blocked ??= StopReason.STORAGE_FULL;
   }
-
-  const outputItem = a.params.crop;
-  if (!storageRoom(ctx.state, outputItem, a.actionId)) return { stop: StopReason.STORAGE_FULL };
-
-  a.targetId = plot.id;
-  a.plotId = plot.id;
-  a.account = plotKey(plot.id);
-  a.batch = a.params.amount ?? def.defaultAmount ?? 1;
-  a.leg = 'travel';
-  a.phase = 'travel';
-  a.progress = 0;
-  a.workTotal = 0;
-  a.stats = a.stats ?? { gathered: 0, trips: 0, harvested: 0 };
-  a.stats.harvested = 0;
-
-  return { ok: true };
+  // 2. water
+  for (const p of plots) {
+    if (p.crop !== a.params.crop || p.stage !== 'growing' || p.water >= cfg.ticksPerWater || rain) continue;
+    if (available(state, stockKey('water')) >= 1) return { chore: { kind: 'water', plotId: p.id, qty: 1 } };
+    blocked ??= StopReason.NO_WATER;
+  }
+  // 3. plant
+  for (const p of plots) {
+    if (p.stage !== 'empty') continue;
+    if (available(state, stockKey(a.params.crop)) >= crop.seeds) return { chore: { kind: 'plant', plotId: p.id, qty: crop.seeds } };
+    blocked ??= StopReason.NO_SEED;
+  }
+  // nothing to do right now: is something still growing (or being worked by a friend)? then wait for it.
+  const growing = plotsOf(state, farm.id).some((p) => p.crop === a.params.crop && (p.stage === 'growing' || p.stage === 'ready') && (p.water > 0 || rain || taken.has(p.id) || p.stage === 'ready'));
+  if (growing && blocked !== StopReason.STORAGE_FULL) return { wait: true };
+  return { stop: blocked ?? StopReason.NOTHING_TO_DO };
 }
 
-// End the job: nothing harvested -> FAILED; otherwise COMPLETED with stopReason.
+const accountsOf = (chore, a) => (chore.kind === 'harvest' ? [{ account: plotKey(chore.plotId), qty: chore.qty }]
+  : chore.kind === 'water' ? [{ account: stockKey('water'), qty: 1 }] : [{ account: stockKey(a.params.crop), qty: chore.qty }]);
+
+function releaseAll(ctx, a) {
+  for (const id of a.reservationIds) release(ctx.state, id);
+  a.reservationIds = [];
+}
+
 function stopWith(ctx, a, reason) {
-  if (a.stats.harvested === 0 && a.stats.gathered === 0) return failTick(reason);
+  releaseAll(ctx, a);
+  a.chore = null;
+  if (a.stats.chores + a.stats.prior === 0 && a.stats.gathered === 0) return failTick(reason);
   return { status: 'done', stopReason: reason };
 }
 
-// The survivor's modifiers are re-read for every batch.
-function refreshModifiers(ctx, a) {
-  const cap = checkCapability(ctx.state.survivors[a.actorId], ctx.defs.actions.farm, ctx.defs, ctx);
-  if (cap.ok) a.durationModifier = cap.durationModifier;
-}
-
-// Wait leg: a plot exists for this crop but none is ready yet; check again each tick.
-function waitLeg(ctx, a, def) {
-  a.phase = 'wait';
-  a.waited = (a.waited ?? 0) + 1;
-  const from = { x: ctx.state.survivors[a.actorId].position.x, y: ctx.state.survivors[a.actorId].position.y };
-  const plot = nearestPlot(ctx, a.params.crop, from, 1);
-  if (plot && plot.stage === 'ready') {
-    a.waited = 0;
-    a.targetId = plot.id;
-    a.plotId = plot.id;
-    a.account = plotKey(plot.id);
-    a.leg = 'travel';
-    a.phase = 'travel';
-    a.progress = 0;
-    a.workTotal = 0;
-    return RUNNING;
-  }
-  return a.waited > (def?.waitTicks ?? 200) ? failTick(StopReason.NO_PLOT) : RUNNING;
-}
-
-// Harvest leg: move harvested units from the plot into the survivor's inventory, then go to depot.
-function harvestLeg(ctx, a) {
-  const plot = own(ctx.state.plots, a.plotId);
-  if (!plot) return failTick(StopReason.NO_PLOT);
-
-  const def = ctx.defs.crops[plot.crop];
-  const harvestable = Math.min(a.batch, def.yield);
-  if (harvestable <= 0) {
-    // Plot is spent for this cycle; mark it harvested (awaiting replant) and move on.
-    plot.stage = 'harvested';
-    a.batch = 0;
-    a.reservationIds = [];
-    a.leg = 'depot';
-    a.depotId = null;
-    a.unload = 0;
-    a.travelTicks = 0;
-    a.progress = 0;
-    a.fraction = 0;
-    return RUNNING;
-  }
-
-  // Reserve then commit the harvested units from the plot's ledger account.
-  const resId = reserve(ctx.state, { owner: a.actionId, account: a.account, qty: harvestable });
-  commit(ctx.state, resId);
-  a.reservationIds = [];
-
-  // Add to survivor's inventory.
-  addCarried(ctx.state.survivors[a.actorId], plot.crop, harvestable);
-
-  // Plot is done for this cycle: reset growth, mark harvested.
-  plot.growthProgress = 0;
-  plot.stage = 'harvested';
-
-  a.stats.harvested += harvestable;
-  a.batch -= harvestable;
-
-  if (a.batch <= 0) {
-    a.leg = 'depot';
-    a.depotId = null;
-    a.unload = 0;
-    a.travelTicks = 0;
-    a.progress = 0;
-    a.fraction = 0;
-    return RUNNING;
-  }
-
-  return RUNNING;
-}
-
-// Walk to storage, unload harvested crops, then plan the next trip (or stop).
-// No reservation here: the target plot may not be ready yet; reservation happens
-// in harvestLeg once the plot's ledger account has been credited with its yield.
-function unloadLeg(ctx, a, def) {
-  const r = stepDeposit(ctx, a, def);
+/** Start a chosen chore: reserve what it spends and set its work time (skill-adjusted). */
+function begin(ctx, a, chore) {
+  for (const r of accountsOf(chore, a)) a.reservationIds.push(reserve(ctx.state, { owner: a.actionId, account: r.account, qty: r.qty }));
+  a.chore = { ...chore, ticks: Math.max(1, Math.ceil(ctx.defs.actions.farm.chore[chore.kind] * (a.durationModifier ?? 1))) };
+  a.targetPlotId = chore.plotId;
+  a.progress = 0;
   a.fraction = 0;
-  if (r.status === 'fail') return stopWith(ctx, a, r.reason);
-  if (r.status !== 'done') return RUNNING;
-  if (a.legMoved > 0) { a.stats.gathered += a.legMoved; a.stats.trips += 1; a.legMoved = 0; }
-  const next = planBatch(ctx, a);
-  if (next.stop) { a.batch = 0; return stopWith(ctx, a, next.stop); }
-  return RUNNING;
+  a.leg = 'chore';
 }
 
-// Consolidated farmHandler export
+function finish(ctx, a) {
+  const { state, defs } = ctx;
+  const { kind, plotId, qty } = a.chore;
+  const plot = state.plots[plotId];
+  const farm = state.buildings[a.farmId];
+  const cropId = a.params.crop;
+  for (const id of a.reservationIds) commit(state, id);
+  a.reservationIds = [];
+  if (kind === 'plant') {
+    syncStock(state, defs, cropId); // the seeds came out of stock: the oldest units were used
+    Object.assign(plot, { crop: cropId, stage: 'growing', progress: 0, water: 0, damage: 0 });
+    ctx.emit('crop.planted', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId });
+  } else if (kind === 'water') {
+    plot.water = Math.min(defs.farming.cap, plot.water + defs.farming.ticksPerWater);
+  } else {
+    addCarried(state.survivors[a.actorId], defs, cropId, qty);
+    ctx.emit('crop.harvested', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId, qty });
+    if (available(state, plotKey(plotId)) === 0 && !Object.values(state.reservations).some((r) => r.account === plotKey(plotId))) {
+      Object.assign(plot, { crop: null, stage: 'empty', progress: 0, water: 0, damage: 0 });
+      a.stats.harvested += 1;
+    }
+    a.leg = 'depot'; // carry it to storage before anything else
+  }
+  a.stats.chores += 1;
+  awardSkillXp(ctx, state.survivors[a.actorId], 'farm');
+  a.chore = null;
+  a.progress = 0;
+  a.fraction = 0;
+}
+
 export const farmHandler = {
   validate(ctx, a) {
-    const def = ctx.defs.actions.farm;
-    const { crop } = a.params;
-    if (typeof crop !== 'string' || !hasOwn(ctx.defs.crops, crop)) return fail('INVALID_PARAMS');
-    const amount = a.params.amount;
-    if (amount !== undefined && (!Number.isInteger(amount) || amount < 1)) return fail('INVALID_PARAMS');
+    const { state, defs } = ctx;
+    const { crop, count } = a.params;
+    const farm = own(state.buildings, a.params.targetId);
+    if (!farm || !farmDefOf(defs, farm)) return fail('UNKNOWN_TARGET');
+    if (typeof crop !== 'string' || !hasOwn(defs.crops, crop)) return fail('INVALID_PARAMS');
+    if (count !== undefined && (!Number.isInteger(count) || count < 1 || count > defs.actions.farm.maxCount)) return fail('INVALID_PARAMS');
+    if (!farmWorking(defs, farm)) return fail('NEEDS_REPAIR');
     if (tooTired(ctx, a.actorId)) return fail('EXHAUSTED');
-    if (!hasAnyPlot(ctx, crop)) return fail('NO_PLOT');
+    a.farmId = farm.id;
+    a.targetId = farm.id;
+    a.leg = 'chore';
+    a.chore = null;
+    a.waited = 0;
+    a.stats = { gathered: 0, trips: 0, chores: 0, harvested: 0, prior: a.resumeOf?.gathered ?? 0 };
+    const plan = planChore(ctx, a);
+    if (plan.stop) return fail(plan.stop);
     return ok;
   },
-
-  reservations: (ctx, a) => (a.batch > 0 ? [{ account: a.account, qty: a.batch }] : []),
-
+  reservations: () => [], // chores reserve what they spend one at a time
   tick(ctx, a) {
-    const rc = ctx.defs.crops[a.params.crop];
-
+    const { state, defs } = ctx;
+    const def = defs.actions.farm;
     if (!a.stats.started) {
       a.stats.started = true;
-      ctx.emit('task.started', { actionId: a.actionId, actorId: a.actorId, taskType: 'farm', crop: a.params.crop });
+      ctx.emit('task.started', { actionId: a.actionId, actorId: a.actorId, taskType: 'farm', crop: a.params.crop, farmId: a.farmId });
     }
+    const farm = own(state.buildings, a.farmId);
+    if (!farm || !farmWorking(defs, farm)) return stopWith(ctx, a, StopReason.NO_FARM);
 
-    if (a.leg === 'depot') return unloadLeg(ctx, a, ctx.defs.actions.farm);
-    if (a.leg === 'wait') return waitLeg(ctx, a, { waitTicks: 200 });
-    if (a.leg === 'harvest') return harvestLeg(ctx, a);
-
-    if (a.targetId) {
-      const plot = own(ctx.state.plots, a.targetId);
-      if (!plot) return fail(StopReason.NO_PLOT);
-      if (plot.crop !== a.params.crop) return fail(StopReason.NO_CROP);
-
-      const workTicks = rc.growthTicks;
-      const r = approachThenWork(ctx, a, { x: plot.x, y: plot.y }, {
-        range: ctx.defs.actions.farm.range,
-        ticksPerTile: ctx.defs.actions.farm.ticksPerTile,
-        workTicks,
-      });
-
-      a.fraction = a.phase === 'work' ? Math.min(1, a.progress / workTicks) : 0;
-
-      if (r.status === 'fail') return fail(r.reason);
+    if (a.leg === 'depot') {
+      const r = stepDeposit(ctx, a, def);
+      a.fraction = 0;
+      if (r.status === 'fail') return stopWith(ctx, a, r.reason);
       if (r.status !== 'done') return RUNNING;
-
-      // One work cycle complete: advance plot growth progress.
-      plot.growthProgress = (plot.growthProgress ?? 0) + workTicks;
-
-      // When the plot reaches full growth, credit its ledger account with the crop yield
-      // so the units can be reserved and harvested, then move to the harvest leg.
-      if (plot.growthProgress >= rc.growthTicks) {
-        plot.stage = 'ready';
-        credit(ctx.state, a.account, rc.yield);
-        a.leg = 'harvest';
-        a.plotId = plot.id;
-        a.batch = a.params.amount ?? rc.yield;
-        a.progress = 0;
-        a.fraction = 0;
-        return RUNNING;
-      }
-
-      // Not ready yet: keep working on the same plot.
+      if (a.legMoved > 0) { a.stats.gathered += a.legMoved; a.stats.trips += 1; a.legMoved = 0; }
+      a.leg = 'chore';
+      a.depotId = null;
       return RUNNING;
     }
 
-    const plan = planBatch(ctx, a);
-    if (plan.stop) return fail(plan.stop);
+    if (!a.chore) {
+      const plan = planChore(ctx, a);
+      if (plan.stop) return stopWith(ctx, a, plan.stop);
+      if (plan.wait) {
+        a.phase = 'wait';
+        a.fraction = 0;
+        a.waited += 1;
+        return a.waited > def.waitTicks ? stopWith(ctx, a, StopReason.NOTHING_TO_DO) : RUNNING;
+      }
+      a.waited = 0;
+      a.durationModifier = a.durationModifier ?? 1;
+      begin(ctx, a, plan.chore);
+    }
+
+    // The plot must still be what the chore expects (a hazard, or the farm, may have changed it).
+    const plot = state.plots[a.chore.plotId];
+    const stillValid = a.chore.kind === 'plant' ? plot.stage === 'empty' : a.chore.kind === 'water' ? plot.stage === 'growing' : plot.stage === 'ready';
+    if (!stillValid) { releaseAll(ctx, a); a.chore = null; return RUNNING; }
+
+    const r = approachThenWork(ctx, a, { x: farm.x, y: farm.y }, { range: def.range, ticksPerTile: def.ticksPerTile, workTicks: a.chore.ticks });
+    a.fraction = a.phase === 'work' ? Math.min(1, a.progress / a.chore.ticks) : 0;
+    if (r.status === 'fail') return stopWith(ctx, a, r.reason);
+    if (r.status !== 'done') return RUNNING;
+    finish(ctx, a);
     return RUNNING;
   },
-
   complete(ctx, a) {
-    ctx.emit('task.stopped', { actionId: a.actionId, actorId: a.actorId, taskType: 'farm', reason: a.stopReason, harvested: a.stats.harvested });
+    ctx.emit('task.stopped', { actionId: a.actionId, actorId: a.actorId, taskType: 'farm', reason: a.stopReason, harvested: a.stats.harvested, delivered: a.stats.gathered });
   },
 };

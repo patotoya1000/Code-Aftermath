@@ -28,7 +28,7 @@ Footprints (PA-5): a definition may declare `footprint: { x, y, w, h }` relative
 
 # Commands / API
 
-`survivor.repair(building)`; reads `buildings`, `fence`, `hq`, and every building by id (`gate`, `tent_1`, `storage_1`).
+`survivor.repair(building)`, `survivor.upgrade(building)`, `survivor.farm(farm, crop, count?)` (farms, O10: building type `field`; level 1 = field, level 2 = greenhouse, per-level `farm` table = plots / growth % / yield % / shelter; plots live in `state.plots` with ledger accounts `plot.<id>`; module `farming`); reads `field_1.farm`, `crops`, `buildings`, `fence`, `hq`, and every building by id (`gate`, `tent_1`, `storage_1`, `field_1`).
 
 # Events
 

@@ -1,6 +1,7 @@
 import { own } from '../../../kernel/index.js';
 import { stockKey } from '../../resources/index.js';
 import { awardSkillXp } from '../../survivors/index.js';
+import { syncPlots } from '../../farming/index.js';
 import { maxHealthOf, applyHealth, nextUpgrade } from '../../buildings/index.js';
 import { ok, fail, approachThenWork, tooTired } from './shared.js';
 
@@ -39,6 +40,7 @@ export const upgradeHandler = {
     b.level = a.toLevel;
     const lv = ctx.defs.buildings[b.type].levels[b.level];
     if (lv.storage) b.storage = { ...lv.storage };
+    syncPlots(ctx.state, ctx.defs, b); // a bigger farm (greenhouse) gets its extra plots
     applyHealth(ctx.defs, b, maxHealthOf(ctx.defs, b)); // freshly refitted: full health at the new maximum
     awardSkillXp(ctx, ctx.state.survivors[a.actorId], 'upgrade');
     ctx.emit('building.upgraded', { actorId: a.actorId, buildingId: b.id, from, to: b.level, health: b.health });

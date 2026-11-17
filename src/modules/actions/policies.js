@@ -79,6 +79,10 @@ function continuationOf(a, defs) {
     params.count -= a.stats?.crafted ?? 0; // batches already finished count toward the learner's count
     if (params.count < 1) return null;
   }
+  if (a.actionType === 'farm' && params.count !== undefined) {
+    params.count -= a.stats?.harvested ?? 0; // plots already harvested count toward the learner's count
+    if (params.count < 1) return null;
+  }
   if (a.actionType === 'rest') {
     params.ticks = (params.ticks ?? defs.actions.rest.defaultTicks) - a.progress;
     if (params.ticks < 1) return null;

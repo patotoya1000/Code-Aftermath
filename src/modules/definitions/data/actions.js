@@ -37,7 +37,7 @@ export const actions = {
   },
   // eat / drink: `items` is what can be consumed - `restore` points of the need, `rank` = the default order (lowest rank first, so the
   // cheapest food goes first). A learner can ask for one by name: survivor.eat("bread").
-  eat: { handler: 'consume', need: 'hunger', ticks: 5, items: { food: { restore: 30, rank: 1 }, bread: { restore: 40, rank: 2 } },
+  eat: { handler: 'consume', need: 'hunger', ticks: 5, items: { food: { restore: 30, rank: 1 }, bread: { restore: 40, rank: 2 }, carrot: { restore: 12, rank: 3 }, potato: { restore: 18, rank: 4 } },
     capability: { attributes: { intelligence: 1 }, skills: { consume: 0 } },
   },
   drink: { handler: 'consume', need: 'thirst', ticks: 3, items: { water: { restore: 30, rank: 1 } },
@@ -46,11 +46,13 @@ export const actions = {
   repair: { handler: 'repair', range: 1, ticksPerTile: 1,
     capability: { attributes: { agility: 1, intelligence: 1 }, skills: { repair: 0 } },
   },
-  // farm is a STANDING action: it repeats TRIPS (walk to a plot, grow crop, harvest, unload)
-  // until a stop reason fires (target reached, no plot, no crop, too tired).
-  // Each trip: grow one growth cycle, then harvest units into inventory, then unload to base stock.
-  // Crop data lives in `defs.crops[params.crop]`; plots are in `state.plots`.
-  farm: { handler: 'farm', range: 1, ticksPerTile: 1, maxAmount: 20, maxTotal: 500, capability: { attributes: { strength: 1, agility: 1 }, skills: { farming: 0 } } },
+  // farm (O10, docs/game/16) is a STANDING action made of CHORES at one farm building: harvest what is ripe, water what is dry, plant what
+  // is empty - in that order - for ONE crop, until a stop reason fires. `chore` = work ticks per chore (before skill). A harvest is
+  // carried to storage and unloaded like a gather trip. When nothing needs doing yet but the crop is still growing she WAITS at the
+  // farm (up to `waitTicks`, then stops with NOTHING_TO_DO). `count` (optional) = how many plots to harvest before stopping.
+  farm: { handler: 'farm', range: 1, ticksPerTile: 1, unloadTicks: 2, maxCount: 100, waitTicks: 480, chore: { plant: 6, water: 4, harvest: 8 },
+    capability: { attributes: { strength: 1, agility: 1 }, skills: { farming: 0 } },
+  },
 };
 
 // Needs policies (R4a): a standing rule "when this need drops below X, do this action". A policy INTERRUPTS the survivor's

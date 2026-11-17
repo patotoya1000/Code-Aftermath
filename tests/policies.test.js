@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ledgerViolations, stockKey, nodeKey } from '../src/modules/resources/index.js';
 import { runLesson } from '../src/modules/lessons/index.js';
 import { replayTimeline, createFreeSim, submitCalls } from '../src/modules/session/index.js';
-import { defs, sandbox, newSim, types } from './helpers.js';
+import { defs, sandbox, newSim, types, noCrops } from './helpers.js';
 
 const cmd = (type, params = {}, extra = {}) => ({ apiVersion: 1, actorId: 'survivor_1', type, params, ...extra });
 const me = (sim) => sim.snapshot().survivors.survivor_1;
@@ -37,7 +37,7 @@ test('policy: jobs queued behind the interrupted one keep their order', () => {
 });
 
 test('policy: no food means no interruption — one policy.blocked event, then a quiet wait', () => {
-  const sim = newSim('stage1', 1, (st) => { hungry(st); st.ledger[stockKey('food')].total = 0; });
+  const sim = newSim('stage1', 1, (st) => { hungry(st); st.ledger[stockKey('food')].total = 0; noCrops(st); });
   sim.submit(cmd('policy', { action: 'eat', below: 30 }));
   sim.submit(cmd('gather', { resource: 'wood', amount: 5, total: 10 }));
   sim.step(200);

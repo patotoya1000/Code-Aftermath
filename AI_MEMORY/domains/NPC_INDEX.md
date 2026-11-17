@@ -60,7 +60,7 @@ Learner reads: `survivor.needs.*`, `.conditions`, `.x/.y/.direction`, `.task`, `
 
 # Asset Files
 
-Visual reference only: `docs/game/media/npc-reference-style.jpeg`. No production sprites exist (placeholder atlas in code). See `AI_MEMORY/assets/NPC_ASSETS.md`.
+Visual reference only: the NPC style image from docs/game/11 (not included in this archive). No production sprites exist (placeholder atlas in code). See `AI_MEMORY/assets/NPC_ASSETS.md`.
 
 # Tests
 

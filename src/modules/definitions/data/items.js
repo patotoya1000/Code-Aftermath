@@ -8,6 +8,9 @@ export const items = {
   wheat: { name: 'Wheat', unitWeight: 1 },
   // `shelfLife` (days): the item spoils when it has been in stock that long (spoilage module). Items without one never spoil.
   bread: { name: 'Bread', unitWeight: 1, shelfLife: 4 },
+  // Farm crops (docs/game/16). A crop item is also its own seed: planting spends `crop.seeds` units of it. Raw crops go off sooner than bread.
+  potato: { name: 'Potato', unitWeight: 1, shelfLife: 5 },
+  carrot: { name: 'Carrot', unitWeight: 1, shelfLife: 3 },
 };
 
 // Carry capacity (R3), in weight units: (base + perStrength x strength) x every matching trait multiplier, rounded down.

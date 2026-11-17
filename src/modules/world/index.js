@@ -1,8 +1,9 @@
 import { AftermathError, createRng, STATE_SCHEMA } from '../../kernel/index.js';
-import { openAccount, stockKey, nodeKey, sourceKey, plotKey } from '../resources/index.js';
+import { openAccount, stockKey, nodeKey, sourceKey } from '../resources/index.js';
 import { createSurvivor } from '../survivors/index.js';
 import { createBuilding } from '../buildings/index.js';
 import { perishableItems, syncStock } from '../spoilage/index.js';
+import { syncPlots } from '../farming/index.js';
 
 /** Build the authoritative GameState for a scenario. Same defs + scenario + seed => identical state. */
 export function createInitialState({ defs, scenarioId, seed }) {
@@ -18,7 +19,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     nodes: {}, buildings: {}, survivors: {},
     actions: {}, activeActions: [], hooks: {},
     perishables: {}, // spoilage batches per perishable item: [{ qty, age }], oldest first (see the spoilage module)
-    plots: {}, // farming plots: { id, x, y, crop, stage, growthProgress }
+    plots: {}, // farming plots (see the farming module): { id, farmId, index, crop, stage, progress, water, damage }
   };
   for (const item of Object.keys(defs.items)) openAccount(state, stockKey(item), sc.stock[item] ?? 0);
   for (const spec of sc.buildings) {
@@ -31,10 +32,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     openAccount(state, nodeKey(spec.id), amount);
     state.nodes[spec.id] = { id: spec.id, type: spec.type, resource: nt.yields, x: spec.x, y: spec.y };
   }
-  for (const spec of sc.plots ?? []) {
-    openAccount(state, plotKey(spec.id), 0); // plot ledger account: units harvested from it are reserved here
-    state.plots[spec.id] = { id: spec.id, x: spec.x, y: spec.y, crop: spec.crop, stage: spec.stage, growthProgress: spec.growthProgress ?? 0 };
-  }
+  for (const b of Object.values(state.buildings)) syncPlots(state, defs, b); // every farm gets its plots (each has a ledger account)
   for (const item of perishableItems(defs)) syncStock(state, defs, item); // starting stock counts as fresh
   for (const spec of sc.survivors) state.survivors[spec.id] = createSurvivor(defs, spec);
   state.rngState = rng.state;

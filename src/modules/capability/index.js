@@ -132,6 +132,7 @@ function actionSkillOf(handler) {
     repair: 'repair',
     upgrade: 'repair',
     cook: 'cooking',
+    farm: 'farming',
   };
   return map[handler] ?? null;
 }

@@ -3,6 +3,7 @@ import { applyNeedsDecay } from '../survivors/index.js';
 import { timeOf, weatherForDay } from '../environment/index.js';
 import { tickWater } from '../water/index.js';
 import { ageFood } from '../spoilage/index.js';
+import { tickFarms, farmDay } from '../farming/index.js';
 import { createActionEngine } from '../actions/index.js';
 import { studentView, renderProjection, inspectorCard } from '../projection/index.js';
 
@@ -58,6 +59,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     if (!before.isNight && now.isNight) ctx.emit('time.dusk', { day: now.day });
     if (now.day !== before.day) {
       ageFood(ctx, now.day); // food ages once a day, at dawn
+      farmDay(ctx, now.day); // today's weather hazard hits unsheltered crops
       const from = weatherForDay(defs, before.day);
       const to = weatherForDay(defs, now.day);
       if (from !== to) ctx.emit('weather.changed', { from, to, day: now.day });
@@ -68,6 +70,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
   function tickOnce() {
     state.tick += 1;
     announceTime();
+    tickFarms(ctx); // crops grow (rain waters them); ripe plots fill their ledger account
     tickWater(ctx); // aquifers refill, siphons move water (before survivors act, so a waiting gatherer sees new water at once)
     for (const id of applyNeedsDecay(ctx)) engine.cancelFor(ctx, id, 'ACTOR_DOWNED');
     if (state.tick % cfg.regenEvery === 0 && state.strategyPoints < cfg.max) state.strategyPoints += 1;

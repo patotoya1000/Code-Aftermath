@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defs, newSim, call, runUntilIdle, types, sandbox } from './helpers.js';
+import { defs, newSim, call, runUntilIdle, types, sandbox, noCrops } from './helpers.js';
 import { createDefinitions } from '../src/modules/definitions/index.js';
 import { ledgerViolations } from '../src/modules/resources/index.js';
 
@@ -148,7 +148,7 @@ test('eat: with no argument the cheapest food goes first; eat("bread") chooses b
 });
 
 test('eat with no food at all still fails INSUFFICIENT_RESOURCE; drink is unchanged', () => {
-  const sim = newSim('stage1', 1, (st) => { st.survivors.survivor_1.needs.hunger = 10; st.survivors.survivor_1.needs.thirst = 10; st.ledger['stock.food'].total = 0; });
+  const sim = newSim('stage1', 1, (st) => { st.survivors.survivor_1.needs.hunger = 10; st.survivors.survivor_1.needs.thirst = 10; st.ledger['stock.food'].total = 0; noCrops(st); });
   call(sim, 'eat'); runUntilIdle(sim, 50);
   assert.ok(failed(sim).includes('INSUFFICIENT_RESOURCE'));
   call(sim, 'drink'); runUntilIdle(sim, 50);

@@ -5,6 +5,7 @@ import { environmentView } from '../environment/index.js';
 import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, stationsFor } from '../buildings/index.js';
 import { waterInfoFor } from '../water/index.js';
 import { perishableView, coldInfoFor } from '../spoilage/index.js';
+import { farmInfoFor, cropBook } from '../farming/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
 // the Inspector/Survivor Card and the renderer all consume these and can never mutate the simulation.
@@ -60,12 +61,13 @@ function buildingView(state, defs, b) {
   const water = waterInfoFor(state, defs, b); // wells: reservoir, recharge, siphon
   const recipesHere = recipesAt(defs, b);
   const cold = coldInfoFor(state, defs, b); // cold cellar: { capacity, factor, working }
+  const farm = farmInfoFor(state, defs, b); // farms: plots, shelter, growth/yield %
   return {
-    id: b.id, type: b.type, name: def.name, level: b.level, x: b.x, y: b.y,
+    id: b.id, type: b.type, name: def.levels[b.level]?.name ?? def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
     upgrade: nextUpgrade(defs, b), // { level, cost, ticks } or null
     ...(storageInfo ? { storageInfo } : {}), ...(water ? { water } : {}), ...(def.note ? { note: def.note } : {}),
-    ...(cold ? { cold } : {}),
+    ...(cold ? { cold } : {}), ...(farm ? { farm } : {}),
     ...(recipesHere.length ? { recipes: recipesHere } : {}), // station buildings: which recipes are cooked here (and from which level)
   };
 }
@@ -110,7 +112,7 @@ export function studentView(state, defs) {
     apiVersion: API_VERSION, tick: state.tick, world: { ...state.map, ...environmentView(defs, state.tick) },
     survivor: survivors[0] ?? null, survivors, base,
     buildings, fence: buildings.find((b) => b.type === 'fence') ?? null, hq: buildings.find((b) => b.type === 'hq') ?? null,
-    recipes: recipeBook(state, defs), foods: foodTable(state, defs),
+    recipes: recipeBook(state, defs), foods: foodTable(state, defs), crops: cropBook(state, defs, (id) => available(state, stockKey(id))),
     nodes,
   });
 }
@@ -121,7 +123,7 @@ function animationFor(s, a) {
   if (!a || a.status !== 'EXECUTING') return 'IDLE';
   if (a.actionType === 'move' || a.phase === 'travel') return 'WALK';
   if (a.phase === 'wait') return 'IDLE'; // standing at an empty well, waiting for it to refill
-  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', cook: 'REPAIR', /* placeholder: no cooking pose in the sprite sheet yet - a working pose stands in */ rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
+  return { gather: 'GATHER', deposit: 'GATHER', repair: 'REPAIR', upgrade: 'REPAIR', cook: 'REPAIR', farm: 'GATHER', /* placeholder: no cooking pose in the sprite sheet yet - a working pose stands in */ rest: 'REST', eat: 'EAT', drink: 'DRINK' }[a.actionType] ?? 'IDLE';
 }
 
 /** Static presentation ground for the scenario (forest zone, outside path). Never affects gameplay. */

@@ -1,6 +1,7 @@
 import { chebyshev } from '../../../kernel/index.js';
 import { credit, stockKey, total } from '../../resources/index.js';
 import { carriedOf, removeCarried } from '../../survivors/index.js';
+import { syncStock } from '../../spoilage/index.js';
 import { nearestDepot, depotAccepts, storageCapacity } from '../../buildings/index.js';
 import { DONE, RUNNING, failTick, walkStep } from './shared.js';
 
@@ -49,6 +50,7 @@ export function stepDeposit(ctx, a, def) {
     if (n < 1) continue;
     removeCarried(s, it, n);
     credit(state, stockKey(it), n);
+    syncStock(state, ctx.defs, it); // perishable crops arrive as a fresh batch
     moved += n;
     ctx.emit('resource.deposited', { actorId: a.actorId, depotId: depot.id, resource: it, amount: n });
   }

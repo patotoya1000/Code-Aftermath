@@ -6,7 +6,7 @@ import { nodeTypes, buildings, scenarios } from './data/world.js';
 import { lessons } from './data/lessons.js';
 import { environment } from './data/environment.js';
 import { recipes } from './data/recipes.js';
-import { crops } from './data/crops.js';
+import { crops, farming } from './data/crops.js';
 
 const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm'];
 
@@ -85,14 +85,25 @@ export function validateDefinitions(d) {
       for (const [it, c] of Object.entries(a.items ?? {})) need(d.items[it] && Number.isInteger(c.restore) && c.restore > 0 && Number.isInteger(c.rank) && c.rank >= 1, `action ${id}: item "${it}" needs a known item, a whole restore > 0 and a whole rank >= 1`);
       need(new Set(Object.values(a.items ?? {}).map((c) => c.rank)).size === Object.keys(a.items ?? {}).length, `action ${id}: item ranks must all differ (they decide the default order)`);
     }
+    if (a.handler === 'farm') {
+      need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
+      need(Number.isInteger(a.waitTicks) && a.waitTicks >= 1, `action ${id}: waitTicks must be a whole number >= 1`);
+      for (const k of ['plant', 'water', 'harvest']) need(Number.isInteger(a.chore?.[k]) && a.chore[k] >= 1, `action ${id}: chore.${k} must be a whole number >= 1`);
+    }
     if (a.handler === 'cook') need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
+  const wholeAtLeast = (n, min) => Number.isInteger(n) && n >= min;
+  const fm = d.farming;
+  need(fm && wholeAtLeast(fm.ticksPerWater, 1) && wholeAtLeast(fm.cap, fm.ticksPerWater ?? 1) && wholeAtLeast(fm.maxDamage, 0) && fm.maxDamage <= 99, 'farming: ticksPerWater >= 1, cap >= ticksPerWater and maxDamage 0..99 must be whole numbers');
+  const hazards = new Set(Object.values(d.environment?.weather ?? {}).map((w) => w.hazard).filter(Boolean));
   for (const [id, crop] of Object.entries(d.crops ?? {})) {
     need(typeof crop.name === 'string' && crop.name, `crop ${id}: name must be non-empty text`);
-    need(Number.isInteger(crop.growthTicks) && crop.growthTicks >= 1, `crop ${id}: growthTicks must be a whole number >= 1`);
-    need(Number.isInteger(crop.yield) && crop.yield >= 1, `crop ${id}: yield must be a whole number >= 1`);
-    if (crop.shelfLife !== undefined) need(Number.isInteger(crop.shelfLife) && crop.shelfLife >= 0, `crop ${id}: shelfLife must be a whole number >= 0`);
+    need(d.items[id], `crop ${id}: must also be an item (it is its own seed and its own harvest)`);
+    need(wholeAtLeast(crop.growthTicks, 1), `crop ${id}: growthTicks must be a whole number >= 1`);
+    need(wholeAtLeast(crop.seeds, 1), `crop ${id}: seeds must be a whole number >= 1`);
+    need(wholeAtLeast(crop.yield, 1), `crop ${id}: yield must be a whole number >= 1`);
+    for (const [h, pct] of Object.entries(crop.hazards ?? {})) need(hazards.has(h) && wholeAtLeast(pct, 0) && pct <= 100, `crop ${id}: hazard "${h}" must be a weather hazard with a whole % from 0 to 100`);
   }
   for (const [id, p] of Object.entries(d.policies ?? {})) {
     need(d.actions[p.action], `policy ${id}: unknown action \"${p.action}\"`);
@@ -126,6 +137,10 @@ export function validateDefinitions(d) {
     let sourceSeen = false;
     for (const [lvl, L] of Object.entries(b.levels)) {
       for (const [res, cap] of Object.entries(L.storage ?? {})) need(d.items[res] && cap > 0, `building ${id} level ${lvl}: storage for \"${res}\" needs a known item and a capacity > 0`);
+      if (L.farm) {
+        const f = L.farm;
+        need(wholeAtLeast(f.plots, 1) && wholeAtLeast(f.growth, 1) && wholeAtLeast(f.yield, 1) && typeof f.shelter === 'boolean', `building ${id} level ${lvl}: farm needs whole plots/growth/yield >= 1 and a true/false shelter`);
+      }
       if (sourceSeen) need(L.source, `building ${id} level ${lvl}: a source must continue at every higher level`);
       if (L.source) {
         sourceSeen = true;
@@ -203,7 +218,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   validateDefinitions(defs);
   return deepFreeze(defs);
 }

@@ -1,6 +1,6 @@
 # Farming, cooking, crafting and power — agreed design (2026-11-16)
 
-Status: **build steps 1–4 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar)**; farming field→greenhouse handler is DONE; power (generator/solar → hydroponic, freezer) and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
+Status: **build steps 1–4 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar)**; farming field→greenhouse is DONE (O10, as built below); power (generator/solar → hydroponic, freezer) and crafting are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
 
 ## Principles (decided with the project owner)
 - **No free construction.** Every building is placed by the scenario as a ruin. Learners repair it (`survivor.repair`) and then raise it (`survivor.upgrade`). Fixed world ⇒ fixed lessons and replays.
@@ -57,11 +57,20 @@ Status: **build steps 1–4 are implemented (O5 upgrades, O6 environment, O7 wat
 - Storehouse level 2 = **cold cellar**: repair the storehouse, then `survivor.upgrade(storage_1)` (25 wood + 30 stone). Its `cold` table (capacity 30, factor 2) protects the 30 OLDEST perishable units; the rest age normally. A ruined cellar protects nothing. Level 3 (freezer, needs power) is not built.
 - Learner reads: `base.perishables` ([{ item, qty, daysLeft, cold }], oldest first), `storage_1.cold` ({ capacity, factor, working }). Event `food.spoiled { item, qty, day }`.
 
+## As built (O10, 2026-11-17)
+- **One building, two tiers.** `field` (level 1 = Field, 4 plots, exposed) → `survivor.upgrade(field_1)` (20 wood + 15 stone, Repair 1) → level 2 = **Greenhouse** (6 plots, growth 150 %, yield 150 %, hazard shelter). It starts as a ruin at (8,4) in stage 1; repair it first. Hydroponics (level 3) waits for power; the `glass` cost the old scaffold used does not exist yet.
+- **Plots** are `state.plots` entries (`field_1_1` …) with a ledger account `plot.<id>` that holds the ripe harvest, so harvest is a normal reserve/commit like gathering. Stages: empty → growing → ready.
+- **Crops** (`data/crops.js`): wheat (720 ticks, yield 4; storm 40 %, cold 50 %), potato (480, 3; storm 25 %, heat 30 %), carrot (360, 3; heat 40 %, cold 25 %). A crop is also its own seed (`seeds` 1) and its own food (raw potato +18, carrot +12; bread is still better). Start stock: wheat 10, potato 4, carrot 4.
+- **Water**: one unit keeps a plot growing 120 ticks (cap 240); a dry plot does not grow; rain fills every plot for free (greenhouse roofs let rain through).
+- **Hazards**: at each day change a storm / heat / cold day damages plots of an unsheltered farm: a growing crop loses that % of its future yield (cap 90 %), a ripe crop loses that % of the units waiting (always keeps one). Greenhouses take none. The forecast is public, so the lesson is "harvest before the storm, or build the greenhouse".
+- **Learner API**: `survivor.farm(field_1, "potato", 2)` — chores in order harvest → water → plant for one crop; she waits while crops grow (up to 480 ticks, then `NOTHING_TO_DO`); `count` = plots harvested. Stop reasons `TARGET_REACHED`, `NO_SEED`, `NO_WATER`, `NO_FARM`, `STORAGE_FULL`, `EXHAUSTED`, `NO_PATH`, `NO_DEPOT`, `NOTHING_TO_DO`. Reads: `crops` (growthTicks, seeds, yield, hazards, inStock), `field_1.farm` (working, sheltered, growth, yield, plots with stage / percent / water / dry / damage / ready), `base.potato`, `base.carrot`. Farming skill speeds chores up and earns XP per chore.
+- **Not yet:** plot/crop art in the renderer, fertilizer, pests, crop rotation, several survivors sharing one farm in the tests (the claim logic exists), hydroponics.
+
 ## Build order
 1. ✅ Upgrade existing buildings (O5)  2. ✅ Environment / weather calendar (O6)
 2b. ✅ Water source (O7, `17-water-wells.md`) — bread, crops and later the pump all draw on it
 3. ✅ Recipe engine + kitchen + bread + `eat` choosing among foods (wheat given as starting stock until farming exists) — O8
 4. ✅ Spoilage (batches) + storehouse cold cellar (L2) — O9
-5. ✅ Farming: field → greenhouse (handler + plot storage + ledger reservations DONE; weather hazards and greenhouse multipliers pending)
+5. ✅ Farming: field → greenhouse, plots, `survivor.farm`, rain, weather hazards, greenhouse multipliers — O10
 6. Power: generator (+ upgrade branches) → hydroponic, freezer (storehouse L3)
 7. Crafting / workshop recipes (packaging, fuel, glass, fertilizer), hot meals, MRE

@@ -11,7 +11,7 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80 } } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     // PA-5: the HQ is a 3x3 building. The scenario's (x, y) is its DOOR cell (bottom middle); `footprint` is the rectangle it occupies,
     // relative to the door: x/y = offset of its top-left cell, w/h = size. Every footprint cell blocks walking; survivors still walk to the door.
@@ -19,7 +19,7 @@ export const buildings = {
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
-    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40 },
+    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40 },
   },
   fence: {
     name: 'Perimeter Fence',
@@ -89,33 +89,28 @@ export const buildings = {
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 4 }, healthPerAction: 20, ticks: 20 },
   },
-  // --- Farming buildings (added for the field → greenhouse phase) ---
-  // Field (L1): open ground, survivors can walk through it. Plots are placed on field tiles.
+  // O10 farming (docs/game/16). ONE building whose level is the tier: level 1 = FIELD (open ground, exposed to weather hazards),
+  // level 2 = GREENHOUSE (blocks storm / heat / cold, grows faster, yields more). `farm` per level: `plots` (how many plots the farm
+  // has), `growth` (% growth speed), `yield` (% of each crop's yield) and `shelter` (true = no hazard damage). Hydroponics (level 3,
+  // needs power) arrives with the power phase. Like every building it starts as a ruin in the scenario: repair it, then plant.
+  // A farm does not block walking (the door cell is the field's edge).
   field: {
     name: 'Field',
-    levels: { 1: { maxHealth: 100 } },
+    levels: {
+      1: { maxHealth: 100, farm: { plots: 4, growth: 100, yield: 100, shelter: false } },
+      2: { name: 'Greenhouse', maxHealth: 150, farm: { plots: 6, growth: 150, yield: 150, shelter: true } },
+    },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     blocks: false,
-    repair: { cost: { wood: 3 }, healthPerAction: 20, ticks: 15 },
-  },
-  // Greenhouse (L2): blocks storm/heat/cold hazards; clear/rain still pass through (crops get water).
-  // Growth and yield bonuses apply while the greenhouse is fully repaired.
-  greenhouse: {
-    name: 'Greenhouse',
-    levels: { 1: { maxHealth: 120 }, 2: { maxHealth: 150 } },
-    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
-    blocks: true,
-    growthMultiplier: 1.5,
-    yieldMultiplier: 1.5,
-    repair: { cost: { wood: 5, stone: 3 }, healthPerAction: 30, ticks: 25 },
-    upgrade: { 2: { cost: { wood: 10, stone: 8, glass: 15 }, ticks: 40 } }, // hydroponic (L3) arrives with power
+    repair: { cost: { wood: 4 }, healthPerAction: 25, ticks: 20 },
+    upgrade: { 2: { cost: { wood: 20, stone: 15 }, ticks: 60 } }, // glass and a powered hydroponic level 3 come later
   },
 };
 
 const stage1 = {
   name: 'Stage 1 — The Ruined Settlement',
   map: { width: 24, height: 16 },
-  stock: { wood: 0, stone: 0, food: 6, water: 6, wheat: 10 }, // wheat is a starting stock until farming exists
+  stock: { wood: 0, stone: 0, food: 6, water: 6, wheat: 10, potato: 4, carrot: 4 }, // wheat/potato/carrot are the first seeds (and food) of the farm
   buildings: [
     { id: 'hq', type: 'hq', level: 1, x: 11, y: 7, health: 200 },
     { id: 'fence', type: 'fence', level: 1, x: 11, y: 12, health: 20, bounds: { x1: 6, y1: 3, x2: 16, y2: 12 } },
@@ -124,6 +119,7 @@ const stage1 = {
     { id: 'gate', type: 'gate', level: 1, x: 16, y: 7, health: 30 },          // damaged, on the east fence line
     { id: 'well', type: 'well', level: 1, x: 13, y: 11, health: 12 },         // ruined; 4 tiles from the HQ, so the siphon cannot reach it
     { id: 'kitchen', type: 'kitchen', level: 1, x: 9, y: 9, health: 15 },    // ruined; repair it, then survivor.cook("bread")
+    { id: 'field_1', type: 'field', level: 1, x: 8, y: 4, health: 12 },       // ruined; repair it, then survivor.farm(field_1, "potato")
     { id: 'tank', type: 'water_tank', level: 1, x: 15, y: 10, health: 10 },   // ruined; within siphon reach (2 tiles) of the well once repaired
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
@@ -137,12 +133,6 @@ const stage1 = {
     { id: 'tree_2', type: 'tree', x: 20, y: 7 },
     { id: 'tree_3', type: 'tree', x: 21, y: 11 },
     { id: 'rock_1', type: 'rock', x: 3, y: 13 },
-  ],
-  plots: [
-    { id: 'plot_1', x: 7, y: 3, crop: 'potato', stage: 'empty', growthProgress: 0 },
-    { id: 'plot_2', x: 8, y: 3, crop: 'potato', stage: 'empty', growthProgress: 0 },
-    { id: 'plot_3', x: 9, y: 3, crop: 'carrot', stage: 'empty', growthProgress: 0 },
-    { id: 'plot_4', x: 10, y: 3, crop: 'carrot', stage: 'empty', growthProgress: 0 },
   ],
   survivors: [{ id: 'survivor_1', template: 'rookie', name: 'Mara', x: 11, y: 9 }],
 };

@@ -7,6 +7,9 @@ import { createSandbox } from '../src/modules/sandbox/index.js';
 export const defs = createDefinitions();
 export const sandbox = createSandbox();
 
+/** The farm's starting seeds are edible, perishable stock; tests about hunger or spoilage of OTHER foods remove them first. */
+export const noCrops = (st) => { for (const c of ['potato', 'carrot']) st.ledger[`stock.${c}`].total = 0; };
+
 export function newSim(scenarioId = 'stage1', seed = 1, mutate) {
   const state = createInitialState({ defs, scenarioId, seed });
   if (mutate) mutate(state);

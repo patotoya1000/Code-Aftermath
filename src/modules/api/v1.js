@@ -56,6 +56,15 @@ export const COMMANDS = {
       return { recipe: args[0], ...(count !== undefined ? { count } : {}) };
     },
   },
+  farm: {
+    type: 'farm', signature: 'survivor.farm(farm, crop, count)',
+    doc: 'Work one farm for one crop, e.g. survivor.farm(field_1, "potato"). She harvests what is ripe (and carries it to storage), waters dry plots, and plants empty ones, again and again. Planting spends seeds from base stock (a crop is its own seed), watering spends water; rain waters the plots for free. She waits at the farm while the crop grows. Stops when `count` plots are harvested, seeds or water run out, storage is full, or she is too tired. The farm must be repaired. See crops and the farm\'s plots (field_1.farm).',
+    params(args) {
+      if (args.length < 2 || args.length > 3 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('farm', 'use farm(field_1, "potato") or farm(field_1, "potato", 4)');
+      const count = optInt('farm', 'count', args[2], 1, 100);
+      return { targetId: args[0], crop: args[1], ...(count !== undefined ? { count } : {}) };
+    },
+  },
   rest: {
     type: 'rest', signature: 'survivor.rest(ticks = 20)', doc: 'Rest to recover energy.',
     params(args) {
@@ -141,7 +150,7 @@ export const READ_SURFACE = [
   'survivor.attributes, survivor.skills, survivor.traits, survivor.inventory   (what she carries)',
   'survivor.carry   ({ load, capacity } in weight units)',
   'survivors   (array of all survivors)',
-  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread   (available amounts in storage, not what survivors carry)',
+  'base.wood, base.stone, base.food, base.water, base.wheat, base.bread, base.potato, base.carrot   (available amounts in storage, not what survivors carry)',
   'base.perishables   (food that can spoil, oldest first: [{ item, qty, daysLeft, cold }]; spoiled units are lost - eat or protect them)',
   'base.capacity.wood …   (how much the working storage buildings hold in total)',
   'fence, hq, buildings   (id, type, level, health, maxHealth, condition, x, y)',
@@ -149,6 +158,8 @@ export const READ_SURFACE = [
   'well.water   (the deep well\'s reservoir: { amount, capacity, working, recharge: { every, amount, percent, perDay }, siphon: { status, reach, target } or null })',
   'recipes   (what can be cooked: id -> { name, station, stationLevel, inputs, outputs, ticks, skill, stationWorking, canAfford })',
   'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',
+  'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',
+  'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
   'world.width, world.height, tick',

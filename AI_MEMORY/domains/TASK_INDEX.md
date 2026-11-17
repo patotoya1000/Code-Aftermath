@@ -4,7 +4,7 @@
 
 # Purpose
 
-Everything a survivor can be asked to do is an *action* with one lifecycle, executed over simulation ticks. `gather` and `cook` are standing actions.
+Everything a survivor can be asked to do is an *action* with one lifecycle, executed over simulation ticks. `gather`, `cook` and `farm` are standing actions (`farm` = chores at one farm: harvest → water → plant, waits while crops grow; stop reasons TARGET_REACHED, NO_FARM, NO_SEED, NO_WATER, STORAGE_FULL, EXHAUSTED, NO_PATH, NO_DEPOT, NOTHING_TO_DO).
 
 # Responsibilities
 

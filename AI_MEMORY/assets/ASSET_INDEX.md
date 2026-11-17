@@ -36,4 +36,4 @@ The master prompt prefers `npc.survivor.default`, `building.hq.level1`, `resourc
 
 ## Visual reference only
 
-`docs/game/media/npc-reference-style.jpeg` (style reference for the NPC sprite sheet; not loaded by the game).
+The NPC style reference image (docs/game/media; not included in this archive, not loaded by the game).
