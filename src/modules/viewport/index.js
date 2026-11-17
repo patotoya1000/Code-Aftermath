@@ -44,6 +44,11 @@ export function withView(vp, { map = vp.map, view = vp.view } = {}) {
 /** Top-left pixel of a cell (fractional cells allowed: a smoothly moving survivor). */
 export const gridToScreen = (vp, gx, gy) => ({ x: vp.ox + gx * vp.cell, y: vp.oy + gy * vp.cell });
 export const cellRect = (vp, gx, gy, w = 1, h = 1) => ({ x: vp.ox + gx * vp.cell, y: vp.oy + gy * vp.cell, w: w * vp.cell, h: h * vp.cell });
+/** Like cellRect but widened to whole pixels (floor the start, ceil the end) so neighbouring tiles overlap by under a pixel and never leave a seam. */
+export function cellRectCovering(vp, gx, gy, w = 1, h = 1) {
+  const x0 = Math.floor(vp.ox + gx * vp.cell); const y0 = Math.floor(vp.oy + gy * vp.cell);
+  return { x: x0, y: y0, w: Math.ceil(vp.ox + (gx + w) * vp.cell) - x0, h: Math.ceil(vp.oy + (gy + h) * vp.cell) - y0 };
+}
 export const cellCenter = (vp, gx, gy) => ({ x: vp.ox + (gx + 0.5) * vp.cell, y: vp.oy + (gy + 0.5) * vp.cell });
 /** Where a sprite's feet go: horizontally centred, near the bottom of the cell. */
 export const cellFoot = (vp, gx, gy) => ({ x: vp.ox + (gx + 0.5) * vp.cell, y: vp.oy + (gy + FOOT) * vp.cell });

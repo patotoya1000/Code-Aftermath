@@ -13,6 +13,9 @@ export const buildings = {
     name: 'Headquarters',
     levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    // PA-5: the HQ is a 3x3 building. The scenario's (x, y) is its DOOR cell (bottom middle); `footprint` is the rectangle it occupies,
+    // relative to the door: x/y = offset of its top-left cell, w/h = size. Every footprint cell blocks walking; survivors still walk to the door.
+    footprint: { x: -1, y: -2, w: 3, h: 3 },
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },

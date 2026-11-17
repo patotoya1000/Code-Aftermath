@@ -28,6 +28,19 @@ function validateWorldLayout(id, s, d, need) {
     ids.add(e.id);
   }
   const taken = new Map();
+  const footCells = (b) => { const f = d.buildings[b.type]?.footprint; if (!f || b.bounds) return null; return { x1: b.x + f.x, y1: b.y + f.y, x2: b.x + f.x + f.w - 1, y2: b.y + f.y + f.h - 1 }; };
+  for (const b of s.buildings) { // PA-5: every cell of a footprint is owned by that building
+    const r = footCells(b); if (!r) continue;
+    need(isTile(s, r.x1, r.y1) && isTile(s, r.x2, r.y2), `scenario ${id}: ${where(b)} footprint is outside the map`);
+    for (let y = r.y1; y <= r.y2; y++) for (let x = r.x1; x <= r.x2; x++) {
+      if (x === b.x && y === b.y) continue; // the door cell is registered with the building below
+      const k = `${x},${y}`;
+      need(!taken.has(k), `scenario ${id}: ${where(b)} footprint overlaps ${taken.get(k)} at ${k}`);
+      taken.set(k, b.id);
+      need(!fences.some((f) => onRectEdge(f.bounds, x, y)), `scenario ${id}: ${where(b)} footprint touches the fence line at ${k}`);
+      for (const sv of s.survivors) need(sv.x !== x || sv.y !== y, `scenario ${id}: survivor ${sv.id} starts inside the footprint of ${b.id}`);
+    }
+  }
   for (const e of [...s.buildings.filter((b) => !b.bounds), ...s.nodes]) {
     need(isTile(s, e.x, e.y), `scenario ${id}: ${where(e)} is outside the ${s.map.width}x${s.map.height} map`);
     const key = `${e.x},${e.y}`;
@@ -103,6 +116,12 @@ export function validateDefinitions(d) {
       }
     }
     for (const res of Object.keys(b.repair?.cost ?? {})) need(d.items[res], `building ${id}: repair cost uses unknown item \"${res}\"`);
+    if (b.footprint !== undefined) {
+      const f = b.footprint;
+      need(Number.isInteger(f.x) && Number.isInteger(f.y) && Number.isInteger(f.w) && Number.isInteger(f.h) && f.w >= 1 && f.h >= 1, `building ${id}: footprint needs whole numbers x, y and w, h >= 1`);
+      need(f.x <= 0 && 0 < f.x + f.w && f.y <= 0 && 0 < f.y + f.h, `building ${id}: the footprint must contain the door cell (0, 0)`);
+      need(!b.perimeter, `building ${id}: a perimeter building (the gate) has no footprint`);
+    }
     const whole = (n) => Number.isInteger(n) && n >= 1;
     let sourceSeen = false;
     for (const [lvl, L] of Object.entries(b.levels)) {

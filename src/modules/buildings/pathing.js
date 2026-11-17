@@ -2,7 +2,8 @@
 // deterministic. Movement is 8-directional on the tile grid; every step costs 1 (same as the old straight-line walk).
 //
 // What blocks a survivor:
-//   - a building with `blocks: true` (copied from its definition) blocks its own tile,
+//   - a building with `blocks: true` (copied from its definition) blocks its own tile — or, with a `footprint` (PA-5), every tile of it;
+//     the building's (x, y) stays its DOOR: the place survivors walk to,
 //   - a fence (a building with `bounds`) blocks every tile of its rectangle's PERIMETER,
 //   - except a tile where a non-blocking building stands (the gate): that perimeter tile is open.
 // Nodes (trees, rocks) do not block; they are things you walk up to. The DESTINATION tile is always enterable, so
@@ -23,6 +24,9 @@ export function blockedTiles(state) {
     if (b.bounds) {
       const { x1, y1, x2, y2 } = b.bounds;
       for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) if (x === x1 || x === x2 || y === y1 || y === y2) blocked.add(key(x, y));
+    } else if (b.footprint) {
+      const { x1, y1, x2, y2 } = b.footprint;
+      for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) blocked.add(key(x, y));
     } else blocked.add(key(b.x, b.y));
   }
   for (const k of open) blocked.delete(k);

@@ -5,7 +5,15 @@
 >
 > **PA-1 DONE (2026-11-17):** `src/modules/viewport/index.js` is the one grid↔screen conversion with a camera (spec §12–14, §26); the renderer uses nothing else. Camera controls are not wired to the UI yet.
 >
-> **Gaps against this spec (honest list):** no `assets/` folder of real PNGs (`*.png` is git-ignored); buildings are single-tile with no declared multi-cell footprint/entrance (spec §7, §20); fence and road tiles are not auto-chosen from neighbours (spec §6); asset ids are underscore keys, not dotted (see `IMPLEMENTATION_STATUS.md` conflict 3).
+> **PA-2 DONE (2026-11-17):** terrain is tile-based (`src/modules/assets/terrain.js`): grass / dirt / soil / damaged with variants, placeholder art, no gaps. Not yet: edge transition tiles (§5.1 `transition/`), terrain detail layer as separate sprites (§3 layer 1 — details are baked into tile variants for now).
+>
+> **PA-3 DONE (2026-11-17):** roads are modular (`pathCells`, 16 pieces by neighbour mask; gates connect). Not yet: road-to-ground transition art, road overlay on non-dirt ground variants.
+>
+> **PA-4 DONE (2026-11-17):** fence is modular (`fenceCells`, pieces by neighbour mask × level × condition), objects declare footprint vs sprite size (`objects.js`), depth sorting. Not yet: ruin objects, partially-harvested node stages (§11), multi-cell footprints for nodes (only 1×1 exist).
+>
+> **PA-5 DONE (2026-11-17):** buildings have explicit footprints (data → state → pathing → renderer), the door is the walk target, HQ is 3×3. NOTE: this phase deliberately changed the simulation (`SIM_VERSION` 0.13.0) — a footprint that only the renderer knew about would let survivors walk through a drawn building. Not yet: other buildings are still 1×1, no separate list of walkable cells inside a footprint, no level-specific footprints.
+>
+> **Gaps against this spec (honest list):** no `assets/` folder of real PNGs (`*.png` is git-ignored); only the HQ has a multi-cell footprint and its entrance is simply the door cell (spec §7, §20); asset ids are underscore keys, not dotted (see `IMPLEMENTATION_STATUS.md` conflict 3).
 >
 > **Phase map.** The spec's phases 1–8 are tracked as **PA-1 … PA-8** in `docs/PHASES.md`. Per spec §29 only ONE of logic / grid / NPC / asset / UI / save changes per step; PA-x phases change the renderer and asset layer only and must leave every simulation test untouched.
 

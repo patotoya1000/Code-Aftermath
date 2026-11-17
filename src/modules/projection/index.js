@@ -147,6 +147,7 @@ export function renderProjection(state, defs) {
       return {
         id: b.id, type: b.type, name: defs.buildings[b.type].name, level: b.level, condition: b.condition, assetKey: assetKey(b), x: b.x, y: b.y,
         ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
+        ...(b.footprint ? { footprint: { ...b.footprint } } : {}),
         storageInfo: storageInfoFor(state, defs, b.type),
         ...(w ? { water: { amount: w.amount, capacity: w.capacity, working: w.working } } : {}), // the renderer draws a reservoir gauge from this
       };

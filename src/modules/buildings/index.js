@@ -15,9 +15,13 @@ export function createBuilding(defs, spec) {
     ...(Object.values(def.levels).some((l) => l.source) ? { water: { progress: 0, siphon: { status: 'OFF', progress: 0 } } } : {}),
   };
   if (spec.bounds) b.bounds = { ...spec.bounds };
+  if (def.footprint) b.footprint = footprintRect(def.footprint, spec.x, spec.y);
   b.condition = conditionOf(defs, b);
   return b;
 }
+
+/** Absolute inclusive rectangle of a definition footprint (offsets relative to the door cell) placed at door (x, y). */
+export const footprintRect = (fp, x, y) => ({ x1: x + fp.x, y1: y + fp.y, x2: x + fp.x + fp.w - 1, y2: y + fp.y + fp.h - 1 });
 
 export const maxHealthOf = (defs, b) => defs.buildings[b.type].levels[b.level].maxHealth;
 

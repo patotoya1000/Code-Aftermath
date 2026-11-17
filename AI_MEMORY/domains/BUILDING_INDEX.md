@@ -20,7 +20,7 @@ Buildings as data with level, health and a meaningful condition (`ruined | damag
 
 # Core Data
 
-Types in `src/modules/definitions/data/world.js`: `hq` (levels 1–2), `fence` (1–2, with `bounds`), `tent`, `storage` (storehouse), `gate` (`perimeter: true`). Stage 1 starts them damaged/ruined: fence 20/100, storehouse 15/120, gate 30/80. Storage tables: HQ, tent, storehouse; a ruined building contributes no capacity and cannot be unloaded at (R3).
+Footprints (PA-5): a definition may declare `footprint: { x, y, w, h }` relative to the DOOR cell (the building's `x, y`); the HQ is 3×3. State keeps the absolute rect as `building.footprint`; `blockedTiles` blocks all of it and survivors walk to the door. Types in `src/modules/definitions/data/world.js`: `hq` (levels 1–2), `fence` (1–2, with `bounds`), `tent`, `storage` (storehouse), `gate` (`perimeter: true`). Stage 1 starts them damaged/ruined: fence 20/100, storehouse 15/120, gate 30/80. Storage tables: HQ, tent, storehouse; a ruined building contributes no capacity and cannot be unloaded at (R3).
 
 # State
 

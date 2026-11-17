@@ -1,8 +1,16 @@
 import { DIRECTIONS } from '../../kernel/index.js';
+import { GROUND_VARIANTS, terrainKey, paintTerrainTile, PATH_KEYS, paintPathTile } from './terrain.js';
+
+import { paintFencePiece, fencePieceKey } from './objects.js';
+export { OBJECT_SPECS, objectSpec, footprintCells, fenceCells, fencePieceKey, buildingRect, buildingCells, buildingPlacement } from './objects.js';
+export { GROUND_KINDS, GROUND_VARIANTS, terrainKey, tileVariant, groundGrid, tileKeyAt, pathKeyForMask, pathCells, PATH_KEYS } from './terrain.js';
 
 // Asset module: semantic state → asset key → atlas frame(s). Pure data + pure functions, no DOM, no gameplay.
 // The renderer asks "what does NPC walking down-right look like?"; this module answers with a frame rect.
 // Real art drops in by supplying a different manifest + image; nothing in gameplay changes.
+
+// one atlas frame per road piece: PATH_KEYS has 16 distinct keys, one per connection mask
+const PATH_KEYS_MASK = Object.fromEntries(PATH_KEYS.map((k, m) => [k, m]));
 
 export const NPC_VARIANT = 'survivor';
 export const FRAME = Object.freeze({ w: 32, h: 32 });
@@ -53,6 +61,13 @@ export function buildPlaceholderManifest({ buildings = {}, nodes = {} } = {}) {
       add(k, { kind: 'node', type, visual });
       animations[k] = { frames: [k], fps: 0 };
     }
+  }
+  for (const [ground, count] of Object.entries(GROUND_VARIANTS)) {
+    for (let i = 1; i <= count; i++) { const k = terrainKey(ground, i); add(k, { kind: 'terrain', ground, i }); animations[k] = { frames: [k], fps: 0 }; }
+  }
+  for (const key of PATH_KEYS) if (!frames[key]) { add(key, { kind: 'path', mask: PATH_KEYS_MASK[key] }); animations[key] = { frames: [key], fps: 0 }; }
+  for (const level of buildings.fence ?? []) for (const condition of CONDITIONS) for (let mask = 0; mask < 16; mask++) {
+    const k = fencePieceKey(mask, level, condition); add(k, { kind: 'fence', mask, level, condition }); animations[k] = { frames: [k], fps: 0 };
   }
   const cols = 12;
   order.forEach((k, idx) => { Object.assign(frames[k], { x: (idx % cols) * FRAME.w, y: Math.floor(idx / cols) * FRAME.h, w: FRAME.w, h: FRAME.h }); });
@@ -126,7 +141,35 @@ export function createAssetResolver(manifest) {
     return none(requested);
   }
 
-  return { manifest, resolveNpc, resolveBuilding, resolveNode };
+  /** Terrain chain: exact variant · variant 1 of the same ground · grass variant 1 · nothing (the renderer fills a flat colour). */
+  function resolveTerrain(key) {
+    if (has(key)) return pack(key, 1, key);
+    const m = /^terrain_([a-z]+)_\d+$/.exec(key);
+    if (m) { const k = terrainKey(m[1], 1); if (has(k)) return pack(k, 2, key); }
+    const g = terrainKey('grass', 1);
+    if (has(g)) return pack(g, 3, key);
+    return none(key);
+  }
+
+  /** Path chain: exact piece · the isolated piece · nothing (the renderer draws a plain band). */
+  function resolvePath(key) {
+    if (has(key)) return pack(key, 1, key);
+    if (has('path_isolated')) return pack('path_isolated', 2, key);
+    return none(key);
+  }
+
+  /** Fence piece chain: exact · same shape and condition at another level · isolated post of that level/condition · nothing (renderer uses the whole-fence building art). */
+  function resolveFence({ mask = 0, level = 1, condition = 'repaired' }) {
+    const requested = fencePieceKey(mask, level, condition);
+    if (has(requested)) return pack(requested, 1, requested);
+    for (let l = level - 1; l >= 1; l--) { const k = fencePieceKey(mask, l, condition); if (has(k)) return pack(k, 2, requested); }
+    for (let l = level + 1; l <= 9; l++) { const k = fencePieceKey(mask, l, condition); if (has(k)) return pack(k, 2, requested); }
+    const k = fencePieceKey(0, level, condition);
+    if (has(k)) return pack(k, 3, requested);
+    return none(requested);
+  }
+
+  return { manifest, resolveNpc, resolveBuilding, resolveNode, resolveTerrain, resolvePath, resolveFence };
 }
 
 /** Animation player (presentation only): which frame to show at `timeMs`. Never touches gameplay state. */
@@ -256,6 +299,9 @@ export function paintPlaceholderAtlas(ctx, manifest) {
   for (const f of Object.values(manifest.frames)) {
     const { spec } = f;
     if (spec.kind === 'npc') paintNpc(ctx, f.x, f.y, spec);
+    else if (spec.kind === 'fence') paintFencePiece(ctx, f.x, f.y, spec, FRAME.w);
+    else if (spec.kind === 'path') paintPathTile(ctx, f.x, f.y, spec, FRAME.w);
+    else if (spec.kind === 'terrain') paintTerrainTile(ctx, f.x, f.y, spec, FRAME.w);
     else if (spec.kind === 'building') paintBuilding(ctx, f.x, f.y, spec);
     else paintNode(ctx, f.x, f.y, spec);
   }
