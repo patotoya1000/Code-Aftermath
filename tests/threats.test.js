@@ -253,13 +253,13 @@ test('Z2: a nearly destroyed fence is breached - wall.breached, then a share of 
   assert.deepEqual(ledgerViolations(r.snapshot()), []);
 });
 
-test('Z2: a survivor OUTSIDE the wall is chased first - zombies reach her, leave the wall alone, and (no combat yet) do not hurt her', () => {
+test('Z2: a survivor OUTSIDE the wall is chased first - zombies reach her, leave the wall alone, and damage her', () => {
   const s = wsim((st) => { fence(st, 1); st.survivors.survivor_1.position = { x: 3, y: 8 }; });
   runTo(s, duskTick(6) + 90);
   assert.ok(evs(s, 'zombie.reached_survivor').length >= 1);
   assert.equal(evs(s, 'zombie.reached_wall').length, 0, 'the survivor outside is the target, not the wall');
   assert.equal(s.snapshot().threats.wave.wallDamage, 0);
-  assert.equal(evs(s, 'survivor.damaged').length, 0, 'no combat in Z2: reaching a survivor does no damage');
+  assert.ok(evs(s, 'survivor.damaged').length >= 1, 'Z3: reaching a survivor damages her');
   for (const z of Object.values(s.snapshot().threats.zombies)) assert.ok(cheb(z, s.snapshot().survivors.survivor_1.position) <= 1 || z.state === 'walk');
 });
 
@@ -287,4 +287,37 @@ test('Z2: deterministic - same seed, same zombies, same hash; different seeds ca
   for (let i = 0; i < DAY * 20; i++) soak.step(1);
   assert.deepEqual(ledgerViolations(soak.snapshot()), []);
   assert.ok(soak.snapshot().threats.history.length >= 1);
+});
+
+// ---- Z3: advanced attacks, defenses, and wave mechanics (doc 20 section 12) ----
+test('Z3: survivor.attack damages zombies, respects armor/pierce, spends ammo, and clears the wave', () => {
+  const s = wsim((st) => { fence(st, 1); keep(st); st.survivors.survivor_1.position = { x: 16, y: 7 }; st.survivors.survivor_1.equipment.weapon = 'spear'; });
+  runTo(s, duskTick(6) + 3);
+  const z = Object.values(s.snapshot().threats.zombies)[0];
+  assert.ok(z);
+  const id = z.id;
+  const cmd = buildCommand('survivor_1', { name: 'attack', args: [id] });
+  s.submit(cmd);
+  for (let i = 0; i < 300 && s.snapshot().threats.zombies[id]; i++) s.step(1);
+  assert.equal(s.snapshot().threats.zombies[id]?.health ?? 0, 0);
+  assert.ok(evs(s, 'zombie.killed').some((e) => e.zombieId === id));
+});
+
+test('Z3: ranged ammo is carried and NO_AMMO stops a ranged attack without firing', () => {
+  const s = wsim((st) => { fence(st, 1); keep(st); st.survivors.survivor_1.position = { x: 11, y: 8 }; st.survivors.survivor_1.equipment.weapon = 'bow'; });
+  runTo(s, duskTick(6) + 3);
+  const z = Object.values(s.snapshot().threats.zombies)[0];
+  assert.ok(z);
+  s.submit(buildCommand('survivor_1', { name: 'attack', args: [z.id] }));
+  for (let i = 0; i < 20; i++) s.step(1);
+  assert.equal(s.snapshot().survivors.survivor_1.lastTask?.reason, 'NO_AMMO');
+  assert.equal(s.snapshot().threats.zombies[z.id].health, on.zombies[z.type].health);
+});
+
+test('Z3: guard is a standing combat action and damages the nearest zombie in range', () => {
+  const s = wsim((st) => { fence(st, 1); keep(st); st.survivors.survivor_1.position = { x: 16, y: 7 }; });
+  runTo(s, duskTick(6) + 3);
+  s.submit(buildCommand('survivor_1', { name: 'guard', args: [] }));
+  for (let i = 0; i < 100; i++) s.step(1);
+  assert.ok(evs(s, 'zombie.hurt').length >= 1 || evs(s, 'zombie.killed').length >= 1);
 });

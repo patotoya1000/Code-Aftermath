@@ -55,4 +55,7 @@ export const StopReason = Object.freeze({
   NO_NUTRIENTS: 'NO_NUTRIENTS',     // farm: a hydroponic plot needs nutrients but base stock has none
   NO_WATER: 'NO_WATER',             // farm: dry plots wait but base stock has no water
   NOTHING_TO_DO: 'NOTHING_TO_DO',   // farm: nothing grew ripe or needed work within the waiting time
+  NO_AMMO: 'NO_AMMO',               // attack/guard: the equipped ranged weapon has no ammunition
+  NO_WEAPON: 'NO_WEAPON',           // attack/guard: no usable weapon is equipped
+  NO_WAVE: 'NO_WAVE',               // combat outside an active wave
 });

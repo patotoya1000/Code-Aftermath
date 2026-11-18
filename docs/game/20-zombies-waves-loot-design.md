@@ -196,8 +196,8 @@ Traps and barricades as a cheap layer before the fence (spike pit, explosive tra
 |---|---|---|
 | Z1 | Data tables + validation: zombies (role/armor/firstDay/behaviour), bosses + `bossSchedule`, `waveRules`, `lootTables`, loot/ammo items, `weapons`, `towers`, `noise`; day-gated abstract raids; pure helpers; learner `threats` read; `SIM_VERSION` 0.24.0 | DONE (2026-11-18) |
 | Z2 | Zombie entities walk (A*) and hit the fence/gate; outside survivors first; gate closes during a wave; no survivor damage yet | DONE (2026-11-18, `SIM_VERSION` 0.25.0) |
-| Z3 | Survivor damage, equipment + reach, `survivor.attack`/`guard`, wave lifecycle (warning, fight, clear, dawn), `NO_AMMO` | PLANNED |
-| Z4 | Loot on the ground + sortie pickup (lingers until `lootLingerDays`), carried ammo | PLANNED |
+| Z3 | Survivor damage, equipment + reach, `survivor.attack`/`guard`, wave lifecycle, `NO_AMMO` | DONE (`SIM_VERSION` 0.26.0, 2026-11-18) |
+| Z4 | Loot on the ground + sortie pickup (lingers until `lootLingerDays`), carried ammo | PLANNED (NEXT) |
 | Z5 | Weapon + ammo recipes (workshop), `combat` skill, bone meal as a better fertilizer | PLANNED |
 | Z6 | Towers as buildings (ruin -> repair -> upgrade), posting, mounts + hopper + `survivor.reload`, minigun power draw, noise meter + drift + reinforcements | PLANNED |
 | Z7 | Special types one at a time: runner -> boomer (radius explosion) -> thrower (rubble) -> screamer -> tank -> boss | PLANNED |

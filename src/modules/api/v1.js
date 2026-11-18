@@ -153,6 +153,22 @@ export const COMMANDS = {
   // first command is added to the end of the survivor's queue instead.
   queue: { type: null, marker: true, signature: 'survivor.queue()', doc: 'Add the commands that follow to the END of this survivor\'s queue instead of replacing the current task.', params: (args) => noArgs('queue', args) },
   stop: { type: 'stop', signature: 'survivor.stop()', doc: 'Cancel this survivor\'s queued and running actions.', params: (args) => noArgs('stop', args) },
+  attack: {
+    type: 'attack', signature: 'survivor.attack(zombie)',
+    doc: 'Attack a zombie during an active wave. The survivor moves to weapon range and fires or strikes by the weapon reload speed. Melee weapons never gain tower range bonuses. Running out of ammunition stops with NO_AMMO.',
+    params(args) {
+      if (args.length !== 1 || !entityId(args[0])) throw bad('attack', 'pass a zombie id, e.g. survivor.attack(zombie_1)');
+      return { targetId: args[0] };
+    },
+  },
+  guard: {
+    type: 'guard', signature: 'survivor.guard(position)',
+    doc: 'Stand guard during an active wave and attack the nearest zombie within the equipped weapon range. An optional building or survivor target makes her move to and hold that position.',
+    params(args) {
+      if (args.length > 1 || (args.length === 1 && !entityId(args[0]))) throw bad('guard', 'use guard() or guard(building_or_survivor)');
+      return args.length ? { targetId: args[0] } : {};
+    },
+  },
 };
 
 /** Documented, learner-readable read surface (kept next to the commands so docs can't drift). */

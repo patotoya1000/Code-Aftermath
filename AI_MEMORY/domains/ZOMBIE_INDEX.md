@@ -80,3 +80,7 @@ Z3: survivor damage, equipment + reach, `attack`/`guard`, the wave ends when its
 - `docs/game/20-zombies-waves-loot-design.md` (decided design: types, waves, loot, weapons, towers — NOT implemented)
 - `docs/game/14-enemies-resources-items-open.md`
 - `docs/game/08-events.md`
+
+# Current Status
+
+DATA (Z1) + wave entities (Z2) IMPLEMENTED (`SIM_VERSION` 0.25.0). Combat is IMPLEMENTED (`SIM_VERSION` 0.26.0). Survivors can attack and guard, equipped weapons use reach/armor/pierce, ranged weapons spend carried ammo, zombies can damage and down survivors, and waves clear when zombies are dead or end at dawn. Z4 adds loot/sorties; Z5+ crafting/towers/special behaviours.

@@ -135,6 +135,7 @@ function actionSkillOf(actionDef) {
     upgrade: 'repair',
     cook: 'cooking',
     farm: 'farming',
+    combat: 'combat',
   };
   return map[handler] ?? null;
 }

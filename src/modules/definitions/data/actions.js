@@ -57,6 +57,11 @@ export const actions = {
   farm: { handler: 'farm', range: 1, ticksPerTile: 1, unloadTicks: 2, maxCount: 100, waitTicks: 480, chore: { plant: 6, water: 4, nourish: 4, fertilize: 4, harvest: 8 },
     capability: { attributes: { strength: 1, agility: 1 }, skills: { farming: 0 } },
   },
+  // Combat (Z3): attack is explicit, standing guard is an automatic defence posture.
+  attack: { handler: 'combat', skill: 'combat', range: 1, ticksPerTile: 1,
+    capability: { attributes: { agility: 1, strength: 1 }, skills: { combat: 0 } } },
+  guard: { handler: 'guard', range: 1, ticksPerTile: 1,
+    capability: { attributes: { agility: 1, strength: 1 }, skills: { combat: 0 } } },
 };
 
 // Needs policies (R4a): a standing rule "when this need drops below X, do this action". A policy INTERRUPTS the survivor's

@@ -205,7 +205,7 @@ function hitWall(ctx, wave, z, cell) {
 export function tickWave(ctx) {
   const { state, defs } = ctx;
   const wave = state.threats.wave;
-  if (!wave) return;
+  if (!wave || wave.cleared) return;
   const rules = defs.waveRules;
   const blocked = zombieBlocked(state);
   if (wave.queue.length > 0 && (state.tick - wave.startTick) % rules.spawnEveryTicks === 0) spawn(ctx, wave, blocked);
@@ -226,6 +226,20 @@ export function tickWave(ctx) {
       z.direction = directionFromDelta(dx, dy) ?? z.direction;
       if (victim) {
         if (z.reached !== victim.id) { z.reached = victim.id; ctx.emit('zombie.reached_survivor', { id: z.id, survivorId: victim.id }); }
+        z.hit += 1;
+        if (z.hit >= rules.attackEveryTicks) {
+          z.hit = 0;
+          const survivor = state.survivors[victim.id];
+          if (survivor?.status === 'active') {
+            const damage = Math.max(0, def.damage);
+            survivor.needs.health = Math.max(0, survivor.needs.health - damage);
+            ctx.emit('survivor.damaged', { survivorId: survivor.id, cause: 'zombie', zombieId: z.id, zombieType: z.type, damage, health: survivor.needs.health });
+            if (survivor.needs.health <= 0) {
+              survivor.status = 'downed';
+              ctx.emit('survivor.downed', { survivorId: survivor.id, cause: 'zombie', zombieId: z.id });
+            }
+          }
+        }
       } else {
         if (z.reached !== 'wall') { z.reached = 'wall'; ctx.emit('zombie.reached_wall', { id: z.id, buildingId: goal.building.id }); }
         z.hit += 1;
@@ -248,7 +262,7 @@ export function tickWave(ctx) {
   }
 }
 
-/** Called at dawn: the wave retreats (nobody can kill a zombie before Z3) and is resolved. Breached = a wall was destroyed: part of the food is looted. */
+/** Called at dawn: resolve the wave. Z3 may clear it early; otherwise the remaining zombies retreat at dawn. */
 export function waveDawn(ctx) {
   const { state, defs } = ctx;
   const wave = state.threats.wave;
@@ -265,8 +279,8 @@ export function waveDawn(ctx) {
       lost[item] = n;
     }
   }
-  const outcome = wave.breached ? 'breached' : 'repelled';
-  const rec = { day: wave.day, strength: wave.strength, defense: wave.defense, outcome, composition: { ...wave.composition }, fenceDamage: wave.wallDamage, lost };
+  const outcome = wave.breached ? 'breached' : (wave.cleared ? 'cleared' : 'repelled');
+  const rec = { day: wave.day, strength: wave.strength, defense: wave.defense, outcome, composition: { ...wave.composition }, fenceDamage: wave.wallDamage, lost, cleared: !!wave.cleared, remaining: Object.keys(state.threats.zombies).length };
   ctx.emit('raid.resolved', { ...rec, composition: { ...rec.composition }, lost: { ...lost } });
   state.threats.history.push(rec);
   while (state.threats.history.length > sc.historyLimit) state.threats.history.shift();
@@ -278,16 +292,16 @@ export function waveDawn(ctx) {
 /** What the renderer draws: one entry per zombie on the map. */
 export function zombieProjection(state, defs) {
   return Object.values(state.threats.zombies).map((z) => ({
-    id: z.id, type: z.type, x: z.x, y: z.y, direction: z.direction, animation: z.state === 'attack' ? 'ATTACK' : z.state === 'idle' ? 'IDLE' : 'WALK',
+    id: z.id, type: z.type, x: z.x, y: z.y, direction: z.direction, health: z.health, maxHealth: defs.zombies[z.type].health, animation: z.state === 'attack' ? 'ATTACK' : z.state === 'dead' ? 'DEAD' : z.state === 'hurt' ? 'HURT' : z.state === 'idle' ? 'IDLE' : 'WALK',
   }));
 }
 
 /** The wave now: { active: false } or { active, day, gateClosed, breached, wallDamage, remaining (not yet spawned), zombies: [{ id, type, x, y, state }] }. */
-function waveView(state) {
+function waveView(state, defs) {
   const w = state.threats.wave;
   if (!w) return { active: false };
   return { active: true, day: w.day, gateClosed: w.gateClosed, breached: w.breached, wallDamage: w.wallDamage, remaining: w.queue.length,
-    zombies: Object.values(state.threats.zombies).sort((a, b) => (a.id < b.id ? -1 : 1)).map((z) => ({ id: z.id, type: z.type, x: z.x, y: z.y, state: z.state })) };
+    zombies: Object.values(state.threats.zombies).sort((a, b) => (a.id < b.id ? -1 : 1)).map((z) => ({ id: z.id, type: z.type, x: z.x, y: z.y, state: z.state, health: z.health, maxHealth: defs.zombies[z.type].health })) };
 }
 
 /** The learner's `threats` read. */
@@ -302,7 +316,7 @@ export function threatsView(state, defs) {
     towers: Object.fromEntries(Object.entries(defs.towers).map(([lv, t]) => [lv, { ...t, mounts: [...t.mounts] }])),
     noise: { ...defs.noise },
     waveRules: { ...defs.waveRules },
-    wave: waveView(state),
+    wave: waveView(state, defs),
     history: state.threats.history.map((h) => ({ ...h, composition: { ...h.composition }, lost: { ...h.lost } })),
   };
 }

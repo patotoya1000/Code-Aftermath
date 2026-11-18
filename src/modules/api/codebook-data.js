@@ -14,6 +14,7 @@ export const COMMAND_GROUPS = [
   { id: 'needs', title: 'Food, Water & Rest' },
   { id: 'rules', title: 'Policies & Events' },
   { id: 'tasks', title: 'Queue & Stop' },
+  { id: 'combat', title: 'Combat' },
 ];
 
 export const READ_GROUPS = [
@@ -47,6 +48,9 @@ export const OUTCOMES = {
   MAX_LEVEL: 'That building has no higher level.',
   NEEDS_REPAIR: 'Repair the building completely first, then try again.',
   CAPABILITY_INSUFFICIENT: 'The survivor lacks the skill the job needs. Practice trains skills; check survivor.skills.',
+  NO_WAVE: 'Combat cannot start because no zombie wave is active. Use threats.upcoming to prepare, and threats.wave to detect dusk combat.',
+  NO_WEAPON: 'The survivor has no usable equipped weapon. Z3 currently starts survivors with a spear.',
+  NO_AMMO: 'The equipped ranged weapon has no carried ammunition. Carry the matching ammo item before using it.',
 };
 
 /**
@@ -192,6 +196,22 @@ export const COMMAND_BOOK = {
     requires: [], parameters: [],
     example: 'survivor.stop();',
     reads: ['read.task'], outcomes: [],
+  },
+  attack: {
+    group: 'combat', keywords: ['attack', 'zombie', 'weapon', 'ammo', 'fight'],
+    effect: 'The survivor moves to the zombie and attacks with the equipped weapon until the target dies or the standing action stops.',
+    requires: ['An active wave', 'An equipped weapon', 'Ammo for a ranged weapon'],
+    parameters: [['zombie', 'A zombie object or id from threats.wave.zombies.']],
+    example: 'survivor.attack("zombie_1");',
+    reads: ['read.threats', 'read.position'], outcomes: ['NO_WAVE', 'NO_TARGET', 'NO_WEAPON', 'NO_AMMO', 'NO_PATH'],
+  },
+  guard: {
+    group: 'combat', keywords: ['guard', 'defend', 'post', 'weapon'],
+    effect: 'The survivor stands guard and attacks the nearest zombie within weapon range, optionally from a chosen position.',
+    requires: ['An active wave', 'An equipped weapon'],
+    parameters: [['position', 'Optional building or survivor position to guard.']],
+    example: 'survivor.guard(hq);',
+    reads: ['read.threats', 'read.position'], outcomes: ['NO_WAVE', 'NO_WEAPON', 'NO_AMMO', 'NO_PATH'],
   },
 };
 

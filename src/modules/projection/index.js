@@ -27,7 +27,7 @@ function survivorView(state, defs, s) {
     attributes: { ...s.attributes }, skills: { ...s.skills }, skillProgress: skillProgress(defs, s), traits: [...s.traits],
     hooks: Object.values(state.hooks ?? {}).filter((h) => h.actorId === s.id).map((h) => h.event),
     policies: Object.fromEntries(Object.entries(s.policies ?? {}).map(([k, p]) => [k, { below: p.below, ...(p.until !== undefined ? { until: p.until } : {}), ...(p.prefer !== undefined ? { prefer: p.prefer } : {}), blocked: p.blocked ?? null }])),
-    inventory: { items: { ...s.inventory.items } },
+    inventory: { items: { ...s.inventory.items } }, equipment: { ...s.equipment },
     // Weights come from item definitions (never from UI constants). `carry` is derived on the fly: load = sum of quantity x unitWeight.
     carry: { load: carriedLoad(s, defs), capacity: carryCapacity(s, defs) },
     inventoryDetail: Object.entries(s.inventory.items).map(([id, quantity]) => ({

@@ -56,7 +56,7 @@ None.
 
 # Current Status
 
-DATA ONLY (Z1). Behaviour PLANNED: Z3 equipment/attack/guard, Z5 crafting ladder, Z6 towers + mounts + power + noise.
+Z3 IMPLEMENTED (`SIM_VERSION` 0.26.0): starter spear, weapon reach, `survivor.attack`, `survivor.guard`, zombie health/damage/death, survivor damage/downed, `NO_AMMO`, and combat XP. Z4+ loot/crafting/towers/special types remain planned.
 
 # Known Problems
 

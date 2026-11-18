@@ -7,8 +7,9 @@ import { repairHandler } from './repair.js';
 import { upgradeHandler } from './upgrade.js';
 import { cookHandler } from './cook.js';
 import { farmHandler } from './farm.js';
+import { combatHandler, guardHandler } from './combat.js';
 
 // Keyed by the `handler` field in action definitions.
 export const createHandlers = () => ({
-  move: moveHandler, gather: gatherHandler, deposit: depositHandler, rest: restHandler, consume: consumeHandler, repair: repairHandler, upgrade: upgradeHandler, cook: cookHandler, farm: farmHandler,
+  move: moveHandler, gather: gatherHandler, deposit: depositHandler, rest: restHandler, consume: consumeHandler, repair: repairHandler, upgrade: upgradeHandler, cook: cookHandler, farm: farmHandler, combat: combatHandler, guard: guardHandler,
 });

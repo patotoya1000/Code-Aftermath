@@ -15,7 +15,7 @@ export function createSurvivor(defs, spec) {
     skills: { ...t.skills },
     traits: [...t.traits],
     inventory: { items: {} },
-    equipment: {},
+    equipment: { weapon: 'spear' },
     occupation: null,
     position: { x: spec.x, y: spec.y },
     direction: 'DOWN',
