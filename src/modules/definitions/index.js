@@ -113,7 +113,9 @@ export function validateDefinitions(d) {
     need(ROLES.includes(z.role), `zombie ${id}: role must be one of ${ROLES.join(', ')}`);
     const bh = z.behaviour;
     if (bh) {
-      need(['explode', 'throw', 'scream'].includes(bh.type), `zombie ${id}: unknown behaviour "${bh.type}"`);
+      need(['rush', 'siege', 'explode', 'throw', 'scream'].includes(bh.type), `zombie ${id}: unknown behaviour "${bh.type}"`);
+      if (bh.type === 'rush') need(typeof bh.vanguard === 'boolean' && whole(bh.attackEveryTicks, 1), `zombie ${id}: rush needs a boolean vanguard and a whole attackEveryTicks >= 1`);
+      if (bh.type === 'siege') need(whole(bh.stepTicks, 1) && whole(bh.attackEveryTicks, 1) && whole(bh.wallMultiplier, 1), `zombie ${id}: siege needs whole stepTicks, attackEveryTicks and wallMultiplier >= 1`);
       if (bh.type === 'explode') need(whole(bh.radius, 1) && whole(bh.fenceDamage, 0) && whole(bh.survivorDamage, 0), `zombie ${id}: explode needs a whole radius >= 1 and fenceDamage/survivorDamage >= 0`);
       if (bh.type === 'throw') need(whole(bh.range, 1) && whole(bh.damage, 1) && whole(bh.everyTicks, 1) && whole(bh.rubble, 0), `zombie ${id}: throw needs whole range, damage, everyTicks >= 1 and rubble >= 0`);
       if (bh.type === 'scream') need(whole(bh.cooldownTicks, 1) && whole(bh.summons, 1) && whole(bh.waveCap, bh.summons ?? 1), `zombie ${id}: scream needs whole cooldownTicks, summons >= 1 and waveCap >= summons`);
@@ -122,6 +124,12 @@ export function validateDefinitions(d) {
   for (const [id, b] of Object.entries(d.bosses ?? {})) {
     need(typeof b.name === 'string' && ['health', 'speed'].every((k) => whole(b[k], 1)) && whole(b.damage, 0) && whole(b.armor ?? 0, 0), `boss ${id}: needs a name, whole health and speed >= 1, damage and armor >= 0`);
     need(Object.entries(b.escorts ?? {}).every(([z, n]) => d.zombies?.[z] && whole(n, 1)), `boss ${id}: escorts must be known zombies with a whole count >= 1`);
+    if (b.behaviour) need(b.behaviour.type === 'siege' && whole(b.behaviour.stepTicks, 1) && whole(b.behaviour.attackEveryTicks, 1) && whole(b.behaviour.wallMultiplier, 1), `boss ${id}: behaviour must be a siege with whole stepTicks, attackEveryTicks and wallMultiplier >= 1`);
+    let last = 100;
+    for (const ph of b.phases ?? []) {
+      need(typeof ph.name === 'string' && whole(ph.belowPercent, 1) && ph.belowPercent < last && whole(ph.summons ?? 0, 0) && (ph.set === undefined || (b.behaviour && Object.keys(ph.set).every((k) => k in b.behaviour && whole(ph.set[k], 1)))), `boss ${id}: each phase needs a name, a belowPercent (1..99, falling), whole summons >= 0 and a \`set\` that only changes whole fields of its behaviour`);
+      last = ph.belowPercent;
+    }
   }
   const bs = d.bossSchedule;
   need(bs && d.bosses?.[bs.boss] && ['firstDay', 'everyDays', 'warnDays'].every((k) => whole(bs[k], 1)), 'bossSchedule: needs a known boss and whole firstDay, everyDays and warnDays >= 1');

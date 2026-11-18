@@ -90,3 +90,10 @@ Z4 IMPLEMENTED (`SIM_VERSION` 0.27.0): kills drop loot piles (`state.threats.loo
 Z6b IMPLEMENTED (`SIM_VERSION` 0.30.0): towers hold `mounts` (`survivor.mount`), hoppers are filled by `survivor.reload`, and `tickMounts` (threats module, called by the simulation between the survivors and `tickWave`) fires crewed mounts at the nearest zombie in range. Mount power requests go to the grid through `mountDemands` -> `tickPower(ctx, extras)`; do not read grid state from the threats module. Kills must still go through `killZombie`. Next: Z6c noise.
 
 Z6c IMPLEMENTED (`SIM_VERSION` 0.31.0): every shot must call `makeNoise` (combat handlers and `tickMounts` do); `tickNoise` runs before `tickWave` each tick. Next: Z7 special types.
+
+- Z7a (0.32.0): runner `rush` behaviour - vanguard spawn order, own hit rhythm (`tests/runner.test.js`, doc 20 section 22).
+- Z7b (0.33.0): boomer explosion - `explodeZombie`, event `zombie.exploded`, no gland when exploded (`tests/boomer.test.js`, doc 20 section 23).
+- Z7c (0.34.0): thrower - `throwAt`, event `zombie.threw`, rubble = stone piles outside the wall (`tests/thrower.test.js`, doc 20 section 24).
+- Z7d (0.35.0): screamer - `screamTick`, event `zombie.screamed`, capped summons (`tests/screamer.test.js`, doc 20 section 25).
+- Z7e (0.36.0): tank - `siege` behaviour: slow step, slow heavy wall hit (`tests/tank.test.js`, doc 20 section 26).
+- Z7f (0.37.0): boss - boss-day waves, `statsOf`/`behaviourFor`/`bossPhase`, events `boss.phase`/`boss.defeated`, learner `threats.wave.boss` (`tests/boss.test.js`, doc 20 section 27). Z7 complete.
