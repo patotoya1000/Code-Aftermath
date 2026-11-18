@@ -37,7 +37,7 @@ export function syncPlots(state, defs, b) {
 const needed = (defs, crop) => crop.growthTicks * 100; // progress is counted in percent-ticks, so a 150 % greenhouse stays an integer
 
 /** Units a plot will give when it ripens: the crop's yield x the farm's yield % x what the weather left (>= 1). */
-export const yieldFor = (defs, farm, cropId, damage, fertilized = false) => Math.max(1, Math.floor((defs.crops[cropId].yield * farm.yield * (100 - damage) * (100 + (fertilized ? defs.farming.fertilizer.yieldBonus : 0))) / 1000000));
+export const yieldFor = (defs, farm, cropId, damage, fertilized = false) => Math.max(1, Math.floor((defs.crops[cropId].yield * farm.yield * (100 - damage) * (100 + (fertilized ? (defs.farming.fertilizer.better && fertilized === defs.farming.fertilizer.better.item ? defs.farming.fertilizer.better.yieldBonus : defs.farming.fertilizer.yieldBonus) : 0))) / 1000000));
 
 /** True while rain is falling today. */
 export const raining = (defs, tick) => Boolean(defs.environment.weather[weatherAt(defs, tick)].rainfall);
@@ -107,7 +107,7 @@ export function farmInfoFor(state, defs, b) {
   const rain = raining(defs, state.tick) && !f.indoor;
   const needsPower = defs.buildings[b.type].levels[b.level].power?.use !== undefined;
   return {
-    working: b.condition === 'repaired', fertilizerBonus: defs.farming.fertilizer.yieldBonus, sheltered: f.shelter, growth: f.growth, yield: f.yield, indoor: Boolean(f.indoor), needsNutrients: Boolean(f.nutrients), needsPower, powered: !needsPower || Boolean(b.power?.powered),
+    working: b.condition === 'repaired', fertilizerBonus: defs.farming.fertilizer.yieldBonus, ...(defs.farming.fertilizer.better ? { betterFertilizer: { item: defs.farming.fertilizer.better.item, bonus: defs.farming.fertilizer.better.yieldBonus } } : {}), sheltered: f.shelter, growth: f.growth, yield: f.yield, indoor: Boolean(f.indoor), needsNutrients: Boolean(f.nutrients), needsPower, powered: !needsPower || Boolean(b.power?.powered),
     plots: plotsOf(state, b.id).map((p) => ({
       id: p.id, crop: p.crop, stage: p.stage, percent: percentOf(defs, p), water: p.water, dry: p.stage === 'growing' && p.water <= 0 && !rain, nutrients: p.nutrients ?? 0, starved: Boolean(f.nutrients) && p.stage === 'growing' && (p.nutrients ?? 0) <= 0,
       damage: p.damage, fertilized: Boolean(p.fertilized), ready: p.stage === 'ready' ? available(state, plotKey(p.id)) : 0,

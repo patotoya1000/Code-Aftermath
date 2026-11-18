@@ -81,3 +81,6 @@ Equipment effects on capacity with Skills/Capability phases. `unitWeight` is use
 
 - `docs/game/14-enemies-resources-items-open.md`
 - `docs/game/05-resources-inventory-carry.md`
+
+
+Z6b (SIM_VERSION 0.30.0): items ballista, repeating_crossbow, minigun (mounted weapons, hauled not carried) with HQ storage; recipes for them and for bullets (workshop 3).

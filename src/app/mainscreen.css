@@ -148,12 +148,16 @@ body::before {
 #cmd-bar .cmd-btn:hover { border-color:var(--accent); }
 #cmd-bar .cmd-btn:active { transform:translateY(1px); }
 
-#cmd-hints { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:10px; color:var(--muted); }
+#cmd-hints {
+  width:100%; min-width:0; height:30px; overflow-x:auto; overflow-y:hidden;
+  display:flex; gap:10px; align-items:center; flex-wrap:nowrap;
+  font-size:10px; color:var(--muted); scrollbar-width:thin;
+}
 #cmd-hints .hint-chip {
+  flex:0 0 auto; white-space:nowrap;
   display:flex; align-items:center; gap:6px; padding:4px 10px; border-radius:6px;
   border:1px solid var(--line); background:var(--code-bg);
 }
-#cmd-hints .api-glyph { font-family:var(--font-mono); font-size:11px; color:var(--accent); }
 
 /* ==========================================================================
    INSPECTOR CARD (Right-side Survivor Card)

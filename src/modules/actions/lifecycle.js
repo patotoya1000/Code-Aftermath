@@ -32,6 +32,11 @@ export const FailureReason = Object.freeze({
   NO_STATION: 'NO_STATION', // cook: no such station building (kitchen) exists in this world
   NO_DEPOT: 'NO_DEPOT', // nothing that still works can store what she carries
   NO_PATH: 'NO_PATH', // walls/buildings leave no way to the destination
+  CARRY_FULL: 'CARRY_FULL', // take: her hands are full (carry capacity)
+  TOWER_TOO_LOW: 'TOWER_TOO_LOW', // mount: this tower level cannot hold that mounted weapon (upgrade the tower)
+  NO_SLOT: 'NO_SLOT', // mount: every slot of the tower is taken by a mounted weapon
+  NO_MOUNT: 'NO_MOUNT', // reload: no weapon installed on the tower uses that ammo
+  HOPPER_FULL: 'HOPPER_FULL', // reload: the hopper already holds as much as it can
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',
   REPLACED: 'REPLACED', // a newer command from the same program took over this survivor
@@ -58,4 +63,6 @@ export const StopReason = Object.freeze({
   NO_AMMO: 'NO_AMMO',               // attack/guard: the equipped ranged weapon has no ammunition
   NO_WEAPON: 'NO_WEAPON',           // attack/guard: no usable weapon is equipped
   NO_WAVE: 'NO_WAVE',               // combat outside an active wave
+  NO_LOOT: 'NO_LOOT',               // collect: no loot lies on the ground (none dropped, picked up already, or it spoiled away at dawn)
+  WAVE_ACTIVE: 'WAVE_ACTIVE',       // collect: a wave is on - sorties are only allowed after it is cleared (and a sortie stops when the next wave starts)
 });

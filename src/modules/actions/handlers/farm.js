@@ -75,7 +75,8 @@ function planChore(ctx, a) {
   if (a.params.fertilize) {
     for (const p of plots) {
       if (p.crop !== a.params.crop || p.stage !== 'growing' || p.fertilized) continue;
-      if (available(state, stockKey(cfg.fertilizer.item)) >= 1) return { chore: { kind: 'fertilize', plotId: p.id, qty: 1 } };
+      const fert = [cfg.fertilizer.better, cfg.fertilizer].find((x) => x && available(state, stockKey(x.item)) >= 1); // bone meal first, then plain fertilizer
+      if (fert) return { chore: { kind: 'fertilize', plotId: p.id, qty: 1, item: fert.item } };
       break;
     }
   }
@@ -94,7 +95,7 @@ function planChore(ctx, a) {
 const accountsOf = (ctx, chore, a) => (chore.kind === 'harvest' ? [{ account: plotKey(chore.plotId), qty: chore.qty }]
   : chore.kind === 'water' ? [{ account: stockKey('water'), qty: 1 }]
     : chore.kind === 'nourish' ? [{ account: stockKey(ctx.defs.farming.nutrients.item), qty: 1 }]
-    : chore.kind === 'fertilize' ? [{ account: stockKey(ctx.defs.farming.fertilizer.item), qty: 1 }] : [{ account: stockKey(a.params.crop), qty: chore.qty }]);
+    : chore.kind === 'fertilize' ? [{ account: stockKey(chore.item ?? ctx.defs.farming.fertilizer.item), qty: 1 }] : [{ account: stockKey(a.params.crop), qty: chore.qty }]);
 
 function releaseAll(ctx, a) {
   for (const id of a.reservationIds) release(ctx.state, id);
@@ -135,8 +136,8 @@ function finish(ctx, a) {
   } else if (kind === 'nourish') {
     plot.nutrients = Math.min(defs.farming.nutrients.cap, (plot.nutrients ?? 0) + defs.farming.nutrients.ticksPerUnit);
   } else if (kind === 'fertilize') {
-    plot.fertilized = true;
-    ctx.emit('crop.fertilized', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId });
+    plot.fertilized = a.chore.item && a.chore.item !== defs.farming.fertilizer.item ? a.chore.item : true; // true = plain fertilizer, otherwise the better item's id
+    ctx.emit('crop.fertilized', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId, item: a.chore.item ?? defs.farming.fertilizer.item });
   } else {
     addCarried(state.survivors[a.actorId], defs, cropId, qty);
     ctx.emit('crop.harvested', { actorId: a.actorId, plotId, farmId: farm.id, crop: cropId, qty });

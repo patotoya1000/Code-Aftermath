@@ -17,5 +17,20 @@ export const recipes = {
   charcoal: { name: 'Charcoal', station: 'workshop', stationLevel: 1, inputs: { wood: 4 }, outputs: { charcoal: 3 }, ticks: 18, skill: 'crafting', minSkill: 0, action: 'craft' },
   // O17: a hydroponic plot grows only while it has nutrients; survivor.farm feeds it from base stock (NO_NUTRIENTS when there is none).
   nutrients: { name: 'Nutrients', station: 'workshop', stationLevel: 1, inputs: { fertilizer: 1, water: 2 }, outputs: { nutrients: 2 }, ticks: 12, skill: 'crafting', minSkill: 0, action: 'craft' },
+  // Z5 (docs/game/20 sections 4, 9): the loot from sorties feeds the weapon ladder. Weapon recipes mirror `weapons.<id>.craft` (a test keeps them equal); the
+  // rifle still waits (Z6c); bullets and the mounted weapons (Z6b) need workshop level 2-3. Ammo is made in batches; `survivor.take` carries it, `survivor.equip` arms her.
+  advanced_spear: { name: 'Advanced spear', station: 'workshop', stationLevel: 1, inputs: { wood: 2, scrap: 2, hide: 1 }, outputs: { advanced_spear: 1 }, ticks: 20, skill: 'crafting', minSkill: 1, action: 'craft' },
+  bow: { name: 'Bow', station: 'workshop', stationLevel: 1, inputs: { wood: 3, hide: 1, rags: 1 }, outputs: { bow: 1 }, ticks: 20, skill: 'crafting', minSkill: 1, action: 'craft' },
+  crossbow: { name: 'Crossbow', station: 'workshop', stationLevel: 2, inputs: { wood: 3, scrap: 3 }, outputs: { crossbow: 1 }, ticks: 30, skill: 'crafting', minSkill: 2, action: 'craft' },
+  arrows: { name: 'Arrows', station: 'workshop', stationLevel: 1, inputs: { wood: 2, scrap: 1 }, outputs: { arrows: 8 }, ticks: 10, skill: 'crafting', minSkill: 0, action: 'craft' },
+  bolts: { name: 'Bolts', station: 'workshop', stationLevel: 2, inputs: { wood: 1, scrap: 2 }, outputs: { bolts: 6 }, ticks: 14, skill: 'crafting', minSkill: 1, action: 'craft' },
+  // Z6b: the mounted weapons (installed on a tower with survivor.mount) mirror their `craft` blocks too; bullets (gland = gunpowder) are the minigun's ammo.
+  ballista: { name: 'Ballista', station: 'workshop', stationLevel: 2, inputs: { wood: 6, scrap: 4 }, outputs: { ballista: 1 }, ticks: 40, skill: 'crafting', minSkill: 2, action: 'craft' },
+  repeating_crossbow: { name: 'Repeating crossbow', station: 'workshop', stationLevel: 3, inputs: { wood: 4, scrap: 8 }, outputs: { repeating_crossbow: 1 }, ticks: 50, skill: 'crafting', minSkill: 3, action: 'craft' },
+  minigun: { name: 'Minigun', station: 'workshop', stationLevel: 3, inputs: { scrap: 16, gland: 2 }, outputs: { minigun: 1 }, ticks: 70, skill: 'crafting', minSkill: 4, action: 'craft' },
+  rifle: { name: 'Rifle', station: 'workshop', stationLevel: 3, inputs: { scrap: 6, gland: 1 }, outputs: { rifle: 1 }, ticks: 40, skill: 'crafting', minSkill: 3, action: 'craft' },
+  bullets: { name: 'Bullets', station: 'workshop', stationLevel: 3, inputs: { scrap: 2, gland: 1 }, outputs: { bullets: 12 }, ticks: 16, skill: 'crafting', minSkill: 2, action: 'craft' },
+  // Bone meal: the better fertilizer (+100 % harvest instead of +50 %); farming works without it.
+  bone_meal: { name: 'Bone meal', station: 'workshop', stationLevel: 1, inputs: { bones: 2, water: 1 }, outputs: { bone_meal: 2 }, ticks: 14, skill: 'crafting', minSkill: 0, action: 'craft' },
   glass: { name: 'Glass', station: 'workshop', stationLevel: 2, inputs: { stone: 4, wood: 2 }, outputs: { glass: 1 }, ticks: 24, skill: 'crafting', minSkill: 1, action: 'craft', power: 8 },
 };

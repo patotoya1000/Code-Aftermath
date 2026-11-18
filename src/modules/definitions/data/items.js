@@ -31,6 +31,16 @@ export const items = {
   gland: { name: 'Volatile gland', unitWeight: 1 },
   noise_lure: { name: 'Noise lure', unitWeight: 1 },
   boss_core: { name: 'Boss core', unitWeight: 2 },
+  // Z5: bone meal is a better fertilizer (bones from the sortie); crafted personal weapons are items in base stock until a survivor equips one (survivor.equip).
+  bone_meal: { name: 'Bone meal', unitWeight: 1 },
+  advanced_spear: { name: 'Advanced spear', unitWeight: 3 },
+  bow: { name: 'Bow', unitWeight: 2 },
+  crossbow: { name: 'Crossbow', unitWeight: 4 },
+  rifle: { name: 'Rifle', unitWeight: 5 }, // Z6c: LOUD (noise 8)
+  // Z6b: mounted weapons are items in base stock until a survivor installs one on a tower (survivor.mount); they are hauled, not carried (no weight rule).
+  ballista: { name: 'Ballista', unitWeight: 10 },
+  repeating_crossbow: { name: 'Repeating crossbow', unitWeight: 8 },
+  minigun: { name: 'Minigun', unitWeight: 12 },
   // Ammo (doc 20 section 9): carried by the survivor, spent per shot; mounted weapons are stocked into a hopper from it.
   arrows: { name: 'Arrows', unitWeight: 1 },
   bolts: { name: 'Bolts', unitWeight: 1 },

@@ -153,6 +153,46 @@ export const COMMANDS = {
   // first command is added to the end of the survivor's queue instead.
   queue: { type: null, marker: true, signature: 'survivor.queue()', doc: 'Add the commands that follow to the END of this survivor\'s queue instead of replacing the current task.', params: (args) => noArgs('queue', args) },
   stop: { type: 'stop', signature: 'survivor.stop()', doc: 'Cancel this survivor\'s queued and running actions.', params: (args) => noArgs('stop', args) },
+  collect: {
+    type: 'collect', signature: 'survivor.collect(item)',
+    doc: 'Go on a sortie: walk to the loot zombies left on the ground (the nearest pile first), pick up what she can carry and storage has room for, carry it to a storage building and unload, and repeat. Add an item name (e.g. \"bones\") to take only that. Only allowed when no wave is on (a cleared wave counts as over); it stops by itself when the loot is gone, storage is full, she is too tired, or the next wave starts. Loot not picked up is gone a day after the wave ended. See threats.loot.',
+    params(args) {
+      if (args.length > 1 || (args.length === 1 && (typeof args[0] !== 'string' || !args[0]))) throw bad('collect', 'use collect() or collect(\"bones\")');
+      return args.length ? { item: args[0] } : {};
+    },
+  },
+  take: {
+    type: 'take', signature: 'survivor.take(item, amount)',
+    doc: 'Walk to the nearest working storage building that holds an item and take up to `amount` (1–100) of it from base stock into her hands, limited by what is in stock and what she can carry. This is how ammo gets from the store to the wall: survivor.take(\"arrows\", 20). Perishable food cannot be taken. deposit() puts it back.',
+    params(args) {
+      if (args.length !== 2 || typeof args[0] !== 'string' || !args[0]) throw bad('take', 'use take(\"arrows\", 20)');
+      return { item: args[0], amount: optInt('take', 'amount', args[1], 1, 100) };
+    },
+  },
+  equip: {
+    type: 'equip', signature: 'survivor.equip(weapon)',
+    doc: 'Take a weapon in hand: \"knife\" or \"spear\" at once, a crafted one (\"advanced_spear\", \"bow\", \"crossbow\") from base stock (she walks to the storage that holds it; the weapon she held goes back). Needs the weapon\'s minCombat Combat skill (threats.weapons). A ranged weapon spends the ammo she carries: survivor.take(\"arrows\", 20).',
+    params(args) {
+      if (args.length !== 1 || typeof args[0] !== 'string' || !args[0]) throw bad('equip', 'use equip(\"bow\")');
+      return { weapon: args[0] };
+    },
+  },
+  mount: {
+    type: 'mount', signature: 'survivor.mount(tower, weapon)',
+    doc: 'Install a crafted mounted weapon (\"ballista\", \"repeating_crossbow\", \"minigun\") on a repaired tower: she fetches it from base stock, hauls it to the tower and fits it. It takes one of the tower\'s slots (tower_1.tower.freeSlots), the tower level must be able to hold it (tower_1.tower.mounts) and she needs the weapon\'s minCombat Combat skill. A new mount has an empty hopper: fill it with reload(). A posted survivor crews it and it fires by itself at zombies in range.',
+    params(args) {
+      if (args.length !== 2 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('mount', 'use mount(tower_1, \"ballista\")');
+      return { targetId: args[0], weapon: args[1] };
+    },
+  },
+  reload: {
+    type: 'reload', signature: 'survivor.reload(tower, ammo, amount)',
+    doc: 'Pour ammo she carries into the hopper of the mounted weapon(s) on a tower that use it: survivor.take(\"bolts\", 20); survivor.reload(tower_1, \"bolts\", 20). `amount` is optional (1–200): without it she pours in everything that fits. An empty hopper stops a mounted weapon (tower_1.tower.installed[].status is NO_AMMO).',
+    params(args) {
+      if (args.length < 2 || args.length > 3 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('reload', 'use reload(tower_1, \"bolts\", 20)');
+      return { targetId: args[0], item: args[1], ...(args.length === 3 ? { amount: optInt('reload', 'amount', args[2], 1, 200) } : {}) };
+    },
+  },
   attack: {
     type: 'attack', signature: 'survivor.attack(zombie)',
     doc: 'Attack a zombie during an active wave. The survivor moves to weapon range and fires or strikes by the weapon reload speed. Melee weapons never gain tower range bonuses. Running out of ammunition stops with NO_AMMO.',
@@ -163,7 +203,7 @@ export const COMMANDS = {
   },
   guard: {
     type: 'guard', signature: 'survivor.guard(position)',
-    doc: 'Stand guard during an active wave and attack the nearest zombie within the equipped weapon range. An optional building or survivor target makes her move to and hold that position.',
+    doc: 'Stand guard during an active wave and attack the nearest zombie within the equipped weapon range. An optional building or survivor target makes her move to and hold that position. Guard a repaired watchtower (survivor.guard(tower_1)) to be posted on it: ranged weapons reach further.',
     params(args) {
       if (args.length > 1 || (args.length === 1 && !entityId(args[0]))) throw bad('guard', 'use guard() or guard(building_or_survivor)');
       return args.length ? { targetId: args[0] } : {};
@@ -189,13 +229,14 @@ export const READ_SURFACE = [
   'storage_1.cold   (cold storage: { capacity, factor, working } - the `capacity` oldest food units age `factor` times slower; a freezer (level 3) also has needsPower and powered, and only works while powered)',
   'power   (the grid this tick: { produced, demand, balance, ok, stored, capacity, sun, producers, working } - produced includes power taken from batteries; stored/capacity are the battery bank; sun is the daylight % reaching solar panels)',
   'generator_1.power   (a generator or solar panel: { role, kind, output, producing, status, working, fuel: { item, every, burnLeft, inStock } or null }; a freezer: { role: "consumer", use, powered, status, working }; a battery: { role: "storage", capacity, rate, charge, status, working })',
+  'tower_1.tower   (a watchtower: { level, name, slots, freeSlots, rangeBonus, mounts: what it can hold, installed: [{ weapon, name, ammo, hopper, hopperMax, range, damage, reload, power?, status, operator }] mounted weapons, working, posted: [survivor ids] } - a survivor standing next to a working tower (within its slots) is posted: her ranged weapon reaches rangeBonus cells further; the first posted survivors crew the installed mounted weapons (operator), which fire by themselves; status is READY | RELOADING | IDLE | NO_AMMO | NO_OPERATOR | NO_POWER | BROKEN)',
   'well.water   (the deep well\'s reservoir: { amount, capacity, working, recharge: { every, amount, percent, perDay }, siphon: { status, reach, target } or null })',
   'recipes   (what can be cooked or crafted: id -> { name, action: "cook" | "craft", station, stationLevel, inputs, outputs, ticks, skill, power, stationWorking, canAfford })',
   'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',
   'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
   'events   (risk events: { upcoming: [{ day, inDays, id, name, kind, harm }] scheduled soon - the schedule is public, prepare for it; history: [{ day, id, name, outcome, detail }] what has happened })',
-  'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, ... }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
+  'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, reinforceEvery, reinforceCap, decayPerTick, attention (the noise of the wave now), loudest (tower id or null), reinforced (extra zombies it has drawn) }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, loot: { sortieOpen, piles: [{ id, item, qty, x, y, daysLeft }] } zombie loot on the ground (daysLeft = dawns until it is gone, null while its wave is on), upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
   'world.width, world.height, tick',

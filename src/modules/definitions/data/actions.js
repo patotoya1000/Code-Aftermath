@@ -62,6 +62,34 @@ export const actions = {
     capability: { attributes: { agility: 1, strength: 1 }, skills: { combat: 0 } } },
   guard: { handler: 'guard', range: 1, ticksPerTile: 1,
     capability: { attributes: { agility: 1, strength: 1 }, skills: { combat: 0 } } },
+  // collect (Z4, docs/game/20 section 4) is the SORTIE: a STANDING action like gather, but its draw points are the loot piles zombies left on the
+  // ground. She walks to the nearest pile, picks up what she can carry AND what storage has room for (`ticksPerUnit` per unit), walks it to the nearest
+  // working storage building that takes it and unloads (`unloadTicks`), and repeats. Allowed only when no wave is on (a wave that is cleared counts as
+  // over), and it stops by itself when the next wave starts. Loot not picked up is gone `waveRules.lootLingerDays` dawns after the wave ended.
+  collect: { handler: 'collect', range: 1, ticksPerTile: 1, ticksPerUnit: 1, unloadTicks: 2,
+    capability: { attributes: { strength: 1, agility: 1 }, skills: { gathering: 0 } },
+  },
+  // equip (Z5): put a weapon in her hands. A crafted weapon is taken from base stock (she walks to the storage that holds it); the weapon she held goes back
+  // into stock (a starter weapon is never stocked, it can always be picked up again). It needs a minimum Combat skill (`weapons.<id>.minCombat`).
+  equip: { handler: 'equip', range: 1, ticksPerTile: 1, ticks: 2,
+    capability: { attributes: { agility: 1 }, skills: {} },
+  },
+  // take (Z4, "ammo is carried by the survivor"): walk to the nearest working storage building that holds an item and move up to `amount` of it from base
+  // stock into her hands (`ticks` of work), limited by what base stock has and what she can carry. It is how ammo gets from the store to the wall.
+  // Perishable food cannot be taken (its age would reset when it is put back). `deposit()` puts it back.
+  take: { handler: 'take', range: 1, ticksPerTile: 1, ticks: 2, maxAmount: 100,
+    capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
+  },
+  // mount (Z6b, docs/game/20 section 20): install a crafted MOUNTED weapon (ballista, repeating crossbow, minigun) on a repaired tower. She walks to the storage that
+  // holds it, picks it up (`ticks`), hauls it to the tower (hauling needs no carry capacity) and fits it (`installTicks`). The unit is reserved from stock when the job is
+  // accepted and leaves stock only when it is installed. A mount takes one of the tower's slots and needs Combat skill `weapons.<id>.minCombat`.
+  mount: { handler: 'mount', range: 1, ticksPerTile: 1, ticks: 3, installTicks: 6,
+    capability: { attributes: { agility: 1, strength: 1 }, skills: {} },
+  },
+  // reload (Z6b): carry ammo to a tower and pour it into the hopper of the mounted weapon(s) that use it (`ticks` of work at the tower). Ammo comes from her hands (survivor.take).
+  reload: { handler: 'reload', range: 1, ticksPerTile: 1, ticks: 2, maxAmount: 200,
+    capability: { attributes: { agility: 1 }, skills: {} },
+  },
 };
 
 // Needs policies (R4a): a standing rule "when this need drops below X, do this action". A policy INTERRUPTS the survivor's

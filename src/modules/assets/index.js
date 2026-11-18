@@ -315,6 +315,15 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     c.beginPath(); c.moveTo(ox + 4, oy + 18); c.lineTo(ox + 9, oy + (condition === 'ruined' ? 14 : 7)); c.lineTo(ox + w - 4, oy + (condition === 'ruined' ? 16 : 7)); c.lineTo(ox + w - 7, oy + 18); c.closePath(); c.fill();
     if (condition !== 'ruined') { c.strokeStyle = condition === 'repaired' ? '#9fc4e0' : '#5f7fa8'; c.lineWidth = 1; c.beginPath(); c.moveTo(ox + w / 2, oy + 7); c.lineTo(ox + w / 2 - 2, oy + 18); c.moveTo(ox + 7, oy + 12); c.lineTo(ox + w - 6, oy + 12); c.stroke(); }
     c.strokeStyle = tint; c.lineWidth = 2; c.beginPath(); c.moveTo(ox + 4, oy + 18); c.lineTo(ox + w - 7, oy + 18); c.stroke();
+  } else if (type === 'tower') {
+    // Watchtower: legs, a platform and a rail. Level 1 is a low lookout; level 2 is taller with a roof; level 3 has a stone base, a roof and a beacon.
+    // Ruined = leaning legs and no platform; damaged = a broken rail; repaired = whole.
+    const top = 18 - level * 4; const lean = condition === 'ruined' ? 3 : 0;
+    c.fillStyle = level > 2 ? '#7d7f84' : '#5b4730'; c.fillRect(ox + 8 + lean, oy + top + 6, 3, h - top - 10); c.fillRect(ox + w - 11 - lean, oy + top + 6, 3, h - top - 10);
+    if (level > 2) { c.fillStyle = '#6a6c71'; c.fillRect(ox + 6, oy + h - 8, w - 12, 5); }
+    if (condition !== 'ruined') { c.fillStyle = '#7a6244'; c.fillRect(ox + 5, oy + top + 3, w - 10, 4); c.fillStyle = tint; c.fillRect(ox + 5, oy + top - (condition === 'repaired' ? 1 : 0), w - 10, 2); }
+    if (level > 1 && condition !== 'ruined') { c.fillStyle = tint; c.beginPath(); c.moveTo(ox + 4, oy + top - 1); c.lineTo(ox + w / 2, oy + top - 8); c.lineTo(ox + w - 4, oy + top - 1); c.closePath(); c.fill(); }
+    if (level > 2 && condition === 'repaired') { c.fillStyle = '#ffd060'; c.fillRect(ox + w / 2 - 1, oy + top - 12, 3, 3); }
   } else if (type === 'battery') {
     // Battery bank: stacked cells with a terminal cap. Ruined = tipped, dark; repaired = bright cells (level 2 has a third cell).
     const cells = level > 1 ? 3 : 2;
@@ -344,6 +353,7 @@ function paintBuilding(c, ox, oy, { type, level, condition }) {
     c.fillStyle = '#2b2118'; c.fillRect(ox + 8, oy + 18, w - 16, 10);
     if (condition !== 'ruined') { c.fillStyle = '#9aa0a6'; c.fillRect(ox + 11, oy + 22, 9, 3); c.fillRect(ox + 13, oy + 25, 5, 3); }
     if (level > 1 && condition !== 'ruined') { c.fillStyle = '#5d6168'; c.fillRect(ox + w - 10, oy + 2, 5, 12); c.fillStyle = condition === 'repaired' ? '#ff8a3c' : '#5a3a28'; c.fillRect(ox + w - 12, oy + 22, 5, 4); }
+    if (level > 2 && condition !== 'ruined') { c.fillStyle = '#3d4046'; c.fillRect(ox + 5, oy + 14, 4, 12); c.fillStyle = '#c9ced4'; c.fillRect(ox + 5, oy + 12, 4, 2); c.fillStyle = '#e8c04a'; c.fillRect(ox + 12, oy + 14, 7, 2); } // Armory: a rack of weapons on the wall
     c.fillStyle = tint; c.beginPath();
     if (condition === 'ruined') { c.moveTo(ox + 3, oy + 15); c.lineTo(ox + w - 6, oy + 11); c.lineTo(ox + w - 3, oy + 17); c.lineTo(ox + 3, oy + 19); }
     else if (condition === 'damaged') { c.moveTo(ox + 2, oy + 13); c.lineTo(ox + w / 2, oy + 7); c.lineTo(ox + w - 2, oy + 13); c.lineTo(ox + w - 2, oy + 16); c.lineTo(ox + 2, oy + 16); }

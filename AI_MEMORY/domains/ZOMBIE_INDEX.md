@@ -84,3 +84,9 @@ Z3: survivor damage, equipment + reach, `attack`/`guard`, the wave ends when its
 # Current Status
 
 DATA (Z1) + wave entities (Z2) IMPLEMENTED (`SIM_VERSION` 0.25.0). Combat is IMPLEMENTED (`SIM_VERSION` 0.26.0). Survivors can attack and guard, equipped weapons use reach/armor/pierce, ranged weapons spend carried ammo, zombies can damage and down survivors, and waves clear when zombies are dead or end at dawn. Z4 adds loot/sorties; Z5+ crafting/towers/special behaviours.
+
+Z4 IMPLEMENTED (`SIM_VERSION` 0.27.0): kills drop loot piles (`state.threats.loot`, id -> { id, item, qty, x, y, day, expiresDay }), the last kill clears the wave and opens the gate, `survivor.collect` runs sorties, `survivor.take` carries ammo, piles expire `lootLingerDays` dawns after the wave ended. Read it in `threats.loot`. Events: `loot.dropped`, `loot.picked`, `loot.expired`, `resource.taken`, `wave.cleared`. Z5+ crafting/towers/special behaviours.
+
+Z6b IMPLEMENTED (`SIM_VERSION` 0.30.0): towers hold `mounts` (`survivor.mount`), hoppers are filled by `survivor.reload`, and `tickMounts` (threats module, called by the simulation between the survivors and `tickWave`) fires crewed mounts at the nearest zombie in range. Mount power requests go to the grid through `mountDemands` -> `tickPower(ctx, extras)`; do not read grid state from the threats module. Kills must still go through `killZombie`. Next: Z6c noise.
+
+Z6c IMPLEMENTED (`SIM_VERSION` 0.31.0): every shot must call `makeNoise` (combat handlers and `tickMounts` do); `tickNoise` runs before `tickWave` each tick. Next: Z7 special types.

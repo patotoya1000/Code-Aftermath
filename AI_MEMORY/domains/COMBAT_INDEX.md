@@ -78,3 +78,11 @@ Phase 8 (events and defence); advanced systems after the core is stable.
 - `docs/game/20-zombies-waves-loot-design.md` (decided design: types, waves, loot, weapons, towers — NOT implemented)
 - `docs/game/14-enemies-resources-items-open.md`
 - `docs/game/08-events.md`
+
+Z4 (`SIM_VERSION` 0.27.0): every kill goes through `killZombie` in `src/modules/threats/index.js` (loot drop, removal, wave clear + gate opens). Combat handlers must not edit the zombie table or the wave themselves. `survivor.take(item, amount)` is how ammo reaches a survivor's hands; `NO_AMMO` still stops a ranged attack.
+
+Z5 (`SIM_VERSION` 0.28.0): `survivor.equip(weapon)` sets `equipment.weapon` (crafted weapons come out of base stock, `minCombat` gates it); recipes for advanced_spear, bow, crossbow, arrows, bolts live in `data/recipes.js` and must match `weapons.<id>.craft` (tested). Rifle, bullets and mounted weapons are not craftable yet.
+
+Z6a (`SIM_VERSION` 0.29.0): `postedLevel(state, defs, survivorId)` in the threats module decides the tower level behind a survivor's range (`effectiveRange` is the only place a range is computed; combat handlers must call it). Mounted weapons, hoppers and noise are not built yet.
+
+Z6b (`SIM_VERSION` 0.30.0): mounted weapons fire BY THEMSELVES from `tickMounts` (not from `attack`/`guard`); an operator (`operatorOf`) crews the mount, so the `guard` handler leaves her personal weapon alone. A mount takes one tower slot; the minigun draws grid power only on ticks it fires. See docs/game/20 section 20.

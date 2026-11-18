@@ -3,6 +3,7 @@ import { stockKey, available, discard } from '../resources/index.js';
 import { applyHealth, blockedTiles, findPath } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
 import { dayOf, timeOf } from '../environment/index.js';
+import { awardSkillXp } from '../survivors/index.js';
 
 // Threats (O19 groundwork, data/threats.js). A RAID is a night attack by a number of zombies. Whether a day has a raid, its strength and its zombies are
 // a pure function of (seed, day): nothing random is saved, replays cannot diverge, and the schedule (strength + composition) is public `warnDays` ahead.
@@ -45,6 +46,103 @@ export function effectiveRange(defs, weaponId, towerLevel = 0) {
   return w.range + (defs.towers[towerLevel]?.rangeBonus ?? 0);
 }
 
+const byIdAsc = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+
+/** The working tower a survivor stands next to (nearest, ties by id), or null. Ruined towers count for nothing. */
+function towerOfSurvivor(state, s) {
+  if (!s || s.status !== 'active') return null;
+  let best = null;
+  for (const b of Object.values(state.buildings)) {
+    if (b.type !== 'tower' || b.condition === 'ruined') continue;
+    const d = chebyshev(s.position, b);
+    if (d > 1) continue;
+    if (!best || d < best.d || (d === best.d && b.id < best.b.id)) best = { b, d };
+  }
+  return best?.b ?? null;
+}
+
+/** The survivors POSTED on a tower: active ones standing next to it (it is their nearest tower), lowest ids first, at most its `slots`. Z6b: the first M of them (M = installed mounts) are the OPERATORS, one per mounted weapon in install order. */
+export function crewOf(state, defs, tower) {
+  if (!tower || tower.type !== 'tower' || tower.condition === 'ruined') return [];
+  const here = Object.values(state.survivors).filter((o) => towerOfSurvivor(state, o)?.id === tower.id).map((o) => o.id).sort();
+  return here.slice(0, defs.towers[tower.level]?.slots ?? 0);
+}
+
+/**
+ * Z6: the tower level a survivor is POSTED on (0 = none). She must stand next to a tower that is not ruined (nearest one, ties by id) and be among the first
+ * `slots` active survivors there (by id): a tower holds only so many. The level then feeds `effectiveRange` (ranged weapons only).
+ */
+export function postedLevel(state, defs, survivorId) {
+  const t = towerOfSurvivor(state, state.survivors[survivorId]);
+  return t && crewOf(state, defs, t).includes(survivorId) ? t.level : 0;
+}
+
+/** Z6b: is this survivor a mount OPERATOR (one of the first M crew of a tower holding M mounted weapons)? Returns { tower, index } or null. An operator crews the mount instead of firing a personal weapon. */
+export function operatorOf(state, defs, survivorId) {
+  const t = towerOfSurvivor(state, state.survivors[survivorId]);
+  if (!t || !(t.mounts?.length)) return null;
+  const i = crewOf(state, defs, t).indexOf(survivorId);
+  return i >= 0 && i < t.mounts.length ? { tower: t, index: i } : null;
+}
+
+/** The learner-facing tower record for a tower building: { level, name, slots, freeSlots, rangeBonus, mounts (what it CAN mount), installed (what it HAS), working, posted: [survivor ids] }, or null for other buildings. */
+export function towerInfoFor(state, defs, b) {
+  if (b.type !== 'tower') return null;
+  const t = defs.towers[b.level];
+  const crew = crewOf(state, defs, b);
+  const installed = (b.mounts ?? []).map((m, i) => {
+    const w = defs.weapons[m.weapon];
+    return { weapon: m.weapon, name: w.name, ammo: w.ammo, hopper: m.hopper, hopperMax: w.hopper, range: w.range, damage: w.damage, reload: w.reload, ...(w.power ? { power: w.power } : {}), status: m.status, operator: crew[i] ?? null };
+  });
+  return { level: b.level, name: t.name, slots: t.slots, freeSlots: Math.max(0, t.slots - installed.length), rangeBonus: t.rangeBonus, mounts: [...t.mounts], installed, working: b.condition !== 'ruined', posted: crew };
+}
+
+/** The tower a posted survivor shoots from (its id), or null. */
+export function postedTowerId(state, defs, survivorId) {
+  const t = towerOfSurvivor(state, state.survivors[survivorId]);
+  return t && crewOf(state, defs, t).includes(survivorId) ? t.id : null;
+}
+
+// ---- Noise (Z6c, docs/game/20 section 21). Every shot adds its weapon's `noise` to the wave's ATTENTION meter and, when fired from a tower (a mount or a posted
+// shooter), to that tower's own noise. Both fall by `noise.decayPerTick`. Above `noise.threshold`, one reinforcement walker per `reinforceEvery` points of excess joins
+// the wave (at most `reinforceCap` per wave). Zombies with nobody outside to chase drift to the wall nearest the LOUDEST tower (bait). ----
+
+/** A shot was fired: add noise (a weapon's noise, `towerId` = the tower it was fired from, if any). */
+export function makeNoise(ctx, weaponId, towerId = null) {
+  const { state, defs } = ctx;
+  const n = shotNoise(defs, weaponId);
+  if (n <= 0) return;
+  const was = state.threats.attention;
+  state.threats.attention = was + n;
+  if (towerId) state.threats.towerNoise[towerId] = (state.threats.towerNoise[towerId] ?? 0) + n;
+  if (was <= defs.noise.threshold && state.threats.attention > defs.noise.threshold) ctx.emit('noise.high', { attention: state.threats.attention, threshold: defs.noise.threshold });
+}
+
+/** The tower currently making the most noise (ties by id), or null when none is audible. */
+export function loudestTower(state) {
+  let best = null;
+  for (const id of Object.keys(state.threats.towerNoise).sort()) { const v = state.threats.towerNoise[id]; if (v > 0 && (!best || v > best.v)) best = { id, v }; }
+  return best ? state.buildings[best.id] ?? null : null;
+}
+
+/** One tick of noise (after the shooters, before the wave moves): reinforcements for the excess attention, then decay. */
+export function tickNoise(ctx) {
+  const { state, defs } = ctx;
+  const nz = defs.noise, th = state.threats, wave = th.wave;
+  if (wave && !wave.cleared) {
+    const want = Math.min(nz.reinforceCap, Math.floor(Math.max(0, th.attention - nz.threshold) / nz.reinforceEvery));
+    const add = want - (wave.reinforced ?? 0);
+    if (add > 0) {
+      for (let i = 0; i < add; i++) wave.queue.push('walker');
+      wave.reinforced = want;
+      wave.composition.walker = (wave.composition.walker ?? 0) + add;
+      ctx.emit('wave.reinforced', { day: wave.day, added: add, total: want, attention: th.attention });
+    }
+  }
+  th.attention = Math.max(0, th.attention - nz.decayPerTick);
+  for (const id of Object.keys(th.towerNoise)) { th.towerNoise[id] = Math.max(0, th.towerNoise[id] - nz.decayPerTick); if (th.towerNoise[id] === 0) delete th.towerNoise[id]; }
+}
+
 /** Can a tower of this level hold this mounted weapon? */
 export function canMount(defs, weaponId, towerLevel) {
   return !!defs.towers[towerLevel]?.mounts.includes(weaponId);
@@ -55,6 +153,79 @@ export function shotNoise(defs, weaponId, suppressed = false) {
   const w = defs.weapons[weaponId];
   if (!w) return 0;
   return suppressed && w.kind !== 'mounted' ? Math.floor((w.noise * (100 - defs.noise.suppressorPercent)) / 100) : w.noise;
+}
+
+// ---- Mounted weapons (Z6b, docs/game/20 section 20). A tower holds `mounts` ({ weapon, hopper, cooldown, status, powered }); each is crewed by an OPERATOR (see crewOf)
+// and fires by itself at the nearest zombie in its range, spending one unit of its HOPPER per shot. The minigun draws grid power ONLY on ticks it fires. ----
+
+/** Is this zombie alive and on the map? */
+const alive = (z) => z.health > 0 && z.state !== 'dead';
+
+/** One entry per installed mount (towers by id, mounts in install order): everything needed to decide whether it fires this tick. Pure: reads state only. */
+function mountPlan(state, defs) {
+  const out = [];
+  const zs = Object.values(state.threats?.zombies ?? {}).filter(alive).sort(byIdAsc);
+  for (const tower of Object.values(state.buildings).filter((b) => b.type === 'tower').sort(byIdAsc)) {
+    const crew = crewOf(state, defs, tower);
+    (tower.mounts ?? []).forEach((m, i) => {
+      const w = defs.weapons[m.weapon];
+      const operatorId = crew[i] ?? null;
+      const range = effectiveRange(defs, m.weapon, tower.level);
+      const target = zs.reduce((best, z) => (chebyshev(tower, z) <= range && (!best || chebyshev(tower, z) < chebyshev(tower, best)) ? z : best), null);
+      let status;
+      if (tower.condition === 'ruined') status = 'BROKEN';
+      else if (!operatorId) status = 'NO_OPERATOR';
+      else if (m.hopper <= 0) status = 'NO_AMMO';
+      else if (!target) status = 'IDLE';
+      else if (m.cooldown > 0) status = 'RELOADING';
+      else status = 'READY';
+      const ready = status === 'READY';
+      if (ready && w.power && !m.powered) status = 'NO_POWER';
+      out.push({ tower, m, i, w, operatorId, target, ready, status });
+    });
+  }
+  return out;
+}
+
+/**
+ * Called by the simulation just before the grid ticks: the mounts that WANT to fire this tick and need power are returned as consumers for the grid
+ * ({ use, grant(bool) }); the grid says whether it can serve them. A mount that needs no power is simply allowed. A mount that does not want to fire draws nothing.
+ */
+export function mountDemands(state, defs) {
+  const out = [];
+  for (const p of mountPlan(state, defs)) {
+    p.m.powered = false;
+    if (!p.ready) continue;
+    if (!p.w.power) { p.m.powered = true; continue; }
+    out.push({ use: p.w.power, grant: (g) => { p.m.powered = g; } });
+  }
+  return out;
+}
+
+/** One tick of every mounted weapon (after the survivors acted, before the wave moves): update status, fire the ready ones, count the reload down. */
+export function tickMounts(ctx) {
+  const { state, defs } = ctx;
+  for (const p of mountPlan(state, defs)) {
+    const { m, w } = p;
+    if (p.status !== m.status) {
+      ctx.emit('mount.status', { towerId: p.tower.id, weapon: m.weapon, from: m.status, to: p.status });
+      m.status = p.status;
+    }
+    if (p.status === 'READY') {
+      const z = p.target;
+      m.hopper -= 1;
+      m.cooldown = w.reload;
+      const reduction = Math.max(0, (defs.zombies[z.type].armor ?? 0) - w.pierce);
+      const damage = Math.max(0, w.damage - reduction);
+      z.health = Math.max(0, z.health - damage);
+      z.state = 'hurt';
+      ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: p.operatorId, weapon: m.weapon, towerId: p.tower.id, damage, health: z.health });
+      awardSkillXp(ctx, state.survivors[p.operatorId], 'combat', 1);
+      makeNoise(ctx, m.weapon, p.tower.id);
+      if (z.health <= 0) killZombie(ctx, z, p.operatorId, m.weapon);
+    }
+    if (m.cooldown > 0) m.cooldown -= 1;
+  }
 }
 
 /** The raid on a calendar day: { day, strength, composition: { walker: n, ... }, threat } or null. Does not look at state. */
@@ -169,7 +340,7 @@ export function waveStart(ctx, day) {
   for (const id of Object.keys(raid.composition).sort()) for (let i = 0; i < raid.composition[id]; i++) queue.push(id);
   state.threats.wave = {
     day, strength: raid.strength, defense: defenseOf(state, defs).value, composition: { ...raid.composition }, queue,
-    spawned: 0, startTick: state.tick, gateClosed: defs.waveRules.gateClosesDuringWave, breached: false, wallDamage: 0,
+    spawned: 0, reinforced: 0, startTick: state.tick, gateClosed: defs.waveRules.gateClosesDuringWave, breached: false, wallDamage: 0,
   };
   state.threats.zombies = {};
   ctx.emit('wave.started', { day, strength: raid.strength, composition: { ...raid.composition }, gateClosed: state.threats.wave.gateClosed });
@@ -213,11 +384,12 @@ export function tickWave(ctx) {
   const survivors = Object.values(state.survivors).sort((a, b) => (a.id < b.id ? -1 : 1));
   const prey = survivors.filter((s) => wave.breached || !isInside(fence, s.position)).map((s) => ({ id: s.id, x: s.position.x, y: s.position.y }));
   const walls = wallCells(state);
+  const lure = loudestTower(state); // Z6c: with nobody outside to chase, zombies go for the wall nearest the loudest tower
   for (const id of Object.keys(state.threats.zombies).sort()) {
     const z = state.threats.zombies[id];
     const def = defs.zombies[z.type];
     const victim = nearest(z, prey);
-    const wall = victim ? null : nearest(z, walls);
+    const wall = victim ? null : nearest(defs.noise.driftToLoudest && lure ? lure : z, walls);
     const goal = victim ?? wall;
     if (!goal) { z.state = 'idle'; continue; }
     if (chebyshev(z, goal) <= 1) { // in reach: stand and hit (a survivor is only reached in Z2; a wall is hit)
@@ -262,6 +434,82 @@ export function tickWave(ctx) {
   }
 }
 
+// ---- Loot (Z4, docs/game/20 section 4). A zombie killed outside leaves loot on the ground where it died; survivors collect it by SORTIE (`collect`). ----
+// What drops is a PURE function of (seed, day, zombie id): no randomness is stored, so replays cannot diverge. A pile is { id, item, qty, x, y, day, expiresDay }.
+// `expiresDay` is null while the wave that dropped it is still on; at the dawn that ends the wave every such pile gets `expiresDay = dawn day + lootLingerDays`,
+// and a pile still lying there at the dawn of its `expiresDay` is gone (`loot.expired`).
+
+const lootNum = (seed, day, zid, i, what) => parseInt(hashString(`${seed}:${day}:loot:${zid}:${i}:${what}`).slice(-8), 16);
+
+/** What a zombie (or boss) leaves: [{ item, qty }], from its loot table. Pure. A boomer that EXPLODED (`z.exploded`) drops nothing that `requires: 'not_exploded'`. */
+export function lootFor(defs, seed, day, z) {
+  const out = [];
+  (defs.lootTables[z.type] ?? []).forEach((row, i) => {
+    if (row.requires === 'not_exploded' && z.exploded) return;
+    if (lootNum(seed, day, z.id, i, 'chance') % 100 >= row.chancePercent) return;
+    const qty = row.min + (row.max > row.min ? lootNum(seed, day, z.id, i, 'qty') % (row.max - row.min + 1) : 0);
+    if (qty >= 1) out.push({ item: row.item, qty });
+  });
+  return out;
+}
+
+/** Put loot on the ground where `z` died (same item on the same cell and still in its wave = one pile). */
+function dropLoot(ctx, z) {
+  const { state, defs } = ctx;
+  const day = state.threats.wave?.day ?? 0;
+  for (const { item, qty } of lootFor(defs, state.seed, day, z)) {
+    let pile = Object.values(state.threats.loot).find((p) => p.item === item && p.x === z.x && p.y === z.y && p.expiresDay === null);
+    if (pile) pile.qty += qty;
+    else {
+      state.threats.lootCounter += 1;
+      const id = `loot_${state.threats.lootCounter}`;
+      pile = { id, item, qty, x: z.x, y: z.y, day, expiresDay: null };
+      state.threats.loot[id] = pile;
+    }
+    ctx.emit('loot.dropped', { pileId: pile.id, item, amount: qty, x: z.x, y: z.y, zombieId: z.id, zombieType: z.type });
+  }
+}
+
+/**
+ * A zombie dies (Z3 combat calls this, never edits the table itself): its loot drops, it leaves the map, and when it was the last of the wave the wave is
+ * CLEARED - the gate opens at once, which is what starts the sortie window (collect is allowed after the clear; dawn only ends the wave record).
+ */
+export function killZombie(ctx, z, byId, weaponId) {
+  const { state } = ctx;
+  z.state = 'dead';
+  ctx.emit('zombie.killed', { zombieId: z.id, survivorId: byId, weapon: weaponId, type: z.type, zombieType: z.type }); // (`type` collides with the log entry's own `type`, so `zombieType` is the field to read)
+  dropLoot(ctx, z);
+  delete state.threats.zombies[z.id];
+  const wave = state.threats.wave;
+  if (wave && !wave.cleared && wave.queue.length === 0 && Object.keys(state.threats.zombies).length === 0) {
+    wave.cleared = true;
+    wave.gateClosed = false;
+    ctx.emit('wave.cleared', { day: wave.day, gateClosed: false });
+  }
+}
+
+/** A sortie is allowed when no wave is on, or the wave has been cleared. */
+export const sortieOpen = (state) => !state.threats.wave || state.threats.wave.cleared === true;
+
+/** Called at dawn, AFTER the wave was resolved: piles of the wave that just ended start their countdown, and piles whose countdown is over are gone. */
+export function lootDawn(ctx, day) {
+  const { state, defs } = ctx;
+  if (state.threats.wave) return; // (cannot happen after waveDawn, kept so a pile is never stamped while its wave is still on)
+  for (const id of Object.keys(state.threats.loot).sort()) {
+    const p = state.threats.loot[id];
+    if (p.expiresDay === null) p.expiresDay = day + defs.waveRules.lootLingerDays;
+    if (p.expiresDay <= day) {
+      ctx.emit('loot.expired', { pileId: p.id, item: p.item, amount: p.qty, x: p.x, y: p.y });
+      delete state.threats.loot[id];
+    }
+  }
+}
+
+/** The loot on the ground, sorted by id: [{ id, item, qty, x, y, day, expiresDay }] (a copy). */
+export function lootPiles(state) {
+  return Object.values(state.threats.loot).sort((a, b) => (a.id < b.id ? -1 : 1)).map((p) => ({ ...p }));
+}
+
 /** Called at dawn: resolve the wave. Z3 may clear it early; otherwise the remaining zombies retreat at dawn. */
 export function waveDawn(ctx) {
   const { state, defs } = ctx;
@@ -300,8 +548,14 @@ export function zombieProjection(state, defs) {
 function waveView(state, defs) {
   const w = state.threats.wave;
   if (!w) return { active: false };
-  return { active: true, day: w.day, gateClosed: w.gateClosed, breached: w.breached, wallDamage: w.wallDamage, remaining: w.queue.length,
+  return { active: true, day: w.day, cleared: w.cleared === true, gateClosed: w.gateClosed, breached: w.breached, wallDamage: w.wallDamage, remaining: w.queue.length,
     zombies: Object.values(state.threats.zombies).sort((a, b) => (a.id < b.id ? -1 : 1)).map((z) => ({ id: z.id, type: z.type, x: z.x, y: z.y, state: z.state, health: z.health, maxHealth: defs.zombies[z.type].health })) };
+}
+
+/** Loot on the ground for the learner: [{ id, item, qty, x, y, daysLeft }] (daysLeft = dawns until it is gone, null while its wave is still on) + whether a sortie may go out now. */
+function lootView(state, defs) {
+  const today = dayOf(defs, state.tick);
+  return { sortieOpen: sortieOpen(state), piles: lootPiles(state).map((p) => ({ id: p.id, item: p.item, qty: p.qty, x: p.x, y: p.y, daysLeft: p.expiresDay === null ? null : Math.max(0, p.expiresDay - today) })) };
 }
 
 /** The learner's `threats` read. */
@@ -314,9 +568,10 @@ export function threatsView(state, defs) {
     bosses: upcomingBosses(defs, state.tick),
     weapons: Object.fromEntries(Object.entries(defs.weapons).map(([id, w]) => [id, { ...w, ...(w.craft ? { craft: { ...w.craft, materials: { ...w.craft.materials } } } : {}) }])),
     towers: Object.fromEntries(Object.entries(defs.towers).map(([lv, t]) => [lv, { ...t, mounts: [...t.mounts] }])),
-    noise: { ...defs.noise },
+    noise: { ...defs.noise, attention: state.threats.attention, loudest: loudestTower(state)?.id ?? null, reinforced: state.threats.wave?.reinforced ?? 0 },
     waveRules: { ...defs.waveRules },
     wave: waveView(state, defs),
+    loot: lootView(state, defs),
     history: state.threats.history.map((h) => ({ ...h, composition: { ...h.composition }, lost: { ...h.lost } })),
   };
 }

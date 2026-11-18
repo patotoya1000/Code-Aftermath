@@ -22,7 +22,8 @@ export const farming = {
   maxDamage: 90, // a plot never loses more than this % of its harvest to weather
   // O15: one unit of `item` spread on a GROWING plot (survivor.farm(..., { fertilize: true })) adds `yieldBonus` % to what that plot gives at
   // harvest. A plot is fertilized once per crop; harvesting clears it.
-  fertilizer: { item: 'fertilizer', yieldBonus: 50 },
+  // Z5: `better` (bone meal, from zombie bones) is used first when in stock and gives a bigger bonus.
+  fertilizer: { item: 'fertilizer', yieldBonus: 50, better: { item: 'bone_meal', yieldBonus: 100 } },
   // O17: a farm level with `nutrients: true` (the hydroponic farm) grows a plot only while it holds nutrients. One unit of `item` fills a plot
   // with `ticksPerUnit` ticks of nutrients (growth uses one per tick); a plot holds at most `cap` ticks. Rain does not feed it.
   nutrients: { item: 'nutrients', ticksPerUnit: 120, cap: 240 },

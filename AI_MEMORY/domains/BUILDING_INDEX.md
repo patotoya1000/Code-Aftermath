@@ -87,3 +87,6 @@ BUILD and upgrades after R3; building effects with M5+.
 
 - `docs/game/06-buildings-and-upgrades.md`
 - `docs/game/12-buildings-visual-spec.md`
+
+
+Z6b (SIM_VERSION 0.30.0): tower buildings hold mounted weapons (state `tower.mounts`); the workshop has level 3 "Armory" (upgrade costs scrap).

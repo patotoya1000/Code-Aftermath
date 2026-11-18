@@ -95,3 +95,6 @@ New commands only together with their domain phase (build).
 - `docs/game/04-actions-tasks-capability.md`
 - `docs/game/15-realtime-simulation-and-tasks.md`
 - `AI_MEMORY/systems/SANDBOX_INDEX.md`
+
+
+Z6b (SIM_VERSION 0.30.0): commands `survivor.mount(tower, weapon)` and `survivor.reload(tower, ammo, amount?)`; read `tower_1.tower.installed[]` and `freeSlots`; new outcomes TOWER_TOO_LOW, NO_SLOT, NO_MOUNT, HOPPER_FULL.

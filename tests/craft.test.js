@@ -214,7 +214,7 @@ test('learner code reads the recipe book (action, power) and crafts through the 
 
 test('building view: station recipes carry their action; the workshop lists its recipes', () => {
   const sim = newSim('stage1', 1, (st) => shop(st));
-  assert.deepEqual(view(sim, 'workshop_1').recipes.map((r) => [r.id, r.action, r.stationLevel, r.working]), [['packaging', 'craft', 1, true], ['fertilizer', 'craft', 1, true], ['charcoal', 'craft', 1, true], ['nutrients', 'craft', 1, true], ['glass', 'craft', 2, false]]);
+  assert.deepEqual(view(sim, 'workshop_1').recipes.map((r) => [r.id, r.action, r.stationLevel, r.working]), [['packaging', 'craft', 1, true], ['fertilizer', 'craft', 1, true], ['charcoal', 'craft', 1, true], ['nutrients', 'craft', 1, true], ['advanced_spear', 'craft', 1, true], ['bow', 'craft', 1, true], ['crossbow', 'craft', 2, false], ['arrows', 'craft', 1, true], ['bolts', 'craft', 2, false], ['ballista', 'craft', 2, false], ['repeating_crossbow', 'craft', 3, false], ['minigun', 'craft', 3, false], ['rifle', 'craft', 3, false], ['bullets', 'craft', 3, false], ['bone_meal', 'craft', 1, true], ['glass', 'craft', 2, false]]);
 });
 
 test('definitions validation rejects broken craft recipes', () => {
@@ -223,7 +223,7 @@ test('definitions validation rejects broken craft recipes', () => {
   bad({ x: { ...defs.recipes.packaging, skill: 'cooking' } }); // craft teaches crafting
   bad({ x: { ...defs.recipes.bread, action: 'craft' } });      // cooking is taught by cook
   bad({ x: { ...defs.recipes.mre, power: 0 } });
-  bad({ x: { ...defs.recipes.packaging, stationLevel: 3 } });  // workshop has 2 levels
+  bad({ x: { ...defs.recipes.packaging, stationLevel: 4 } });  // workshop has 3 levels
   assert.throws(() => createDefinitions({ actions: { ...defs.actions, craft: { ...defs.actions.craft, powerWaitTicks: 0 } } }), /powerWaitTicks/);
 });
 

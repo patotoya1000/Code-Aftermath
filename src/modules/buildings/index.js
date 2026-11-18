@@ -17,6 +17,7 @@ export function createBuilding(defs, spec) {
     // powered = a consumer got its power this tick, status = last reported status).
     ...(Object.values(def.levels).some((l) => l.power) ? { power: { burn: 0, output: 0, powered: false, charge: 0, status: 'OFF' } } : {}),
   };
+  if (spec.type === 'tower') b.mounts = []; // Z6b: installed mounted weapons: [{ weapon, hopper, cooldown, status, powered }]
   if (spec.bounds) b.bounds = { ...spec.bounds };
   if (def.footprint) b.footprint = footprintRect(def.footprint, spec.x, spec.y);
   b.condition = conditionOf(defs, b);

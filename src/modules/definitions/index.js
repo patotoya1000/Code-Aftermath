@@ -11,7 +11,7 @@ import { events, eventSchedule } from './data/events.js';
 import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
 import { weapons, towers, noise } from './data/arsenal.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -97,6 +97,11 @@ export function validateDefinitions(d) {
       need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
       need(Number.isInteger(a.powerWaitTicks) && a.powerWaitTicks >= 1, `action ${id}: powerWaitTicks must be a whole number >= 1`);
     }
+    if (a.handler === 'collect') need(['range', 'ticksPerTile', 'ticksPerUnit', 'unloadTicks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticksPerUnit and unloadTicks must be whole numbers >= 1`);
+    if (a.handler === 'equip') need(['range', 'ticksPerTile', 'ticks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile and ticks must be whole numbers >= 1`);
+    if (a.handler === 'take') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
+    if (a.handler === 'mount') need(['range', 'ticksPerTile', 'ticks', 'installTicks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and installTicks must be whole numbers >= 1`);
+    if (a.handler === 'reload') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
   const wholeAtLeast = (n, min) => Number.isInteger(n) && n >= min;
@@ -129,7 +134,7 @@ export function validateDefinitions(d) {
   for (const id of [...Object.keys(d.zombies ?? {}), ...Object.keys(d.bosses ?? {})]) need((d.lootTables?.[id] ?? []).length > 0, `lootTable ${id}: every zombie and boss needs a loot table`);
   const WK = ['melee', 'ranged', 'mounted'];
   for (const [id, w] of Object.entries(d.weapons ?? {})) {
-    need(typeof w.name === 'string' && WK.includes(w.kind) && whole(w.tier, 0) && whole(w.damage, 1) && whole(w.pierce, 0) && whole(w.noise, 0) && whole(w.reload, 1), `weapon ${id}: needs a name, a kind (${WK.join('/')}) and whole tier, damage >= 1, pierce, noise >= 0, reload >= 1`);
+    need(typeof w.name === 'string' && WK.includes(w.kind) && whole(w.tier, 0) && whole(w.minCombat, 0) && whole(w.damage, 1) && whole(w.pierce, 0) && whole(w.noise, 0) && whole(w.reload, 1), `weapon ${id}: needs a name, a kind (${WK.join('/')}) and whole tier, damage >= 1, pierce, noise >= 0, reload >= 1`);
     need(w.kind === 'melee' ? whole(w.reach, 2) && w.ammo === null : whole(w.range, 1) && d.items[w.ammo], `weapon ${id}: melee needs reach >= 2 (the fence cell counts) and no ammo; ranged/mounted need a range and a known ammo item`);
     if (w.kind === 'mounted') need(whole(w.minTowerLevel, 2) && whole(w.hopper, 1) && (w.power === undefined || whole(w.power, 1)), `weapon ${id}: mounted needs minTowerLevel >= 2 (level 1 mounts nothing), hopper >= 1 and a whole power >= 1 if it uses the grid`);
     else need(w.power === undefined && w.hopper === undefined && w.minTowerLevel === undefined, `weapon ${id}: only mounted weapons have power, hopper or minTowerLevel`);
@@ -142,6 +147,14 @@ export function validateDefinitions(d) {
   for (const [lv, t] of Object.entries(d.towers ?? {})) {
     need(typeof t.name === 'string' && whole(t.maxHealth, 1) && whole(t.slots, 1) && whole(t.rangeBonus, 0), `tower ${lv}: needs a name and whole maxHealth, slots >= 1 and rangeBonus >= 0`);
     for (const m of t.mounts ?? []) need(d.weapons?.[m]?.kind === 'mounted' && d.weapons[m].minTowerLevel <= Number(lv), `tower ${lv}: "${m}" must be a mounted weapon whose minTowerLevel is at most ${lv}`);
+  }
+  for (const [lv, t] of Object.entries(d.towers ?? {})) {
+    const L = d.buildings?.tower?.levels?.[lv];
+    if (d.buildings?.tower) need(L && L.maxHealth === t.maxHealth && (L.name ?? d.buildings.tower.name) === t.name, `tower ${lv}: the tower building's level name and maxHealth must equal the towers table (${t.name}, ${t.maxHealth})`);
+  }
+  for (const [id, w] of Object.entries(d.weapons ?? {})) if (w.kind === 'mounted') {
+    need(Object.values(d.towers ?? {}).some((t) => (t.mounts ?? []).includes(id)), `weapon ${id}: a mounted weapon must be listed in some tower level's mounts`);
+    need(d.items?.[id] && d.recipes?.[id]?.outputs?.[id] === 1, `weapon ${id}: a mounted weapon needs an item and a workshop recipe that makes exactly one`);
   }
   const nz = d.noise;
   need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100, 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest and suppressorPercent 0..100');
@@ -160,6 +173,7 @@ export function validateDefinitions(d) {
   const fm = d.farming;
   need(fm?.nutrients && d.items[fm.nutrients.item] && Number.isInteger(fm.nutrients.ticksPerUnit) && fm.nutrients.ticksPerUnit >= 1 && Number.isInteger(fm.nutrients.cap) && fm.nutrients.cap >= fm.nutrients.ticksPerUnit, 'farming: nutrients needs a known item, whole ticksPerUnit >= 1 and cap >= ticksPerUnit');
   need(fm?.fertilizer && d.items[fm.fertilizer.item] && Number.isInteger(fm.fertilizer.yieldBonus) && fm.fertilizer.yieldBonus >= 1, 'farming: fertilizer needs a known item and a whole yieldBonus % >= 1');
+  if (fm?.fertilizer?.better) need(d.items[fm.fertilizer.better.item] && Number.isInteger(fm.fertilizer.better.yieldBonus) && fm.fertilizer.better.yieldBonus > fm.fertilizer.yieldBonus, 'farming: fertilizer.better needs a known item and a yieldBonus % above the plain fertilizer');
   need(fm && wholeAtLeast(fm.ticksPerWater, 1) && wholeAtLeast(fm.cap, fm.ticksPerWater ?? 1) && wholeAtLeast(fm.maxDamage, 0) && fm.maxDamage <= 99, 'farming: ticksPerWater >= 1, cap >= ticksPerWater and maxDamage 0..99 must be whole numbers');
   const hazards = new Set(Object.values(d.environment?.weather ?? {}).map((w) => w.hazard).filter(Boolean));
   for (const [id, crop] of Object.entries(d.crops ?? {})) {

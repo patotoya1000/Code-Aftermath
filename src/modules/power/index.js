@@ -56,8 +56,8 @@ function poweredJobs(state, defs) {
   return jobs.sort((x, y) => (x.a.actionId < y.a.actionId ? -1 : 1));
 }
 
-/** One tick of the grid. Mutates only `b.power` bookkeeping, `state.power`, and base fuel through the ledger. ctx = { state, defs, emit }. */
-export function tickPower(ctx) {
+/** One tick of the grid. `extras` = [{ use, grant(bool) }] extra consumers for THIS tick (Z6b: mounted weapons that want to fire). Mutates only `b.power` bookkeeping, `state.power`, and base fuel through the ledger. ctx = { state, defs, emit }. */
+export function tickPower(ctx, extras = []) {
   const { state, defs, emit } = ctx;
   const all = byId(Object.values(state.buildings).filter((b) => b.power));
   const set = (b, status) => {
@@ -66,7 +66,7 @@ export function tickPower(ctx) {
 
   const consumers = all.filter((b) => isConsumer(powerDefOf(defs, b)) && isOperational(b));
   const jobs = poweredJobs(state, defs);
-  const demand = consumers.reduce((n, b) => n + powerDefOf(defs, b).use, 0) + jobs.reduce((n, j) => n + j.use, 0);
+  const demand = consumers.reduce((n, b) => n + powerDefOf(defs, b).use, 0) + jobs.reduce((n, j) => n + j.use, 0) + extras.reduce((n, e) => n + e.use, 0);
   const sun = sunPercent(defs, state.tick);
 
   let produced = 0;
@@ -118,6 +118,11 @@ export function tickPower(ctx) {
   for (const j of jobs) { // machines at work come after the buildings
     j.a.powered = budget >= j.use;
     if (j.a.powered) budget -= j.use;
+  }
+  for (const e of extras) { // Z6b: other consumers the simulation passes in (a mounted minigun while it fires), after machines, in the order given
+    const g = budget >= e.use;
+    if (g) budget -= e.use;
+    e.grant(g);
   }
   // Surplus GENERATION (not the stored power just drawn) fills the batteries that did not discharge this tick.
   let surplus = Math.min(budget, produced - drawn);

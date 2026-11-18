@@ -178,3 +178,10 @@ test('codebook UI: opens from BOOK, searches, shows an API-built entry, inserts 
   await els['btn-run-code'].fire('click');
   assert.match(els['code-commands'].innerHTML, /data-action="open-book" data-entry="command\.gather"/, 'a rejected command links to its Codebook entry');
 });
+
+const css = readFileSync(new URL('../src/app/mainscreen.css', import.meta.url), 'utf8');
+
+test('cmd hints stay in a fixed-height horizontally scrollable row', () => {
+  assert.match(css, /#cmd-hints\s*\{[^}]*height:\s*30px[^}]*overflow-x:\s*auto[^}]*overflow-y:\s*hidden[^}]*flex-wrap:\s*nowrap/s);
+  assert.match(css, /#cmd-hints\s+\.hint-chip\s*\{[^}]*flex:\s*0\s+0\s+auto[^}]*white-space:\s*nowrap/s);
+});

@@ -6,7 +6,9 @@ import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, vis
 // Every grid↔pixel conversion goes through the viewport module (PA-1); this file has no coordinate math of its own.
 // It is read-only with respect to gameplay: animation timing, selection and debug overlays live here and nowhere else.
 
-const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1, 2], tent: [1], storage: [1, 2, 3], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1, 2, 3], workshop: [1, 2], generator: [1, 2], solar_panel: [1], battery: [1, 2] }, nodes: { tree: true, rock: true } });
+const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], fence: [1, 2], tent: [1], storage: [1, 2, 3], gate: [1], well: [1, 2], water_tank: [1, 2], kitchen: [1, 2, 3], workshop: [1, 2, 3], generator: [1, 2], solar_panel: [1], battery: [1, 2] }, nodes: { tree: true, rock: true } });
+// Placeholder colours of the loot sacks (Z4) until the item art exists.
+const LOOT_COLORS = { bones: '#e8e2cf', hide: '#a0693b', rags: '#9aa3ad', scrap: '#7c8794', gland: '#7ed957', noise_lure: '#e8b04a', boss_core: '#c24ee8', arrows: '#d9c07a', bolts: '#d9c07a', bullets: '#d9c07a' };
 const COLORS = {
   terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', hover: '#8ec8ff', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
   zone: 'rgba(63,143,79,0.14)', zoneEdge: 'rgba(63,143,79,0.45)', path: '#4a4333', labelOutline: 'rgba(15,14,12,0.85)',
@@ -41,6 +43,7 @@ export function mountRenderer(canvas, {
   let debugOn = debug;
   let drawList = [];
   let pathList = []; // PA-3: road pieces drawn
+  let lootList = []; // Z4: loot piles drawn (presentation only)
   let terrainList = []; // PA-2: one entry per ground tile drawn (kept apart from drawList, which lists entities)
 
   const k = () => vp.cell / manifest.frame.w;
@@ -200,6 +203,17 @@ export function mountRenderer(canvas, {
       ctx.fillStyle = COLORS.label; ctx.font = `${Math.max(9, t * 0.3)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText(p.name, cx, fy - vp.cell * 0.95);
     }
+    // 5b loot piles (Z4): a small sack with the amount, where a zombie died; no atlas art yet (placeholder drawing from the projection)
+    lootList = [];
+    for (const p of frame.loot || []) {
+      if (p.x < vis.x1 || p.x > vis.x2 || p.y < vis.y1 || p.y > vis.y2) continue;
+      lootList.push({ id: p.id, item: p.item, qty: p.qty, x: p.x, y: p.y });
+      const c = cellCenter(vp, p.x, p.y); const s = Math.max(6, vp.cell * 0.4);
+      ctx.fillStyle = 'rgba(20,14,8,0.85)'; ctx.fillRect(c.x - s / 2 - 1, c.y - s / 2 - 1, s + 2, s + 2);
+      ctx.fillStyle = LOOT_COLORS[p.item] ?? '#c8a96a'; ctx.fillRect(c.x - s / 2, c.y - s / 2, s, s);
+      ctx.fillStyle = COLORS.label; ctx.font = `${Math.max(8, vp.cell * 0.28)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(String(p.qty), c.x, c.y + s / 2 + 1);
+    }
     // 6 event markers (only if the projection carries them)
     for (const ev of events || []) if (ev.x !== undefined && ev.y !== undefined) {
       ctx.fillStyle = COLORS.event; ctx.beginPath(); ctx.arc(cellCenter(vp, ev.x, ev.y).x, cellCenter(vp, ev.x, ev.y).y, t * 0.25, 0, Math.PI * 2); ctx.fill();
@@ -296,6 +310,7 @@ export function mountRenderer(canvas, {
     get lastDrawList() { return drawList; },
     get lastTerrain() { return terrainList; },
     get lastPaths() { return pathList; },
+    get lastLoot() { return lootList; },
     resolver,
     // Camera (PA-1): presentation only. None of these can change a logical position; picking and drawing both read the same viewport.
     get viewport() { return vp; },

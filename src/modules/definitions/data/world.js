@@ -11,7 +11,7 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40, fertilizer: 60, charcoal: 80, nutrients: 60 } } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40, fertilizer: 60, charcoal: 80, nutrients: 60, bone_meal: 40, advanced_spear: 4, bow: 4, crossbow: 4, rifle: 4, ballista: 2, repeating_crossbow: 2, minigun: 2, arrows: 60, bolts: 60, bullets: 60, bones: 40, hide: 30, rags: 40, scrap: 40, gland: 20, noise_lure: 10, boss_core: 5 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     // PA-5: the HQ is a 3x3 building. The scenario's (x, y) is its DOOR cell (bottom middle); `footprint` is the rectangle it occupies,
     // relative to the door: x/y = offset of its top-left cell, w/h = size. Every footprint cell blocks walking; survivors still walk to the door.
@@ -19,7 +19,7 @@ export const buildings = {
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
-    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20, fertilizer: 30, charcoal: 40, nutrients: 30 },
+    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20, fertilizer: 30, charcoal: 40, nutrients: 30, bone_meal: 30, advanced_spear: 3, bow: 3, crossbow: 3, rifle: 3, ballista: 1, repeating_crossbow: 1, minigun: 1, arrows: 40, bolts: 40, bullets: 40, bones: 30, hide: 20, rags: 30, scrap: 30, gland: 10, noise_lure: 5, boss_core: 3 },
   },
   fence: {
     name: 'Perimeter Fence',
@@ -88,10 +88,11 @@ export const buildings = {
   // O12: a workshop is the crafting STATION (recipes with station 'workshop'). Level 2 adds the furnace (glass, which draws power while it works).
   workshop: {
     name: 'Workshop',
-    levels: { 1: { maxHealth: 120 }, 2: { name: 'Forge Workshop', maxHealth: 170 } },
+    levels: { 1: { maxHealth: 120 }, 2: { name: 'Forge Workshop', maxHealth: 170 }, 3: { name: 'Armory', maxHealth: 220 } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 8, stone: 6 }, healthPerAction: 30, ticks: 30 },
-    upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 } },
+    // Z6b: level 3 (the Armory) unlocks the heavy recipes (bullets, repeating crossbow, minigun). Its upgrade is paid partly in scrap from zombie loot.
+    upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 }, 3: { cost: { wood: 30, stone: 40, scrap: 12 }, ticks: 90 } },
   },
   // O11 power (docs/game/16). A level's `power` table is either a PRODUCER (`output`, plus `fuel` for a generator or `solar: true` for a panel)
   // or a CONSUMER (`use`). The grid is one number per tick: produced vs demanded. Demand is met by solar first (free, but only in daylight and
@@ -122,6 +123,16 @@ export const buildings = {
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 5, stone: 6 }, healthPerAction: 25, ticks: 30 },
     upgrade: { 2: { cost: { wood: 15, stone: 25 }, ticks: 70 } },
+  },
+  // Z6 (docs/game/20 section 10): a watchtower standing just inside the wall. Its levels, names and health mirror `towers` in arsenal.js (a validation
+  // keeps them equal). A survivor standing next to a tower that is not ruined (and within its `slots`) is POSTED on it: her RANGED weapon reaches
+  // `towers[level].rangeBonus` cells further. Like every building it starts as a ruin, is repaired, then upgraded.
+  tower: {
+    name: 'Watchtower',
+    levels: { 1: { name: 'Lookout', maxHealth: 60 }, 2: { name: 'Guard tower', maxHealth: 100 }, 3: { name: 'Fortified tower', maxHealth: 160 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 6 }, healthPerAction: 20, ticks: 25 },
+    upgrade: { 2: { cost: { wood: 20, stone: 15 }, ticks: 60 }, 3: { cost: { wood: 25, stone: 40 }, ticks: 90 } },
   },
   // I2 world object: the gap in the fence that connects the base to the outside path. `perimeter: true` means the
   // scenario must place it on the fence line (validated) and the renderer leaves that fence cell open.
@@ -171,6 +182,7 @@ const stage1 = {
     { id: 'tank', type: 'water_tank', level: 1, x: 15, y: 10, health: 10 },   // ruined; within siphon reach (2 tiles) of the well once repaired
     { id: 'generator_1', type: 'generator', level: 1, x: 13, y: 9, health: 12 }, // ruined; burns wood while something needs power (the freezer)
     { id: 'battery_1', type: 'battery', level: 1, x: 7, y: 9, health: 10 },     // ruined; stores surplus solar / generator power
+    { id: 'tower_1', type: 'tower', level: 1, x: 15, y: 4, health: 8 },            // ruined watchtower inside the north-east corner; repair it, then survivor.guard(tower_1)
     { id: 'solar_1', type: 'solar_panel', level: 1, x: 7, y: 11, health: 10 },    // ruined; free power in daylight only
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect

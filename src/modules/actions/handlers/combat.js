@@ -1,6 +1,7 @@
 import { chebyshev } from '../../../kernel/index.js';
 import { ok, fail, RUNNING, DONE, failTick, walkStep } from './shared.js';
 import { awardSkillXp, carriedOf, removeCarried } from '../../survivors/index.js';
+import { killZombie, effectiveRange, postedLevel, operatorOf, makeNoise, postedTowerId } from '../../threats/index.js';
 
 const nearestZombie = (state, from) => {
   const zs = Object.values(state.threats?.zombies ?? {}).sort((a, b) => a.id < b.id ? -1 : 1);
@@ -27,7 +28,7 @@ export const combatHandler = {
     const weaponId = s.equipment.weapon ?? 'spear';
     const weapon = ctx.defs.weapons[weaponId];
     if (!weapon) return failTick('NO_WEAPON');
-    const range = weapon.kind === 'melee' ? weapon.reach : weapon.range;
+    const range = effectiveRange(ctx.defs, weaponId, postedLevel(ctx.state, ctx.defs, s.id)); // a posted survivor's ranged weapon reaches further (Z6)
 
     if (weapon.ammo && carriedOf(s, weapon.ammo) <= 0) return failTick('NO_AMMO');
 
@@ -57,16 +58,9 @@ export const combatHandler = {
     z.state = 'hurt';
     ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: s.id, weapon: weaponId, damage, health: z.health });
     awardSkillXp(ctx, s, 'combat', 1);
+    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id));
     if (z.health <= 0) {
-      z.state = 'dead';
-      ctx.emit('zombie.killed', { zombieId: z.id, survivorId: s.id, weapon: weaponId, type: z.type });
-      delete ctx.state.threats.zombies[z.id];
-
-      const remaining = Object.keys(ctx.state.threats.zombies).length;
-      if (ctx.state.threats.wave.queue.length === 0 && remaining === 0) {
-        ctx.state.threats.wave.cleared = true;
-        ctx.emit('wave.cleared', { day: ctx.state.threats.wave.day });
-      }
+      killZombie(ctx, z, s.id, weaponId); // loot drops, the zombie leaves the map, the last one clears the wave
       return DONE;
     }
     return RUNNING;
@@ -101,13 +95,14 @@ export const guardHandler = {
     }
 
     a.phase = 'guard';
+    if (operatorOf(ctx.state, ctx.defs, s.id)) return RUNNING; // Z6b: she crews a mounted weapon (it fires by itself); her personal weapon stays quiet
     const z = nearestZombie(ctx.state, s.position);
     if (!z) return RUNNING;
 
     const weaponId = s.equipment.weapon ?? 'spear';
     const weapon = ctx.defs.weapons[weaponId];
     if (!weapon) return RUNNING;
-    const range = weapon.kind === 'melee' ? weapon.reach : weapon.range;
+    const range = effectiveRange(ctx.defs, weaponId, postedLevel(ctx.state, ctx.defs, s.id)); // a posted survivor's ranged weapon reaches further (Z6)
     if (chebyshev(s.position, z) > range) return RUNNING;
 
     a.guardProgress = (a.guardProgress ?? 0) + 1;
@@ -122,14 +117,8 @@ export const guardHandler = {
     z.state = z.health > 0 ? 'hurt' : 'dead';
     ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: s.id, weapon: weaponId, damage, health: z.health });
     awardSkillXp(ctx, s, 'combat', 1);
-    if (z.health <= 0) {
-      ctx.emit('zombie.killed', { zombieId: z.id, survivorId: s.id, weapon: weaponId, type: z.type });
-      delete ctx.state.threats.zombies[z.id];
-      if (ctx.state.threats.wave.queue.length === 0 && Object.keys(ctx.state.threats.zombies).length === 0) {
-        ctx.state.threats.wave.cleared = true;
-        ctx.emit('wave.cleared', { day: ctx.state.threats.wave.day });
-      }
-    }
+    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id));
+    if (z.health <= 0) killZombie(ctx, z, s.id, weaponId);
     return RUNNING;
   },
 };
