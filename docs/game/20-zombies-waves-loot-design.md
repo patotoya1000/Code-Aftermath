@@ -311,7 +311,10 @@ Z1 note: the old abstract dusk raid still resolves by strength vs fence defence;
 - **Learner:** `threats.wave.boss { id, type, name, health, maxHealth, phase }` or null.
 - Not yet: more than one phase, boss-specific abilities, boss art (generic zombie sprite), blueprint unlocks from boss_core.
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 0306432b2caa4efeea75ba52e4fee51861b8f2a4
 
 ## 28. Z8 as built (suppressor, noise lure, scream and blast noise)
 
@@ -320,4 +323,7 @@ Z1 note: the old abstract dusk raid still resolves by strength vs fence defence;
 - **Scream and blast noise:** every scream adds `noise.scream` (10) and every boomer explosion `noise.explosion` (15) to attention (not to a tower), through the shared `addNoise(ctx, amount, towerId?)`; `makeNoise` (shots) now uses it too.
 - **Config:** `noise` gains `scream`, `explosion` (whole >= 0) and `lure { attention, tower }` (whole >= 1), all validated. `SIM_VERSION` 0.38.0.
 - **Not yet:** the lure does not draw zombies by itself while survivors are outside; a lure is not a placed object (no art, no timer); no per-weapon noise art or sound.
+<<<<<<< HEAD
 >>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
+=======
+>>>>>>> 0306432b2caa4efeea75ba52e4fee51861b8f2a4

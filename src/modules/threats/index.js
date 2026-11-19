@@ -435,9 +435,13 @@ function screamTick(ctx, wave, z) {
   if (z.scream < b.cooldownTicks) return;
   z.scream = 0;
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   addNoise(ctx, ctx.defs.noise.scream);
 >>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
+=======
+  addNoise(ctx, ctx.defs.noise.scream);
+>>>>>>> 0306432b2caa4efeea75ba52e4fee51861b8f2a4
   const room = Math.max(0, b.waveCap - (wave.summoned ?? 0));
   const add = Math.min(b.summons, room);
   for (let i = 0; i < add; i++) wave.queue.push('walker');
@@ -498,9 +502,13 @@ function explodeZombie(ctx, wave, z) {
     if (s.needs.health <= 0) { s.status = 'downed'; ctx.emit('survivor.downed', { survivorId: s.id, cause: 'explosion', zombieId: z.id }); }
   }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   addNoise(ctx, defs.noise.explosion);
 >>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
+=======
+  addNoise(ctx, defs.noise.explosion);
+>>>>>>> 0306432b2caa4efeea75ba52e4fee51861b8f2a4
   ctx.emit('zombie.exploded', { id: z.id, zombieType: z.type, x: z.x, y: z.y, radius: b.radius, wallDamage, survivorsHit: hit });
   delete state.threats.zombies[z.id];
   clearIfDone(ctx);
