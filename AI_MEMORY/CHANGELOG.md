@@ -46,11 +46,4 @@ Purpose: stop future agents from following stale documentation. When an old docu
 | 2026-11-18 (Z7d) | a screamer only walked to the wall and stood there (damage 0, `scream` was data only) | **Screamer**: `screamTick` (every `cooldownTicks` a living screamer queues up to `summons` walkers, total per wave capped by `waveCap` in `wave.summoned`), `zombie.screamed`; `SIM_VERSION` 0.35.0 (older saves are refused; zombies may carry `scream`, waves `summoned`) |
 | 2026-11-18 (Z7e) | the brute was a beefy walker (same speed and hit rhythm, no special rule) | **Tank**: `behaviour.type 'siege'` (`stepTicks`, `attackEveryTicks`, `wallMultiplier`; validated), used by `tickWave` movement/hit rhythm and `hitWall` (multiplier before wall armor); `SIM_VERSION` 0.36.0 (older saves are refused) |
 | 2026-11-18 (Z7f) | the boss was a schedule + data only: `waveStart` needed a random raid, so a boss day never started a wave; nothing could spawn `horde_king` | **Boss**: boss day = wave (`bossForDay` + escorts + boss last), `statsOf` (zombie or boss stats), `behaviourFor` + `bossPhase` (`phases[]`, `boss.phase`), boss `siege` behaviour, `boss.defeated`, `wave.boss`, learner `threats.wave.boss`; `SIM_VERSION` 0.37.0 (older saves are refused; zombies may carry `phase`, waves `boss`). Z7 complete |
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 | 2026-11-19 (Z8) | the suppressor and noise lure were half-built: a `lure.js` handler importing a missing `addNoise`, a test file, and `shotNoise(..., suppressed)` with no item, recipe, equip effect, API entry or noise config | **Wired end to end**: `suppressor` item + workshop-2 recipe, `equip("suppressor")` accessory, `survivor.lure(tower)`, `noise.scream` / `noise.explosion` / `noise.lure`, shared `addNoise`; `SIM_VERSION` 0.38.0 |
->>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
-=======
-| 2026-11-19 (Z8) | the suppressor and noise lure were half-built: a `lure.js` handler importing a missing `addNoise`, a test file, and `shotNoise(..., suppressed)` with no item, recipe, equip effect, API entry or noise config | **Wired end to end**: `suppressor` item + workshop-2 recipe, `equip("suppressor")` accessory, `survivor.lure(tower)`, `noise.scream` / `noise.explosion` / `noise.lure`, shared `addNoise`; `SIM_VERSION` 0.38.0 |
->>>>>>> 0306432b2caa4efeea75ba52e4fee51861b8f2a4

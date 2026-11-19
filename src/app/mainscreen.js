@@ -11,12 +11,13 @@ import { placeholderManifestFor } from '../modules/assets/index.js';
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
+import { mountHud } from './hud/hud.js'; // HUD skin: card folding, inspector tabs, tactical overlay (presentation only)
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-let app; let renderer; let hooks = null;
+let app; let renderer; let hooks = null; let hud = null;
 let freeSim; let clock;
 let selected = null; // { kind: 'npc' | 'building' | 'node', id }
 let isInspectorOpen = true;
@@ -40,6 +41,7 @@ async function init() {
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
   renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected });
   await startScenario();
   renderHints();
   renderCodeAPI();
@@ -68,6 +70,7 @@ function loop(now) {
     const ran = clock.update(dt);
     hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
+    hud?.frame(currentProjection(), now);
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
