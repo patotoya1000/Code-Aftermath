@@ -171,7 +171,7 @@ export const COMMANDS = {
   },
   equip: {
     type: 'equip', signature: 'survivor.equip(weapon)',
-    doc: 'Take a weapon in hand: \"knife\" or \"spear\" at once, a crafted one (\"advanced_spear\", \"bow\", \"crossbow\") from base stock (she walks to the storage that holds it; the weapon she held goes back). Needs the weapon\'s minCombat Combat skill (threats.weapons). A ranged weapon spends the ammo she carries: survivor.take(\"arrows\", 20).',
+    doc: 'Take a weapon in hand: \"knife\" or \"spear\" at once, a crafted one (\"advanced_spear\", \"bow\", \"crossbow\") from base stock (she walks to the storage that holds it; the weapon she held goes back). Needs the weapon\'s minCombat Combat skill (threats.weapons). A ranged weapon spends the ammo she carries: survivor.take(\"arrows\", 20). survivor.equip(\"suppressor\") fits a crafted suppressor for good (it does not replace the weapon): her personal weapon then makes about half the noise.',
     params(args) {
       if (args.length !== 1 || typeof args[0] !== 'string' || !args[0]) throw bad('equip', 'use equip(\"bow\")');
       return { weapon: args[0] };
@@ -191,6 +191,14 @@ export const COMMANDS = {
     params(args) {
       if (args.length < 2 || args.length > 3 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('reload', 'use reload(tower_1, \"bolts\", 20)');
       return { targetId: args[0], item: args[1], ...(args.length === 3 ? { amount: optInt('reload', 'amount', args[2], 1, 200) } : {}) };
+    },
+  },
+  lure: {
+    type: 'lure', signature: 'survivor.lure(tower)',
+    doc: 'Carry a noise lure (survivor.take(\"noise_lure\", 1); screamers sometimes drop one) to a repaired tower and set it off: one lure is spent, the wave\'s attention meter rises and that tower becomes the loudest, so zombies with nobody outside to chase drift toward it. Too much attention (threats.noise.threshold) calls reinforcements.',
+    params(args) {
+      if (args.length !== 1 || !entityId(args[0])) throw bad('lure', 'use lure(tower_1)');
+      return { targetId: args[0] };
     },
   },
   attack: {

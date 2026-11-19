@@ -74,6 +74,10 @@ export const actions = {
   equip: { handler: 'equip', range: 1, ticksPerTile: 1, ticks: 2,
     capability: { attributes: { agility: 1 }, skills: {} },
   },
+  // lure (Z8): carry a noise lure to a tower and set it off (`ticks` of work next to it). One lure is spent; see `noise.lure` for the noise it makes.
+  lure: { handler: 'lure', range: 1, ticksPerTile: 1, ticks: 3,
+    capability: { attributes: { agility: 1 }, skills: {} },
+  },
   // take (Z4, "ammo is carried by the survivor"): walk to the nearest working storage building that holds an item and move up to `amount` of it from base
   // stock into her hands (`ticks` of work), limited by what base stock has and what she can carry. It is how ammo gets from the store to the wall.
   // Perishable food cannot be taken (its age would reset when it is put back). `deposit()` puts it back.

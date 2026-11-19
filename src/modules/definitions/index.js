@@ -11,7 +11,7 @@ import { events, eventSchedule } from './data/events.js';
 import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
 import { weapons, towers, noise } from './data/arsenal.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -101,6 +101,7 @@ export function validateDefinitions(d) {
     if (a.handler === 'equip') need(['range', 'ticksPerTile', 'ticks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile and ticks must be whole numbers >= 1`);
     if (a.handler === 'take') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
     if (a.handler === 'mount') need(['range', 'ticksPerTile', 'ticks', 'installTicks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and installTicks must be whole numbers >= 1`);
+    if (a.handler === 'lure') need(['range', 'ticksPerTile', 'ticks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile and ticks must be whole numbers >= 1`);
     if (a.handler === 'reload') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
@@ -165,7 +166,7 @@ export function validateDefinitions(d) {
     need(d.items?.[id] && d.recipes?.[id]?.outputs?.[id] === 1, `weapon ${id}: a mounted weapon needs an item and a workshop recipe that makes exactly one`);
   }
   const nz = d.noise;
-  need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100, 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest and suppressorPercent 0..100');
+  need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100 && whole(nz.scream, 0) && whole(nz.explosion, 0) && nz.lure && whole(nz.lure.attention, 1) && whole(nz.lure.tower, 1), 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest, suppressorPercent 0..100, whole scream and explosion >= 0 and lure { attention, tower } >= 1');
   const rs = d.raidSchedule;
   need(rs && Object.keys(d.zombies ?? {}).length > 0 && ['startDay', 'warnDays', 'historyLimit', 'strengthBase'].every((k) => Number.isInteger(rs[k]) && rs[k] >= 1) && Number.isInteger(rs.strengthPerDay) && rs.strengthPerDay >= 0 && Number.isInteger(rs.chancePercent) && rs.chancePercent >= 0 && rs.chancePercent <= 100 && Number.isInteger(rs.variancePercent) && rs.variancePercent >= 0 && rs.variancePercent <= 99, 'raidSchedule: whole numbers (chancePercent 0..100, variancePercent 0..99) and at least one zombie are required');
   need(rs && Number.isInteger(rs.defense?.perLevel) && rs.defense.perLevel >= 1 && Number.isInteger(rs.defense.damagedPercent) && rs.defense.damagedPercent >= 0 && rs.defense.damagedPercent <= 100 && Number.isInteger(rs.breached?.lootPercent) && rs.breached.lootPercent >= 0 && rs.breached.lootPercent <= 100 && Array.isArray(rs.breached?.loot) && rs.breached.loot.every((i) => d.items[i]), 'raidSchedule: defense and breached tables need whole numbers and known loot items');

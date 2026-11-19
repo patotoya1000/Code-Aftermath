@@ -10,6 +10,7 @@ export const FAILURE_HINTS = {
   NO_PATH: 'There is no way to walk there: buildings and the fence are in the way. The gate is the only opening in the fence.',
   NO_TARGET: 'There is no resource of that type left to gather.',
   INVALID_PARAMS: 'A command had an invalid value. Check the API reference.',
+  NO_LURE: 'She is not carrying a noise lure. Bring one from storage first: survivor.take("noise_lure", 1).',
   NOT_NEEDED: 'That action was not needed right now (the need is already full).',
   MAX_LEVEL: 'That building cannot be upgraded any further (or has no upgrade).',
   NEEDS_REPAIR: 'Repair the building completely before upgrading it.',

@@ -119,15 +119,19 @@ export function postedTowerId(state, defs, survivorId) {
 // shooter), to that tower's own noise. Both fall by `noise.decayPerTick`. Above `noise.threshold`, one reinforcement walker per `reinforceEvery` points of excess joins
 // the wave (at most `reinforceCap` per wave). Zombies with nobody outside to chase drift to the wall nearest the LOUDEST tower (bait). ----
 
-/** A shot was fired: add noise (a weapon's noise, `towerId` = the tower it was fired from, if any). */
-export function makeNoise(ctx, weaponId, towerId = null) {
+/** Add `amount` noise to the wave's attention meter and, when `towerId` is given, to that tower's own noise (shots, screams, blasts, lures). */
+export function addNoise(ctx, amount, towerId = null) {
   const { state, defs } = ctx;
-  const n = shotNoise(defs, weaponId);
-  if (n <= 0) return;
+  if (!(amount > 0)) return;
   const was = state.threats.attention;
-  state.threats.attention = was + n;
-  if (towerId) state.threats.towerNoise[towerId] = (state.threats.towerNoise[towerId] ?? 0) + n;
+  state.threats.attention = was + amount;
+  if (towerId) state.threats.towerNoise[towerId] = (state.threats.towerNoise[towerId] ?? 0) + amount;
   if (was <= defs.noise.threshold && state.threats.attention > defs.noise.threshold) ctx.emit('noise.high', { attention: state.threats.attention, threshold: defs.noise.threshold });
+}
+
+/** A shot was fired: add noise (a weapon's noise, `towerId` = the tower it was fired from, if any; `suppressed` = a suppressor is fitted to the shooter). */
+export function makeNoise(ctx, weaponId, towerId = null, suppressed = false) {
+  addNoise(ctx, shotNoise(ctx.defs, weaponId, suppressed), towerId);
 }
 
 /** The tower currently making the most noise (ties by id), or null when none is audible. */
@@ -430,6 +434,10 @@ function screamTick(ctx, wave, z) {
   z.scream = (z.scream ?? 0) + 1;
   if (z.scream < b.cooldownTicks) return;
   z.scream = 0;
+<<<<<<< HEAD
+=======
+  addNoise(ctx, ctx.defs.noise.scream);
+>>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
   const room = Math.max(0, b.waveCap - (wave.summoned ?? 0));
   const add = Math.min(b.summons, room);
   for (let i = 0; i < add; i++) wave.queue.push('walker');
@@ -489,6 +497,10 @@ function explodeZombie(ctx, wave, z) {
     ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'explosion', zombieId: z.id, zombieType: z.type, damage: b.survivorDamage, health: s.needs.health });
     if (s.needs.health <= 0) { s.status = 'downed'; ctx.emit('survivor.downed', { survivorId: s.id, cause: 'explosion', zombieId: z.id }); }
   }
+<<<<<<< HEAD
+=======
+  addNoise(ctx, defs.noise.explosion);
+>>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
   ctx.emit('zombie.exploded', { id: z.id, zombieType: z.type, x: z.x, y: z.y, radius: b.radius, wallDamage, survivorsHit: hit });
   delete state.threats.zombies[z.id];
   clearIfDone(ctx);

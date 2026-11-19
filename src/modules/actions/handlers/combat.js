@@ -58,7 +58,7 @@ export const combatHandler = {
     z.state = 'hurt';
     ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: s.id, weapon: weaponId, damage, health: z.health });
     awardSkillXp(ctx, s, 'combat', 1);
-    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id));
+    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id), s.equipment.suppressor === true);
     if (z.health <= 0) {
       killZombie(ctx, z, s.id, weaponId); // loot drops, the zombie leaves the map, the last one clears the wave
       return DONE;
@@ -117,7 +117,7 @@ export const guardHandler = {
     z.state = z.health > 0 ? 'hurt' : 'dead';
     ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: s.id, weapon: weaponId, damage, health: z.health });
     awardSkillXp(ctx, s, 'combat', 1);
-    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id));
+    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id), s.equipment.suppressor === true);
     if (z.health <= 0) killZombie(ctx, z, s.id, weaponId);
     return RUNNING;
   },

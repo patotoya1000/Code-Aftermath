@@ -257,7 +257,7 @@ Z1 note: the old abstract dusk raid still resolves by strength vs fence defence;
 - **Drift:** when no survivor is outside to chase, `noise.driftToLoudest` makes a zombie target the wall cell nearest the LOUDEST tower (highest `towerNoise`, ties by id) instead of the wall nearest itself. Survivors outside still come first.
 - **Rifle:** now craftable (item, HQ storage, recipe mirrors `weapons.rifle.craft`: workshop 3, Crafting 3, 6 scrap + 1 gland); `survivor.equip("rifle")` needs Combat 3.
 - **Learner read:** `threats.noise = { ...config, attention, loudest, reinforced }`.
-- **Not yet:** the suppressor (item + equip effect; `shotNoise(..., suppressed)` still exists as a pure helper), the screamer's noise lure, per-wave cap sharing with screamer summons (Z7), noise from boomer explosions.
+- **Not yet (since built in section 28):** the suppressor, the noise lure, noise from screams and explosions. Per-wave cap sharing with screamer summons was done in Z7d.
 
 ## 22. Z7a as built (runner rush)
 
@@ -310,3 +310,14 @@ Z1 note: the old abstract dusk raid still resolves by strength vs fence defence;
 - **Kill:** `boss.defeated` + the boss loot table (boss_core + glands); the wave clears like any other (queue empty, nothing walking). Loot piles follow the normal sortie rules.
 - **Learner:** `threats.wave.boss { id, type, name, health, maxHealth, phase }` or null.
 - Not yet: more than one phase, boss-specific abilities, boss art (generic zombie sprite), blueprint unlocks from boss_core.
+<<<<<<< HEAD
+=======
+
+## 28. Z8 as built (suppressor, noise lure, scream and blast noise)
+
+- **Suppressor:** an item (`suppressor`, HQ and storehouse storage) crafted at workshop level 2 (3 scrap + 2 rags, Crafting 2). `survivor.equip("suppressor")` is an ACCESSORY: she fetches one from base stock like a crafted weapon, fits it for good (`equipment.suppressor = true`, event `suppressor.fitted`) and keeps the weapon she holds. `NOT_NEEDED` once fitted, `INSUFFICIENT_RESOURCE` / `NO_DEPOT` as for any stock item. Her personal weapon's shots then add `noise.suppressorPercent` (50 %) less noise, rounded down (`shotNoise(defs, weapon, suppressed)`); a mounted weapon is never affected, and a melee weapon has no noise anyway.
+- **Noise lure:** `survivor.lure(tower)`. She carries a `noise_lure` (screamers drop one 25 % of the time; `survivor.take("noise_lure", 1)`), walks next to a repaired tower, works `actions.lure.ticks` (3) and sets it off: one lure leaves her hands, the wave's attention meter gets `noise.lure.attention` (20) and that tower's own noise `noise.lure.tower` (15), so it becomes the loudest tower and zombies with nobody outside to chase drift toward it (bait, Z6c). Event `noise.lured`. Failures: `NO_LURE`, `UNKNOWN_TARGET` (not a tower), `NEEDS_REPAIR` (ruined), `NO_PATH`. The attention is real: past `noise.threshold` it calls reinforcement walkers.
+- **Scream and blast noise:** every scream adds `noise.scream` (10) and every boomer explosion `noise.explosion` (15) to attention (not to a tower), through the shared `addNoise(ctx, amount, towerId?)`; `makeNoise` (shots) now uses it too.
+- **Config:** `noise` gains `scream`, `explosion` (whole >= 0) and `lure { attention, tower }` (whole >= 1), all validated. `SIM_VERSION` 0.38.0.
+- **Not yet:** the lure does not draw zombies by itself while survivors are outside; a lure is not a placed object (no art, no timer); no per-weapon noise art or sound.
+>>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)

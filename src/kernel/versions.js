@@ -1,5 +1,9 @@
 // Version stamps. Replays and saves record these so old data is never silently misread.
+<<<<<<< HEAD
 export const SIM_VERSION = '0.37.0';
+=======
+export const SIM_VERSION = '0.38.0';
+>>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
 export const API_VERSION = 1;
 export const SUPPORTED_API_VERSIONS = Object.freeze([1]);
 export const REPLAY_FORMAT = 1;

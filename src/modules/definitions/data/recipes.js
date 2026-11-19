@@ -29,6 +29,7 @@ export const recipes = {
   repeating_crossbow: { name: 'Repeating crossbow', station: 'workshop', stationLevel: 3, inputs: { wood: 4, scrap: 8 }, outputs: { repeating_crossbow: 1 }, ticks: 50, skill: 'crafting', minSkill: 3, action: 'craft' },
   minigun: { name: 'Minigun', station: 'workshop', stationLevel: 3, inputs: { scrap: 16, gland: 2 }, outputs: { minigun: 1 }, ticks: 70, skill: 'crafting', minSkill: 4, action: 'craft' },
   rifle: { name: 'Rifle', station: 'workshop', stationLevel: 3, inputs: { scrap: 6, gland: 1 }, outputs: { rifle: 1 }, ticks: 40, skill: 'crafting', minSkill: 3, action: 'craft' },
+  suppressor: { name: 'Suppressor', station: 'workshop', stationLevel: 2, inputs: { scrap: 3, rags: 2 }, outputs: { suppressor: 1 }, ticks: 30, skill: 'crafting', minSkill: 2, action: 'craft' },
   bullets: { name: 'Bullets', station: 'workshop', stationLevel: 3, inputs: { scrap: 2, gland: 1 }, outputs: { bullets: 12 }, ticks: 16, skill: 'crafting', minSkill: 2, action: 'craft' },
   // Bone meal: the better fertilizer (+100 % harvest instead of +50 %); farming works without it.
   bone_meal: { name: 'Bone meal', station: 'workshop', stationLevel: 1, inputs: { bones: 2, water: 1 }, outputs: { bone_meal: 2 }, ticks: 14, skill: 'crafting', minSkill: 0, action: 'craft' },

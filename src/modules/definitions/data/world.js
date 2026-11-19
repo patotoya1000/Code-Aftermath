@@ -11,7 +11,7 @@ export const nodeTypes = {
 export const buildings = {
   hq: {
     name: 'Headquarters',
-    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40, fertilizer: 60, charcoal: 80, nutrients: 60, bone_meal: 40, advanced_spear: 4, bow: 4, crossbow: 4, rifle: 4, ballista: 2, repeating_crossbow: 2, minigun: 2, arrows: 60, bolts: 60, bullets: 60, bones: 40, hide: 30, rags: 40, scrap: 40, gland: 20, noise_lure: 10, boss_core: 5 } } },
+    levels: { 1: { maxHealth: 200 }, 2: { maxHealth: 300, storage: { wood: 300, stone: 300, food: 200, water: 200, wheat: 120, bread: 80, potato: 80, carrot: 80, hot_meal: 40, mre: 60, packaging: 60, glass: 40, fertilizer: 60, charcoal: 80, nutrients: 60, bone_meal: 40, advanced_spear: 4, bow: 4, crossbow: 4, rifle: 4, suppressor: 4, ballista: 2, repeating_crossbow: 2, minigun: 2, arrows: 60, bolts: 60, bullets: 60, bones: 40, hide: 30, rags: 40, scrap: 40, gland: 20, noise_lure: 10, boss_core: 5 } } },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     // PA-5: the HQ is a 3x3 building. The scenario's (x, y) is its DOOR cell (bottom middle); `footprint` is the rectangle it occupies,
     // relative to the door: x/y = offset of its top-left cell, w/h = size. Every footprint cell blocks walking; survivors still walk to the door.
@@ -19,7 +19,7 @@ export const buildings = {
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
     upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
-    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20, fertilizer: 30, charcoal: 40, nutrients: 30, bone_meal: 30, advanced_spear: 3, bow: 3, crossbow: 3, rifle: 3, ballista: 1, repeating_crossbow: 1, minigun: 1, arrows: 40, bolts: 40, bullets: 40, bones: 30, hide: 20, rags: 30, scrap: 30, gland: 10, noise_lure: 5, boss_core: 3 },
+    storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20, fertilizer: 30, charcoal: 40, nutrients: 30, bone_meal: 30, advanced_spear: 3, bow: 3, crossbow: 3, rifle: 3, suppressor: 2, ballista: 1, repeating_crossbow: 1, minigun: 1, arrows: 40, bolts: 40, bullets: 40, bones: 30, hide: 20, rags: 30, scrap: 30, gland: 10, noise_lure: 5, boss_core: 3 },
   },
   fence: {
     name: 'Perimeter Fence',
