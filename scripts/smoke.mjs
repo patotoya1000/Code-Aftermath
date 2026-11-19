@@ -15,7 +15,7 @@ await page.goto('http://localhost:8123/');
 await page.waitForFunction(() => document.querySelector('#clock-label')?.textContent.includes('PAUSED'));
 check((await text('#clock-detail')).includes('STRATEGY 10/10'), 'clock bar shows 10 strategy points and starts paused');
 check(await page.$('#btn-next-turn') === null && await page.$('#btn-play') !== null && await page.$('#btn-speed') !== null, 'turn button is gone; play and speed controls exist');
-check(await page.locator('#cmd-bar button:disabled').count() === 7, 'all future controls are disabled');
+check(await page.locator('#cmd-bar button:disabled').count() === 3, 'controls with no game logic yet (research, menu, settings) are disabled');
 
 await page.click('#btn-code');
 await page.fill('#code-editor', 'survivor.gather("wood", 5, 5);');

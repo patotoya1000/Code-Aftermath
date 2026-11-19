@@ -23,5 +23,6 @@ Nothing was rewritten; sections were only moved. The logic doc is the **logic au
 | [16-farming-cooking-power-design.md](16-farming-cooking-power-design.md) | Farming, cooking, power design (O8/O9 implemented parts marked inside) |
 | [17-water-wells.md](17-water-wells.md) | Deep well, aquifer, siphon, tank (O7) |
 | [18-grid-pixel-art-asset-integration.md](18-grid-pixel-art-asset-integration.md) | **Added 2026-11-17:** grid-based pixel-art renderer integration (PA-1 … PA-8, planned) |
-| [19-codebook-and-ui-display.md](19-codebook-and-ui-display.md) | **Added 2026-11-17:** API-driven Codebook + UI display plan (UI-1 implemented, UI-2 … UI-6 planned) |
+| [19-codebook-and-ui-display.md](19-codebook-and-ui-display.md) | **Added 2026-11-17:** API-driven Codebook + UI display plan (UI-1 … UI-6 and UI-R1 implemented) |
 | [20-zombies-waves-loot-design.md](20-zombies-waves-loot-design.md) | **Added 2026-11-18:** zombie types, wave rules, loot, weapon ladder, towers (decided/proposed, NOT implemented; supersedes the enemy part of 14) |
+| [21-outpost-wall-town-economy-design.md](21-outpost-wall-town-economy-design.md) | **Added 2026-11-19:** one-line wall, the town behind it, events (raid/scavenge, regenerating sites), a recruit-only town with a train, and no real money (decisions recorded; NOT implemented) |

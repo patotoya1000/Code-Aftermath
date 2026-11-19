@@ -70,7 +70,7 @@ Learner code → Sandbox (Worker, Clock A) → Game API v1 → Command → Actio
 - Run the screen with `npm run serve`; `?debug` (or Alt+D) shows the debug overlay. Details: `docs/game/15-realtime-simulation-and-tasks.md`.
 
 ## Design docs
-`docs/game/` holds the former .docx files as chunked Markdown (architecture, design flow, NPC, buildings, assets, …). `docs/correction/` holds the audit, correction phases (C0–C9), implementation phases (I0–I15) and the C0 baseline, with completed items ticked.
+`docs/game/` holds the former .docx files as chunked Markdown (architecture, design flow, NPC, buildings, assets, …). `docs/PHASES.md` is the tracker; `docs/HUD.md` describes the screen layout.
 
 ## Security note
 The static check gives friendly errors; real containment is the **Worker** (no DOM/storage, runs under the page CSP
@@ -82,4 +82,4 @@ only — it is not a security boundary.
 - **New building / node / item / lesson**: edit the data files; `validateDefinitions` tells you what's inconsistent.
 - **New lesson check**: add a function to `lessons/checks.js`, reference it by name in lesson data.
 
-See `docs/PHASES.md` for the roadmap and acceptance gates, and `docs/IMPLEMENTATION_PLAN_2026-11-13.md` for the latest analysis, bug list and revised plan.
+See `docs/PHASES.md` for the roadmap and acceptance gates. `docs/IMPLEMENTATION_PLAN_2026-11-13.md` is a historical analysis (all items done).

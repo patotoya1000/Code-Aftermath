@@ -1,3 +1,5 @@
+> **HISTORICAL — every item below was done (S0–S5, 2026-11-13).** Kept for the reasoning behind decisions cited from `AI_MEMORY/`.
+
 # Analysis, fixes and revised implementation plan — 2026-11-13
 
 Scope: full read of `src/` (≈3.6k lines), `tests/`, `docs/`, the real-time pivot (R1–R2) and the UI. Everything below was
