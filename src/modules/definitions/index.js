@@ -11,7 +11,7 @@ import { events, eventSchedule } from './data/events.js';
 import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
 import { weapons, towers, noise } from './data/arsenal.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure'];
 
 const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
@@ -101,6 +101,7 @@ export function validateDefinitions(d) {
     if (a.handler === 'equip') need(['range', 'ticksPerTile', 'ticks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile and ticks must be whole numbers >= 1`);
     if (a.handler === 'take') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
     if (a.handler === 'mount') need(['range', 'ticksPerTile', 'ticks', 'installTicks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and installTicks must be whole numbers >= 1`);
+    if (a.handler === 'lure') need(['range', 'ticksPerTile', 'ticks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile and ticks must be whole numbers >= 1`);
     if (a.handler === 'reload') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
     if (a.waitTicks !== undefined) need(Number.isInteger(a.waitTicks) && a.waitTicks >= 0, `action ${id}: waitTicks must be a whole number >= 0`);
   }
@@ -113,7 +114,9 @@ export function validateDefinitions(d) {
     need(ROLES.includes(z.role), `zombie ${id}: role must be one of ${ROLES.join(', ')}`);
     const bh = z.behaviour;
     if (bh) {
-      need(['explode', 'throw', 'scream'].includes(bh.type), `zombie ${id}: unknown behaviour "${bh.type}"`);
+      need(['rush', 'siege', 'explode', 'throw', 'scream'].includes(bh.type), `zombie ${id}: unknown behaviour "${bh.type}"`);
+      if (bh.type === 'rush') need(typeof bh.vanguard === 'boolean' && whole(bh.attackEveryTicks, 1), `zombie ${id}: rush needs a boolean vanguard and a whole attackEveryTicks >= 1`);
+      if (bh.type === 'siege') need(whole(bh.stepTicks, 1) && whole(bh.attackEveryTicks, 1) && whole(bh.wallMultiplier, 1), `zombie ${id}: siege needs whole stepTicks, attackEveryTicks and wallMultiplier >= 1`);
       if (bh.type === 'explode') need(whole(bh.radius, 1) && whole(bh.fenceDamage, 0) && whole(bh.survivorDamage, 0), `zombie ${id}: explode needs a whole radius >= 1 and fenceDamage/survivorDamage >= 0`);
       if (bh.type === 'throw') need(whole(bh.range, 1) && whole(bh.damage, 1) && whole(bh.everyTicks, 1) && whole(bh.rubble, 0), `zombie ${id}: throw needs whole range, damage, everyTicks >= 1 and rubble >= 0`);
       if (bh.type === 'scream') need(whole(bh.cooldownTicks, 1) && whole(bh.summons, 1) && whole(bh.waveCap, bh.summons ?? 1), `zombie ${id}: scream needs whole cooldownTicks, summons >= 1 and waveCap >= summons`);
@@ -122,6 +125,12 @@ export function validateDefinitions(d) {
   for (const [id, b] of Object.entries(d.bosses ?? {})) {
     need(typeof b.name === 'string' && ['health', 'speed'].every((k) => whole(b[k], 1)) && whole(b.damage, 0) && whole(b.armor ?? 0, 0), `boss ${id}: needs a name, whole health and speed >= 1, damage and armor >= 0`);
     need(Object.entries(b.escorts ?? {}).every(([z, n]) => d.zombies?.[z] && whole(n, 1)), `boss ${id}: escorts must be known zombies with a whole count >= 1`);
+    if (b.behaviour) need(b.behaviour.type === 'siege' && whole(b.behaviour.stepTicks, 1) && whole(b.behaviour.attackEveryTicks, 1) && whole(b.behaviour.wallMultiplier, 1), `boss ${id}: behaviour must be a siege with whole stepTicks, attackEveryTicks and wallMultiplier >= 1`);
+    let last = 100;
+    for (const ph of b.phases ?? []) {
+      need(typeof ph.name === 'string' && whole(ph.belowPercent, 1) && ph.belowPercent < last && whole(ph.summons ?? 0, 0) && (ph.set === undefined || (b.behaviour && Object.keys(ph.set).every((k) => k in b.behaviour && whole(ph.set[k], 1)))), `boss ${id}: each phase needs a name, a belowPercent (1..99, falling), whole summons >= 0 and a \`set\` that only changes whole fields of its behaviour`);
+      last = ph.belowPercent;
+    }
   }
   const bs = d.bossSchedule;
   need(bs && d.bosses?.[bs.boss] && ['firstDay', 'everyDays', 'warnDays'].every((k) => whole(bs[k], 1)), 'bossSchedule: needs a known boss and whole firstDay, everyDays and warnDays >= 1');
@@ -157,7 +166,7 @@ export function validateDefinitions(d) {
     need(d.items?.[id] && d.recipes?.[id]?.outputs?.[id] === 1, `weapon ${id}: a mounted weapon needs an item and a workshop recipe that makes exactly one`);
   }
   const nz = d.noise;
-  need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100, 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest and suppressorPercent 0..100');
+  need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100 && whole(nz.scream, 0) && whole(nz.explosion, 0) && nz.lure && whole(nz.lure.attention, 1) && whole(nz.lure.tower, 1), 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest, suppressorPercent 0..100, whole scream and explosion >= 0 and lure { attention, tower } >= 1');
   const rs = d.raidSchedule;
   need(rs && Object.keys(d.zombies ?? {}).length > 0 && ['startDay', 'warnDays', 'historyLimit', 'strengthBase'].every((k) => Number.isInteger(rs[k]) && rs[k] >= 1) && Number.isInteger(rs.strengthPerDay) && rs.strengthPerDay >= 0 && Number.isInteger(rs.chancePercent) && rs.chancePercent >= 0 && rs.chancePercent <= 100 && Number.isInteger(rs.variancePercent) && rs.variancePercent >= 0 && rs.variancePercent <= 99, 'raidSchedule: whole numbers (chancePercent 0..100, variancePercent 0..99) and at least one zombie are required');
   need(rs && Number.isInteger(rs.defense?.perLevel) && rs.defense.perLevel >= 1 && Number.isInteger(rs.defense.damagedPercent) && rs.defense.damagedPercent >= 0 && rs.defense.damagedPercent <= 100 && Number.isInteger(rs.breached?.lootPercent) && rs.breached.lootPercent >= 0 && rs.breached.lootPercent <= 100 && Array.isArray(rs.breached?.loot) && rs.breached.loot.every((i) => d.items[i]), 'raidSchedule: defense and breached tables need whole numbers and known loot items');

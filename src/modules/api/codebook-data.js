@@ -56,6 +56,8 @@ export const OUTCOMES = {
   TOWER_TOO_LOW: 'This tower level cannot hold that mounted weapon. Upgrade the tower (see tower_1.tower.mounts for what each level holds).',
   NO_SLOT: 'Every slot of the tower already holds a mounted weapon (tower_1.tower.freeSlots).',
   NO_MOUNT: 'No weapon installed on that tower uses that ammo. Check tower_1.tower.installed[].ammo.',
+  UNKNOWN_TARGET: 'That target is not something this command can use (for example, lure needs a tower such as tower_1).',
+  NO_LURE: 'She carries no noise lure. Bring one from storage first: survivor.take("noise_lure", 1). Screamers sometimes drop them.',
   HOPPER_FULL: 'The hopper already holds as much as it can. It empties as the weapon fires.',
   CARRY_FULL: 'Her hands are full: she cannot carry even one more unit of that. Deposit something first.',
 };
@@ -222,13 +224,13 @@ export const COMMAND_BOOK = {
     notes: ['Loot lies on the ground until a day after the wave ended, then it is gone: threats.loot.piles shows daysLeft. The gate opens when a wave is cleared, so a sortie can go out the same night; the next wave stops it (she is not pulled back).'],
   },
   equip: {
-    group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat'],
+    group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat', 'suppressor', 'silencer'],
     effect: 'She takes the weapon in hand (a crafted one comes out of base stock, the one she held goes back). Her next attack or guard uses it.',
     requires: ['A weapon name from threats.weapons (not a mounted one)', 'The weapon in base stock unless it is a starter (knife, spear)', 'Enough Combat skill (the weapon\'s minCombat)'],
     parameters: [['weapon', 'A weapon name such as \"bow\" or \"advanced_spear\".']],
     example: 'survivor.equip("spear");',
     reads: ['read.threats', 'read.skills', 'read.base-stock'], outcomes: ['NOT_NEEDED', 'CAPABILITY_INSUFFICIENT', 'INSUFFICIENT_RESOURCE', 'NO_DEPOT', 'STORAGE_FULL', 'NO_PATH'],
-    notes: ['Craft weapons at the workshop (survivor.craft("bow")) from the loot a sortie brings back. Ranged weapons need ammo in her hands: survivor.take("arrows", 20).'],
+    notes: ['Craft weapons at the workshop (survivor.craft("bow")) from the loot a sortie brings back. Ranged weapons need ammo in her hands: survivor.take("arrows", 20).', 'survivor.equip("suppressor") is an accessory: a crafted suppressor (workshop level 2) is fitted for good and halves the noise of her personal weapon (not a mounted one). It does not replace the weapon in her hands.'],
   },
   take: {
     group: 'combat', keywords: ['ammo', 'arrows', 'bolts', 'bullets', 'carry', 'storage', 'hands', 'supply'],
@@ -255,6 +257,15 @@ export const COMMAND_BOOK = {
     example: 'survivor.take("bolts", 20);\nsurvivor.reload(tower_1, "bolts", 20);',
     reads: ['read.tower', 'read.carry', 'read.base-stock'], outcomes: ['NEEDS_REPAIR', 'NO_MOUNT', 'NO_AMMO', 'HOPPER_FULL', 'NO_PATH'],
     notes: ['Read tower_1.tower.installed to see each hopper and its status (READY, RELOADING, IDLE, NO_AMMO, NO_OPERATOR, NO_POWER).'],
+  },
+  lure: {
+    group: 'combat', keywords: ['lure', 'noise', 'bait', 'tower', 'distract', 'attention', 'screamer'],
+    effect: 'She walks to the tower and sets off one noise lure: the wave\'s attention meter rises and that tower becomes the loudest, so zombies with nobody outside to chase drift toward it.',
+    requires: ['A repaired tower', 'A noise lure in her hands (survivor.take(\"noise_lure\", 1); screamers sometimes drop one)'],
+    parameters: [['tower', 'A tower building such as tower_1.']],
+    example: 'survivor.take("noise_lure", 1);\nsurvivor.lure(tower_1);',
+    reads: ['read.tower', 'read.threats', 'read.carry', 'read.base-stock'], outcomes: ['NO_LURE', 'UNKNOWN_TARGET', 'NEEDS_REPAIR', 'NO_PATH'],
+    notes: ['Noise above threats.noise.threshold calls a reinforcement walker for every threats.noise.reinforceEvery extra points, so bait is a trade: keep people off the wall while it works, and watch threats.noise.attention.'],
   },
   guard: {
     group: 'combat', keywords: ['guard', 'defend', 'post', 'weapon'],

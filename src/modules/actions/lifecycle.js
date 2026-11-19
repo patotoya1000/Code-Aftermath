@@ -36,6 +36,7 @@ export const FailureReason = Object.freeze({
   TOWER_TOO_LOW: 'TOWER_TOO_LOW', // mount: this tower level cannot hold that mounted weapon (upgrade the tower)
   NO_SLOT: 'NO_SLOT', // mount: every slot of the tower is taken by a mounted weapon
   NO_MOUNT: 'NO_MOUNT', // reload: no weapon installed on the tower uses that ammo
+  NO_LURE: 'NO_LURE', // lure: she carries no noise lure (survivor.take("noise_lure", 1))
   HOPPER_FULL: 'HOPPER_FULL', // reload: the hopper already holds as much as it can
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',

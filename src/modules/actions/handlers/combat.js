@@ -1,7 +1,7 @@
 import { chebyshev } from '../../../kernel/index.js';
 import { ok, fail, RUNNING, DONE, failTick, walkStep } from './shared.js';
 import { awardSkillXp, carriedOf, removeCarried } from '../../survivors/index.js';
-import { killZombie, effectiveRange, postedLevel, operatorOf, makeNoise, postedTowerId } from '../../threats/index.js';
+import { statsOf, killZombie, effectiveRange, postedLevel, operatorOf, makeNoise, postedTowerId } from '../../threats/index.js';
 
 const nearestZombie = (state, from) => {
   const zs = Object.values(state.threats?.zombies ?? {}).sort((a, b) => a.id < b.id ? -1 : 1);
@@ -52,13 +52,13 @@ export const combatHandler = {
       removeCarried(s, weapon.ammo, 1);
     }
 
-    const reduction = Math.max(0, (ctx.defs.zombies[z.type].armor ?? 0) - weapon.pierce);
+    const reduction = Math.max(0, (statsOf(ctx.defs, z.type).armor ?? 0) - weapon.pierce);
     const damage = Math.max(0, weapon.damage - reduction);
     z.health = Math.max(0, z.health - damage);
     z.state = 'hurt';
     ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: s.id, weapon: weaponId, damage, health: z.health });
     awardSkillXp(ctx, s, 'combat', 1);
-    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id));
+    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id), s.equipment.suppressor === true);
     if (z.health <= 0) {
       killZombie(ctx, z, s.id, weaponId); // loot drops, the zombie leaves the map, the last one clears the wave
       return DONE;
@@ -111,13 +111,13 @@ export const guardHandler = {
       if (carriedOf(s, weapon.ammo) <= 0) return RUNNING;
       removeCarried(s, weapon.ammo, 1);
     }
-    const reduction = Math.max(0, (ctx.defs.zombies[z.type].armor ?? 0) - weapon.pierce);
+    const reduction = Math.max(0, (statsOf(ctx.defs, z.type).armor ?? 0) - weapon.pierce);
     const damage = Math.max(0, weapon.damage - reduction);
     z.health = Math.max(0, z.health - damage);
     z.state = z.health > 0 ? 'hurt' : 'dead';
     ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: s.id, weapon: weaponId, damage, health: z.health });
     awardSkillXp(ctx, s, 'combat', 1);
-    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id));
+    makeNoise(ctx, weaponId, postedTowerId(ctx.state, ctx.defs, s.id), s.equipment.suppressor === true);
     if (z.health <= 0) killZombie(ctx, z, s.id, weaponId);
     return RUNNING;
   },

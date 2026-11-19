@@ -7,24 +7,30 @@
 //   firstDay    the first calendar day the type can appear in a raid (so the answers to it - weapons - arrive about when it does)
 //   health, damage, speed   stat block for the later combat phase (damage 0 = does not hit; boomer/thrower/screamer act through `behaviour`)
 //   armor       FLAT damage reduction per hit (damage - armor, at least 0); a weapon's `pierce` ignores armor
-//   behaviour   the special rule for the later phases: explode (radius, damage to fence segments and survivors inside; an exploded boomer drops NO loot),
+//   behaviour   the special rule: rush (Z7a, runner: `vanguard` = spawns BEFORE the rest of the wave so it arrives first, `attackEveryTicks` = its own faster hit rhythm instead of waveRules.attackEveryTicks), siege (Z7e, tank: `stepTicks` = it moves one cell every N ticks (slower than any walker), `attackEveryTicks` = its slow hit rhythm, `wallMultiplier` = its hit on a wall is multiplied BEFORE wall armor), explode (radius, damage to fence segments and survivors inside; an exploded boomer drops NO loot),
 //               throw (ranged hit on wall segments, leaves rubble outside), scream (calls extra zombies, capped and counted against the wave)
 export const zombies = {
   walker: { name: 'Walker', role: 'common', threat: 2, weight: 6, firstDay: 6, health: 10, damage: 2, speed: 1, armor: 0 },
-  runner: { name: 'Runner', role: 'runner', threat: 3, weight: 3, firstDay: 9, health: 6, damage: 3, speed: 2, armor: 0 },
+  runner: { name: 'Runner', role: 'runner', threat: 3, weight: 3, firstDay: 9, health: 6, damage: 3, speed: 2, armor: 0,
+    behaviour: { type: 'rush', vanguard: true, attackEveryTicks: 5 } },
   boomer: { name: 'Boomer', role: 'boomer', threat: 5, weight: 2, firstDay: 12, health: 14, damage: 0, speed: 1, armor: 3,
     behaviour: { type: 'explode', radius: 2, fenceDamage: 12, survivorDamage: 8 } },
   thrower: { name: 'Thrower', role: 'thrower', threat: 5, weight: 2, firstDay: 15, health: 8, damage: 0, speed: 1, armor: 0,
     behaviour: { type: 'throw', range: 5, damage: 4, everyTicks: 6, rubble: 1 } },
   screamer: { name: 'Screamer', role: 'screamer', threat: 4, weight: 2, firstDay: 18, health: 6, damage: 0, speed: 1, armor: 0,
     behaviour: { type: 'scream', cooldownTicks: 30, summons: 3, waveCap: 6 } },
-  brute: { name: 'Brute', role: 'tank', threat: 8, weight: 1, firstDay: 21, health: 30, damage: 6, speed: 1, armor: 2 },
+  brute: { name: 'Brute', role: 'tank', threat: 8, weight: 1, firstDay: 21, health: 30, damage: 6, speed: 1, armor: 2,
+    behaviour: { type: 'siege', stepTicks: 4, attackEveryTicks: 12, wallMultiplier: 2 } },
 };
 
 // Bosses are NOT picked from a raid's random budget: a FIXED milestone (learners can see it coming and plan). First on `firstDay`, then every `everyDays`,
 // announced `warnDays` ahead (longer than a normal raid). `escorts` come with it; the boss drops its loot table (the top-tier unlock).
 export const bosses = {
-  horde_king: { name: 'Horde King', health: 400, damage: 20, speed: 1, armor: 5, escorts: { walker: 6, brute: 1 } },
+  horde_king: { name: 'Horde King', health: 400, damage: 20, speed: 1, armor: 5, escorts: { walker: 6, brute: 1 },
+    // Z7f: a boss is a slow siege zombie (like the tank, heavier) that ENRAGES once at half health: `phases[i]` fires when health falls to `belowPercent` % or less,
+    // `set` overrides fields of its behaviour from then on, `summons` walkers join the wave's spawn queue (not counted against a screamer's cap).
+    behaviour: { type: 'siege', stepTicks: 4, attackEveryTicks: 14, wallMultiplier: 3 },
+    phases: [{ name: 'Enraged', belowPercent: 50, set: { stepTicks: 2, attackEveryTicks: 8 }, summons: 3 }] },
 };
 export const bossSchedule = { boss: 'horde_king', firstDay: 25, everyDays: 10, warnDays: 4 };
 

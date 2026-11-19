@@ -11,6 +11,18 @@ import { awardSkillXp } from '../survivors/index.js';
 
 const num = (seed, day, salt) => parseInt(hashString(`${seed}:${day}:raid:${salt}`).slice(-8), 16);
 
+/** The stat block of a zombie OR boss type (`defs.zombies` first, then `defs.bosses`). */
+export const statsOf = (defs, type) => defs.zombies[type] ?? defs.bosses[type];
+
+/** The behaviour a living zombie acts on NOW: its stat block's behaviour with the `set` of every boss phase it has entered applied. */
+export function behaviourFor(defs, z) {
+  const def = statsOf(defs, z.type);
+  if (!def.behaviour || !(z.phase > 0)) return def.behaviour;
+  const out = { ...def.behaviour };
+  for (let i = 0; i < z.phase; i++) Object.assign(out, def.phases?.[i]?.set ?? {});
+  return out;
+}
+
 /** Zombie types that can appear on a calendar day (their `firstDay` has come), sorted by id. Bosses are never picked here: they are a fixed milestone. */
 export function zombiesAvailable(defs, day) {
   return Object.keys(defs.zombies).filter((id) => day >= (defs.zombies[id].firstDay ?? 1)).sort();
@@ -107,15 +119,19 @@ export function postedTowerId(state, defs, survivorId) {
 // shooter), to that tower's own noise. Both fall by `noise.decayPerTick`. Above `noise.threshold`, one reinforcement walker per `reinforceEvery` points of excess joins
 // the wave (at most `reinforceCap` per wave). Zombies with nobody outside to chase drift to the wall nearest the LOUDEST tower (bait). ----
 
-/** A shot was fired: add noise (a weapon's noise, `towerId` = the tower it was fired from, if any). */
-export function makeNoise(ctx, weaponId, towerId = null) {
+/** Add `amount` noise to the wave's attention meter and, when `towerId` is given, to that tower's own noise (shots, screams, blasts, lures). */
+export function addNoise(ctx, amount, towerId = null) {
   const { state, defs } = ctx;
-  const n = shotNoise(defs, weaponId);
-  if (n <= 0) return;
+  if (!(amount > 0)) return;
   const was = state.threats.attention;
-  state.threats.attention = was + n;
-  if (towerId) state.threats.towerNoise[towerId] = (state.threats.towerNoise[towerId] ?? 0) + n;
+  state.threats.attention = was + amount;
+  if (towerId) state.threats.towerNoise[towerId] = (state.threats.towerNoise[towerId] ?? 0) + amount;
   if (was <= defs.noise.threshold && state.threats.attention > defs.noise.threshold) ctx.emit('noise.high', { attention: state.threats.attention, threshold: defs.noise.threshold });
+}
+
+/** A shot was fired: add noise (a weapon's noise, `towerId` = the tower it was fired from, if any; `suppressed` = a suppressor is fitted to the shooter). */
+export function makeNoise(ctx, weaponId, towerId = null, suppressed = false) {
+  addNoise(ctx, shotNoise(ctx.defs, weaponId, suppressed), towerId);
 }
 
 /** The tower currently making the most noise (ties by id), or null when none is audible. */
@@ -215,7 +231,7 @@ export function tickMounts(ctx) {
       const z = p.target;
       m.hopper -= 1;
       m.cooldown = w.reload;
-      const reduction = Math.max(0, (defs.zombies[z.type].armor ?? 0) - w.pierce);
+      const reduction = Math.max(0, (statsOf(defs, z.type).armor ?? 0) - w.pierce);
       const damage = Math.max(0, w.damage - reduction);
       z.health = Math.max(0, z.health - damage);
       z.state = 'hurt';
@@ -335,15 +351,23 @@ function spawnCell(state, day, n, blocked) {
 export function waveStart(ctx, day) {
   const { state, defs } = ctx;
   const raid = raidForDay(defs, state.seed, day);
-  if (!raid || state.threats.wave) return;
+  const boss = bossForDay(defs, day); // Z7f: a boss day is a wave even when no random raid is scheduled; the boss is NOT part of the random budget
+  if ((!raid && !boss) || state.threats.wave) return;
+  const composition = { ...(raid?.composition ?? {}) };
+  if (boss) for (const [id, n] of Object.entries(boss.escorts)) composition[id] = (composition[id] ?? 0) + n;
   const queue = [];
-  for (const id of Object.keys(raid.composition).sort()) for (let i = 0; i < raid.composition[id]; i++) queue.push(id);
+  // Z7a: vanguard types (the runner) spawn first, so they reach the wall well before the pack; the rest keep the id order; the boss comes LAST.
+  const vanguard = (id) => defs.zombies[id].behaviour?.vanguard === true;
+  const order = Object.keys(composition).sort((a, b) => Number(vanguard(b)) - Number(vanguard(a)) || (a < b ? -1 : 1));
+  for (const id of order) for (let i = 0; i < composition[id]; i++) queue.push(id);
+  if (boss) { queue.push(boss.boss); composition[boss.boss] = 1; }
   state.threats.wave = {
-    day, strength: raid.strength, defense: defenseOf(state, defs).value, composition: { ...raid.composition }, queue,
-    spawned: 0, reinforced: 0, startTick: state.tick, gateClosed: defs.waveRules.gateClosesDuringWave, breached: false, wallDamage: 0,
+    day, strength: raid?.strength ?? 0, defense: defenseOf(state, defs).value, composition: { ...composition }, queue,
+    spawned: 0, reinforced: 0, summoned: 0, startTick: state.tick, gateClosed: defs.waveRules.gateClosesDuringWave, breached: false, wallDamage: 0,
+    ...(boss ? { boss: boss.boss } : {}),
   };
   state.threats.zombies = {};
-  ctx.emit('wave.started', { day, strength: raid.strength, composition: { ...raid.composition }, gateClosed: state.threats.wave.gateClosed });
+  ctx.emit('wave.started', { day, strength: state.threats.wave.strength, composition: { ...composition }, gateClosed: state.threats.wave.gateClosed, ...(boss ? { boss: boss.boss } : {}) });
 }
 
 function spawn(ctx, wave, blocked) {
@@ -353,23 +377,127 @@ function spawn(ctx, wave, blocked) {
   wave.spawned += 1;
   state.threats.counter += 1;
   const id = `zombie_${state.threats.counter}`;
-  state.threats.zombies[id] = { id, type, x: at.x, y: at.y, direction: 'DOWN', state: 'walk', health: defs.zombies[type].health, move: 0, hit: 0, goal: null, route: null, reached: null };
+  state.threats.zombies[id] = { id, type, x: at.x, y: at.y, direction: 'DOWN', state: 'walk', health: statsOf(defs, type).health, move: 0, hit: 0, goal: null, route: null, reached: null };
   ctx.emit('zombie.spawned', { id, type, x: at.x, y: at.y, side: SIDES[at.side] });
 }
 
 const nearest = (from, list) => list.reduce((best, c) => (best === null || chebyshev(from, c) < chebyshev(from, best) ? c : best), null);
 
-function hitWall(ctx, wave, z, cell) {
-  const { defs } = ctx;
-  const b = cell.building;
-  if (b.health <= 0) return;
-  const dmg = Math.max(0, defs.zombies[z.type].damage - defs.waveRules.wallArmorPerLevel * b.level);
-  if (dmg === 0) return;
+/** Damage a wall building (fence or gate): wave bookkeeping, condition change, breach. Returns the damage really dealt. */
+function damageWall(ctx, wave, b, dmg) {
+  if (b.health <= 0 || dmg <= 0) return 0;
   const before = b.health;
-  const c = applyHealth(defs, b, -dmg);
-  wave.wallDamage += before - b.health;
+  const c = applyHealth(ctx.defs, b, -dmg);
+  const dealt = before - b.health;
+  wave.wallDamage += dealt;
   if (c.from !== c.to) ctx.emit('building.condition_changed', { buildingId: b.id, from: c.from, to: c.to });
   if (b.health <= 0) { wave.breached = true; ctx.emit('wall.breached', { buildingId: b.id, type: b.type, day: wave.day }); }
+  return dealt;
+}
+
+function hitWall(ctx, wave, z, cell) {
+  const { defs } = ctx;
+  const def = statsOf(defs, z.type);
+  const bh = behaviourFor(defs, z);
+  const raw = def.damage * (bh?.type === 'siege' ? bh.wallMultiplier : 1);
+  damageWall(ctx, wave, cell.building, Math.max(0, raw - defs.waveRules.wallArmorPerLevel * cell.building.level));
+}
+
+/** The wave is cleared when nothing is left to spawn and nothing walks: the gate opens at once (sortie window). */
+function clearIfDone(ctx) {
+  const { state } = ctx;
+  const wave = state.threats.wave;
+  if (wave && !wave.cleared && wave.queue.length === 0 && Object.keys(state.threats.zombies).length === 0) {
+    wave.cleared = true;
+    wave.gateClosed = false;
+    ctx.emit('wave.cleared', { day: wave.day, gateClosed: false });
+  }
+}
+
+/** Z7f: a boss enters its next phase when its health falls to `belowPercent` % or less (once each, in order): `boss.phase`, then its `summons` walkers join the spawn queue. */
+function bossPhase(ctx, wave, z, def) {
+  const next = def.phases[z.phase ?? 0];
+  if (!next || z.health * 100 > next.belowPercent * def.health) return;
+  z.phase = (z.phase ?? 0) + 1;
+  const add = next.summons ?? 0;
+  for (let i = 0; i < add; i++) wave.queue.push('walker');
+  ctx.emit('boss.phase', { id: z.id, boss: z.type, phase: z.phase, name: next.name, health: z.health, summoned: add });
+}
+
+/**
+ * Z7d: a screamer counts ticks since it appeared (`z.scream`); every `cooldownTicks` it SCREAMS: `summons` walkers join the END of the spawn queue,
+ * but the wave never takes more than `waveCap` summoned walkers in total (shared by all screamers, counted in `wave.summoned`). A screamer that is
+ * killed (or stands in a cleared wave) before its first scream summons nothing; at the cap it still screams but adds 0.
+ */
+function screamTick(ctx, wave, z) {
+  const b = statsOf(ctx.defs, z.type).behaviour;
+  z.scream = (z.scream ?? 0) + 1;
+  if (z.scream < b.cooldownTicks) return;
+  z.scream = 0;
+  addNoise(ctx, ctx.defs.noise.scream);
+  const room = Math.max(0, b.waveCap - (wave.summoned ?? 0));
+  const add = Math.min(b.summons, room);
+  for (let i = 0; i < add; i++) wave.queue.push('walker');
+  wave.summoned = (wave.summoned ?? 0) + add;
+  ctx.emit('zombie.screamed', { id: z.id, zombieType: z.type, summoned: add, total: wave.summoned, cap: b.waveCap });
+}
+
+/**
+ * Z7c: a thrower stands at `range` and throws every `everyTicks`: at the nearest survivor it chases (survivor damage), else at the nearest wall cell
+ * (flat `damage`, armor does not apply). A wall throw leaves `rubble` units of stone on the ground just OUTSIDE that wall cell (toward the thrower);
+ * survivors collect it in a sortie after the wave. Nothing is thrown while the thrower is out of range (it walks first).
+ */
+function throwAt(ctx, wave, z, goal, victim) {
+  const { state, defs } = ctx;
+  const b = statsOf(defs, z.type).behaviour;
+  if (victim) {
+    const s = state.survivors[victim.id];
+    if (s?.status === 'active') {
+      s.needs.health = Math.max(0, s.needs.health - b.damage);
+      ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'thrown', zombieId: z.id, zombieType: z.type, damage: b.damage, health: s.needs.health });
+      if (s.needs.health <= 0) { s.status = 'downed'; ctx.emit('survivor.downed', { survivorId: s.id, cause: 'thrown', zombieId: z.id }); }
+    }
+    ctx.emit('zombie.threw', { id: z.id, zombieType: z.type, target: victim.id, damage: b.damage });
+    return;
+  }
+  const dealt = damageWall(ctx, wave, goal.building, b.damage);
+  ctx.emit('zombie.threw', { id: z.id, zombieType: z.type, target: goal.building.id, damage: dealt });
+  if (b.rubble >= 1) {
+    const rx = goal.x + Math.sign(z.x - goal.x), ry = goal.y + Math.sign(z.y - goal.y);
+    const free = (x, y) => x >= 0 && y >= 0 && x < state.map.width && y < state.map.height && !blockedTiles(state).has(cellKey(x, y));
+    const spot = free(rx, ry) && (rx !== goal.x || ry !== goal.y) ? { x: rx, y: ry } : { x: z.x, y: z.y };
+    addPile(ctx, 'stone', b.rubble, spot.x, spot.y, z);
+  }
+}
+
+/**
+ * Z7b: a boomer that reaches a wall or a survivor EXPLODES: every wall building with a wall cell within `radius` (Chebyshev) takes `fenceDamage` (flat,
+ * armor does not apply), every active survivor within `radius` takes `survivorDamage` (inside or outside the wall), and the boomer is gone with
+ * `exploded: true`, so it drops no gland. Not a kill: no killer, no combat XP.
+ */
+function explodeZombie(ctx, wave, z) {
+  const { state, defs } = ctx;
+  const b = statsOf(defs, z.type).behaviour;
+  z.exploded = true; z.state = 'dead';
+  let wallDamage = 0;
+  const hitBuildings = new Set();
+  for (const cell of wallCells(state)) {
+    if (chebyshev(z, cell) > b.radius || hitBuildings.has(cell.building.id)) continue;
+    hitBuildings.add(cell.building.id);
+    wallDamage += damageWall(ctx, wave, cell.building, b.fenceDamage);
+  }
+  const hit = [];
+  for (const s of Object.values(state.survivors).sort((p, q) => (p.id < q.id ? -1 : 1))) {
+    if (s.status !== 'active' || chebyshev(z, s.position) > b.radius) continue;
+    s.needs.health = Math.max(0, s.needs.health - b.survivorDamage);
+    hit.push(s.id);
+    ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'explosion', zombieId: z.id, zombieType: z.type, damage: b.survivorDamage, health: s.needs.health });
+    if (s.needs.health <= 0) { s.status = 'downed'; ctx.emit('survivor.downed', { survivorId: s.id, cause: 'explosion', zombieId: z.id }); }
+  }
+  addNoise(ctx, defs.noise.explosion);
+  ctx.emit('zombie.exploded', { id: z.id, zombieType: z.type, x: z.x, y: z.y, radius: b.radius, wallDamage, survivorsHit: hit });
+  delete state.threats.zombies[z.id];
+  clearIfDone(ctx);
 }
 
 /** One tick of the wave: spawn the next zombie, then every zombie picks its target, walks, and hits. */
@@ -387,19 +515,31 @@ export function tickWave(ctx) {
   const lure = loudestTower(state); // Z6c: with nobody outside to chase, zombies go for the wall nearest the loudest tower
   for (const id of Object.keys(state.threats.zombies).sort()) {
     const z = state.threats.zombies[id];
-    const def = defs.zombies[z.type];
+    const def = statsOf(defs, z.type);
+    if (def.behaviour?.type === 'scream') screamTick(ctx, wave, z);
+    if (def.phases) bossPhase(ctx, wave, z, def);
+    const bh = behaviourFor(defs, z);
+    const hitEvery = bh?.type === 'rush' || bh?.type === 'siege' ? bh.attackEveryTicks : rules.attackEveryTicks;
     const victim = nearest(z, prey);
     const wall = victim ? null : nearest(defs.noise.driftToLoudest && lure ? lure : z, walls);
     const goal = victim ?? wall;
     if (!goal) { z.state = 'idle'; continue; }
-    if (chebyshev(z, goal) <= 1) { // in reach: stand and hit (a survivor is only reached in Z2; a wall is hit)
+    const thrower = def.behaviour?.type === 'throw';
+    if (chebyshev(z, goal) <= (thrower ? def.behaviour.range : 1)) { // in reach: stand and hit (a survivor is only reached in Z2; a wall is hit)
+      if (def.behaviour?.type === 'explode') { explodeZombie(ctx, wave, z); continue; }
       z.state = 'attack'; z.route = null; z.goal = null;
       const dx = goal.x - z.x, dy = goal.y - z.y;
       z.direction = directionFromDelta(dx, dy) ?? z.direction;
+      if (thrower) {
+        z.reached = victim ? victim.id : 'wall';
+        z.hit += 1;
+        if (z.hit >= def.behaviour.everyTicks) { z.hit = 0; throwAt(ctx, wave, z, goal, victim); }
+        continue;
+      }
       if (victim) {
         if (z.reached !== victim.id) { z.reached = victim.id; ctx.emit('zombie.reached_survivor', { id: z.id, survivorId: victim.id }); }
         z.hit += 1;
-        if (z.hit >= rules.attackEveryTicks) {
+        if (z.hit >= hitEvery) {
           z.hit = 0;
           const survivor = state.survivors[victim.id];
           if (survivor?.status === 'active') {
@@ -415,13 +555,13 @@ export function tickWave(ctx) {
       } else {
         if (z.reached !== 'wall') { z.reached = 'wall'; ctx.emit('zombie.reached_wall', { id: z.id, buildingId: goal.building.id }); }
         z.hit += 1;
-        if (z.hit >= rules.attackEveryTicks) { z.hit = 0; hitWall(ctx, wave, z, goal); }
+        if (z.hit >= hitEvery) { z.hit = 0; hitWall(ctx, wave, z, goal); }
       }
       continue;
     }
     z.state = 'walk'; z.hit = 0;
     z.move += 1;
-    if (z.move < Math.max(1, Math.floor(rules.zombieStepTicks / def.speed))) continue;
+    if (z.move < (bh?.type === 'siege' ? bh.stepTicks : Math.max(1, Math.floor(rules.zombieStepTicks / def.speed)))) continue;
     z.move = 0;
     const gk = cellKey(goal.x, goal.y);
     const next = z.route?.[0];
@@ -453,21 +593,26 @@ export function lootFor(defs, seed, day, z) {
   return out;
 }
 
-/** Put loot on the ground where `z` died (same item on the same cell and still in its wave = one pile). */
+/** Put `qty` of `item` on the ground at (x, y) (same item on the same cell and still in its wave = one pile). */
+function addPile(ctx, item, qty, x, y, z) {
+  const { state } = ctx;
+  const day = state.threats.wave?.day ?? 0;
+  let pile = Object.values(state.threats.loot).find((p) => p.item === item && p.x === x && p.y === y && p.expiresDay === null);
+  if (pile) pile.qty += qty;
+  else {
+    state.threats.lootCounter += 1;
+    const id = `loot_${state.threats.lootCounter}`;
+    pile = { id, item, qty, x, y, day, expiresDay: null };
+    state.threats.loot[id] = pile;
+  }
+  ctx.emit('loot.dropped', { pileId: pile.id, item, amount: qty, x, y, zombieId: z.id, zombieType: z.type });
+}
+
+/** Put loot on the ground where `z` died. */
 function dropLoot(ctx, z) {
   const { state, defs } = ctx;
   const day = state.threats.wave?.day ?? 0;
-  for (const { item, qty } of lootFor(defs, state.seed, day, z)) {
-    let pile = Object.values(state.threats.loot).find((p) => p.item === item && p.x === z.x && p.y === z.y && p.expiresDay === null);
-    if (pile) pile.qty += qty;
-    else {
-      state.threats.lootCounter += 1;
-      const id = `loot_${state.threats.lootCounter}`;
-      pile = { id, item, qty, x: z.x, y: z.y, day, expiresDay: null };
-      state.threats.loot[id] = pile;
-    }
-    ctx.emit('loot.dropped', { pileId: pile.id, item, amount: qty, x: z.x, y: z.y, zombieId: z.id, zombieType: z.type });
-  }
+  for (const { item, qty } of lootFor(defs, state.seed, day, z)) addPile(ctx, item, qty, z.x, z.y, z);
 }
 
 /**
@@ -475,17 +620,13 @@ function dropLoot(ctx, z) {
  * CLEARED - the gate opens at once, which is what starts the sortie window (collect is allowed after the clear; dawn only ends the wave record).
  */
 export function killZombie(ctx, z, byId, weaponId) {
-  const { state } = ctx;
+  const { state, defs } = ctx;
   z.state = 'dead';
   ctx.emit('zombie.killed', { zombieId: z.id, survivorId: byId, weapon: weaponId, type: z.type, zombieType: z.type }); // (`type` collides with the log entry's own `type`, so `zombieType` is the field to read)
   dropLoot(ctx, z);
+  if (defs.bosses[z.type]) ctx.emit('boss.defeated', { id: z.id, boss: z.type, survivorId: byId, day: state.threats.wave?.day ?? null });
   delete state.threats.zombies[z.id];
-  const wave = state.threats.wave;
-  if (wave && !wave.cleared && wave.queue.length === 0 && Object.keys(state.threats.zombies).length === 0) {
-    wave.cleared = true;
-    wave.gateClosed = false;
-    ctx.emit('wave.cleared', { day: wave.day, gateClosed: false });
-  }
+  clearIfDone(ctx);
 }
 
 /** A sortie is allowed when no wave is on, or the wave has been cleared. */
@@ -540,16 +681,22 @@ export function waveDawn(ctx) {
 /** What the renderer draws: one entry per zombie on the map. */
 export function zombieProjection(state, defs) {
   return Object.values(state.threats.zombies).map((z) => ({
-    id: z.id, type: z.type, x: z.x, y: z.y, direction: z.direction, health: z.health, maxHealth: defs.zombies[z.type].health, animation: z.state === 'attack' ? 'ATTACK' : z.state === 'dead' ? 'DEAD' : z.state === 'hurt' ? 'HURT' : z.state === 'idle' ? 'IDLE' : 'WALK',
+    id: z.id, type: z.type, x: z.x, y: z.y, direction: z.direction, health: z.health, maxHealth: statsOf(defs, z.type).health, animation: z.state === 'attack' ? 'ATTACK' : z.state === 'dead' ? 'DEAD' : z.state === 'hurt' ? 'HURT' : z.state === 'idle' ? 'IDLE' : 'WALK',
   }));
+}
+
+/** The boss of the wave now: { id, type, name, health, maxHealth, phase } or null. */
+function bossView(state, defs) {
+  const z = Object.values(state.threats.zombies).find((q) => defs.bosses[q.type]);
+  return z ? { id: z.id, type: z.type, name: defs.bosses[z.type].name, health: z.health, maxHealth: defs.bosses[z.type].health, phase: z.phase ?? 0 } : null;
 }
 
 /** The wave now: { active: false } or { active, day, gateClosed, breached, wallDamage, remaining (not yet spawned), zombies: [{ id, type, x, y, state }] }. */
 function waveView(state, defs) {
   const w = state.threats.wave;
   if (!w) return { active: false };
-  return { active: true, day: w.day, cleared: w.cleared === true, gateClosed: w.gateClosed, breached: w.breached, wallDamage: w.wallDamage, remaining: w.queue.length,
-    zombies: Object.values(state.threats.zombies).sort((a, b) => (a.id < b.id ? -1 : 1)).map((z) => ({ id: z.id, type: z.type, x: z.x, y: z.y, state: z.state, health: z.health, maxHealth: defs.zombies[z.type].health })) };
+  return { active: true, day: w.day, cleared: w.cleared === true, gateClosed: w.gateClosed, breached: w.breached, wallDamage: w.wallDamage, remaining: w.queue.length, boss: bossView(state, defs),
+    zombies: Object.values(state.threats.zombies).sort((a, b) => (a.id < b.id ? -1 : 1)).map((z) => ({ id: z.id, type: z.type, x: z.x, y: z.y, state: z.state, health: z.health, maxHealth: statsOf(defs, z.type).health })) };
 }
 
 /** Loot on the ground for the learner: [{ id, item, qty, x, y, daysLeft }] (daysLeft = dawns until it is gone, null while its wave is still on) + whether a sortie may go out now. */

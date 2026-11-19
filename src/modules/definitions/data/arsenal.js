@@ -42,4 +42,6 @@ export const towers = {
 // Noise (doc 20 section 13.3): every shot adds the weapon's `noise` to the wave's ATTENTION meter, which falls by `decayPerTick`. Above `threshold`, one
 // reinforcement zombie per `reinforceEvery` points of excess (at most `reinforceCap` per wave, counted against the wave cap like screamer calls).
 // `driftToLoudest`: zombies drift toward the loudest tower (bait). A suppressor cuts a personal weapon's noise by `suppressorPercent`.
-export const noise = { decayPerTick: 1, threshold: 40, reinforceEvery: 20, reinforceCap: 4, driftToLoudest: true, suppressorPercent: 50 };
+// Z8: a screamer's scream adds `scream` and a boomer's blast `explosion` to the attention meter; a set-off noise lure adds `lure.attention` to it and `lure.tower` to ONE tower's noise.
+export const noise = { decayPerTick: 1, threshold: 40, reinforceEvery: 20, reinforceCap: 4, driftToLoudest: true, suppressorPercent: 50,
+  scream: 10, explosion: 15, lure: { attention: 20, tower: 15 } };

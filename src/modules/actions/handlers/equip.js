@@ -9,6 +9,8 @@ import { ok, fail, RUNNING, DONE, failTick, walkStep } from './shared.js';
  *  - a crafted weapon is an item in base stock: she walks to the nearest working storage building that holds it, and the unit is reserved from stock
  *    when the job is accepted (cancel gives it back) and moves into her hands when the work is done;
  *  - the weapon she held goes back into base stock when it is a crafted one (a starter vanishes: it can always be taken up again).
+ * Z8: `equip("suppressor")` is an ACCESSORY, not a weapon: she fetches one from base stock the same way and fits it FOR GOOD (`equipment.suppressor`), which cuts the
+ * noise of her personal weapon by `noise.suppressorPercent` (a mounted weapon never changes). It does not replace the weapon she holds. NOT_NEEDED when already fitted.
  * Needs `weapons.<id>.minCombat` Combat skill (CAPABILITY_INSUFFICIENT). Failures: INVALID_PARAMS (unknown / mounted weapon), NOT_NEEDED (already held),
  * CAPABILITY_INSUFFICIENT, INSUFFICIENT_RESOURCE (none in stock), NO_DEPOT, STORAGE_FULL (no room to put the old weapon back), NO_PATH.
  */
@@ -16,6 +18,15 @@ export const equipHandler = {
   validate(ctx, a) {
     const { defs, state } = ctx;
     const id = a.params.weapon;
+    if (id === 'suppressor') {
+      const s = state.survivors[a.actorId];
+      if (s.equipment.suppressor === true) return fail('NOT_NEEDED');
+      const depot = nearestDepot(state, id, s.position);
+      if (!depot) return fail('NO_DEPOT');
+      if (available(state, stockKey(id)) < 1) return fail('INSUFFICIENT_RESOURCE');
+      a.needsStock = true; a.accessory = true; a.depotId = depot.id; a.targetId = depot.id;
+      return ok;
+    }
     if (typeof id !== 'string' || !hasOwn(defs.weapons, id) || defs.weapons[id].kind === 'mounted') return fail('INVALID_PARAMS');
     const w = defs.weapons[id];
     const s = state.survivors[a.actorId];
@@ -55,6 +66,11 @@ export const equipHandler = {
   complete(ctx, a) {
     const { state, defs } = ctx;
     const s = state.survivors[a.actorId];
+    if (a.accessory) {
+      s.equipment.suppressor = true;
+      ctx.emit('suppressor.fitted', { actorId: a.actorId });
+      return;
+    }
     const old = s.equipment.weapon;
     if (old && !defs.weapons[old]?.starter && hasOwn(defs.items, old)) credit(state, stockKey(old), 1);
     s.equipment.weapon = a.params.weapon;

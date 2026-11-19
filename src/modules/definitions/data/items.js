@@ -37,6 +37,7 @@ export const items = {
   bow: { name: 'Bow', unitWeight: 2 },
   crossbow: { name: 'Crossbow', unitWeight: 4 },
   rifle: { name: 'Rifle', unitWeight: 5 }, // Z6c: LOUD (noise 8)
+  suppressor: { name: 'Suppressor', unitWeight: 1 }, // Z8: fitted for good to a survivor (survivor.equip("suppressor")): her personal weapon makes less noise
   // Z6b: mounted weapons are items in base stock until a survivor installs one on a tower (survivor.mount); they are hauled, not carried (no weight rule).
   ballista: { name: 'Ballista', unitWeight: 10 },
   repeating_crossbow: { name: 'Repeating crossbow', unitWeight: 8 },

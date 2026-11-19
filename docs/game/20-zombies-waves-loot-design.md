@@ -200,7 +200,7 @@ Traps and barricades as a cheap layer before the fence (spike pit, explosive tra
 | Z4 | Loot on the ground + sortie pickup (lingers until `lootLingerDays`), carried ammo | DONE (`SIM_VERSION` 0.27.0, 2026-11-18; see section 17) |
 | Z5 | Weapon + ammo recipes (workshop), `combat` skill, bone meal as a better fertilizer | DONE (`SIM_VERSION` 0.28.0, 2026-11-18; see section 18) |
 | Z6 | Towers as buildings (ruin -> repair -> upgrade), posting, mounts + hopper + `survivor.reload`, minigun power draw, noise meter + drift + reinforcements | SPLIT: Z6a towers + posting + range bonus DONE (`SIM_VERSION` 0.29.0, section 19); Z6b mounts + hopper + reload + minigun power DONE (`SIM_VERSION` 0.30.0, section 20); Z6c noise DONE (`SIM_VERSION` 0.31.0, section 21) |
-| Z7 | Special types one at a time: runner -> boomer (radius explosion) -> thrower (rubble) -> screamer -> tank -> boss | PLANNED |
+| Z7 | Special types one at a time: runner -> boomer (radius explosion) -> thrower (rubble) -> screamer -> tank -> boss | SPLIT: Z7a runner DONE (`SIM_VERSION` 0.32.0, section 22); Z7b boomer DONE (`SIM_VERSION` 0.33.0, section 23); Z7c thrower DONE (`SIM_VERSION` 0.34.0, section 24); Z7d screamer DONE (`SIM_VERSION` 0.35.0, section 25); Z7e tank DONE (`SIM_VERSION` 0.36.0, section 26); Z7f boss DONE (`SIM_VERSION` 0.37.0, section 27) - Z7 complete |
 
 Z1 note: the old abstract dusk raid still resolves by strength vs fence defence; from Z1 its composition only uses types whose `firstDay` has come. Ids keep the O19 names (walker = common, brute = tank).
 
@@ -257,5 +257,64 @@ Z1 note: the old abstract dusk raid still resolves by strength vs fence defence;
 - **Drift:** when no survivor is outside to chase, `noise.driftToLoudest` makes a zombie target the wall cell nearest the LOUDEST tower (highest `towerNoise`, ties by id) instead of the wall nearest itself. Survivors outside still come first.
 - **Rifle:** now craftable (item, HQ storage, recipe mirrors `weapons.rifle.craft`: workshop 3, Crafting 3, 6 scrap + 1 gland); `survivor.equip("rifle")` needs Combat 3.
 - **Learner read:** `threats.noise = { ...config, attention, loudest, reinforced }`.
-- **Not yet:** the suppressor (item + equip effect; `shotNoise(..., suppressed)` still exists as a pure helper), the screamer's noise lure, per-wave cap sharing with screamer summons (Z7), noise from boomer explosions.
+- **Not yet (since built in section 28):** the suppressor, the noise lure, noise from screams and explosions. Per-wave cap sharing with screamer summons was done in Z7d.
 
+## 22. Z7a as built (runner rush)
+
+- Runner data: `behaviour { type: 'rush', vanguard: true, attackEveryTicks: 5 }` (health 6, damage 3, speed 2 - it already moved every tick).
+- **Vanguard:** when a wave starts, vanguard types go to the front of the spawn queue, the rest keep the id order, so runners reach the wall first and the learner has a window to react (wall repair, `attack`, guard) before the pack arrives.
+- **Fast hands:** a rush zombie hits survivors and walls every `attackEveryTicks` (5) instead of `waveRules.attackEveryTicks` (8). Fence armor still subtracts per hit (level 2 fence: 3 damage - 2 = 1 per hit).
+- Fragile by design: 6 health dies to one spear/bow hit tier early; the threat is the early arrival and the faster wall wear.
+- Not changed: loot table, noise, reinforcements (reinforcement walkers join the END of the queue).
+
+## 23. Z7b as built (boomer explosion)
+
+- **Trigger:** a boomer within 1 cell of its goal (a wall cell, or a survivor it chases) explodes immediately; it never hits.
+- **Wall:** each wall building (fence, gate) having a wall cell within `radius` (2, Chebyshev) of the boomer takes `fenceDamage` (12) ONCE, flat (wall armor does not apply). Breach rules are unchanged (`wall.breached`, wave `wallDamage` counts it).
+- **Survivors:** every ACTIVE survivor within `radius` takes `survivorDamage` (8), inside or outside the wall; at 0 health she is `downed` (`cause: 'explosion'`).
+- **Aftermath:** the boomer is removed with `exploded: true`, so its gland (`requires: 'not_exploded'`) does not drop; no killer, no Combat XP. If it was the last zombie and nothing is left to spawn, the wave clears and the gate opens. Event `zombie.exploded { id, zombieType, x, y, radius, wallDamage, survivorsHit }`.
+- **Answer for learners:** kill it before contact (its armor 3 needs a `pierce` weapon such as the crossbow) to get the gland and avoid the blast; keep survivors more than `radius` cells from the wall during a wave.
+- Not yet: per-segment fence damage (the fence is one building), blast art, chain explosions.
+
+## 24. Z7c as built (thrower + rubble)
+
+- **Range:** a thrower is "in reach" at `behaviour.range` (5, Chebyshev) of its goal instead of 1; out of range it walks (A*) like any zombie, in range it stands still (`attack` animation) and counts `everyTicks` (6) per throw.
+- **Target:** the nearest survivor OUTSIDE the wall first (`damage` 4 to her, cause `thrown`, can down her, no rubble); otherwise the nearest wall cell: the wall building takes a flat `damage` (armor does not apply, like the boomer blast; breach rules unchanged).
+- **Rubble:** each wall throw leaves `rubble` (1) stone as a loot pile on the cell just outside the hit wall cell, toward the thrower (the thrower's own cell if that cell is blocked). Same pile rules as loot: merges per cell while the wave lasts, lingers `lootLingerDays`, collected by `survivor.collect('stone')` in the sortie after the wave clears.
+- Event `zombie.threw { id, zombieType, target, damage }` (target = survivor id or wall building id).
+- **Answer for learners:** a thrower outranges spears; kill it with a bow/crossbow/tower weapon, or accept the wear and collect the stone afterwards.
+- Not yet: line of sight, per-segment damage, a separate rubble item, throw animation.
+
+## 25. Z7d as built (screamer)
+
+- A living screamer counts ticks since it appeared; every `cooldownTicks` (30) it screams and `summons` (3) walkers are appended to the END of the wave's spawn queue (they spawn on the normal edge, one per `spawnEveryTicks`).
+- **Cap:** the wave takes at most `waveCap` (6) summoned walkers in total (`wave.summoned`), shared by every screamer; a scream at the cap still fires (`zombie.screamed`, `summoned: 0`). Summoned walkers keep the wave open (it clears only when the queue is empty and nothing walks).
+- The screamer does no damage; the answer is to kill it first (it has 6 health) - a screamer dead before its first scream summons nothing.
+- Event `zombie.screamed { id, zombieType, summoned, total, cap }`.
+- Not yet: scream noise/attention, summoned types other than walkers, scream art.
+
+## 26. Z7e as built (tank / brute)
+
+- Data: brute `behaviour { type: 'siege', stepTicks: 4, attackEveryTicks: 12, wallMultiplier: 2 }` with health 30, damage 6, armor 2 (Z1 stats kept).
+- **Slow:** it moves one cell every `stepTicks` (4), half a walker's pace - more time under fire before it reaches the wall.
+- **Heavy on walls:** a wall hit is `damage x wallMultiplier` (12) minus wall armor (1 per fence level), every `attackEveryTicks` (12). A level 1 fence takes 11 per hit, level 2 takes 10: upgrading helps only a little, killing it (focus fire, armor 2 needs a better weapon) is the real answer.
+- **Survivors:** it hits a survivor for its plain `damage` (6) every 12 ticks.
+- Not yet: knock-back, ram art, wall-segment damage.
+
+## 27. Z7f as built (boss: Horde King)
+
+- **Wave:** on a boss day (`bossSchedule`: 25, then every 10, announced 4 days ahead by `threats.bosses`) dusk starts a wave even when no random raid is scheduled. Composition = the random raid (if any) + the boss's `escorts` (6 walkers, 1 brute) + the boss, queued LAST so the escorts arrive first. `strength` is 0 without a raid; `wave.boss` names the boss; `wave.started` carries `boss`.
+- **Entity:** the boss is a zombie of type `horde_king`; every lookup uses `statsOf(defs, type)` (zombie stats, else boss stats), so combat armor/pierce, projection and views work unchanged. Health 400, damage 20, armor 5 (needs a crossbow-or-better `pierce`).
+- **Behaviour:** `siege` like the tank but heavier: step every 4 ticks, hit every 14, wall hit = 20 x 3 minus wall armor.
+- **Phases:** `phases[i]` fires once, in order, when health <= `belowPercent` % of max. `Enraged` (50 %): `set` overrides `stepTicks` 2 and `attackEveryTicks` 8 (`behaviourFor`), and 3 extra walkers join the spawn queue; event `boss.phase { id, boss, phase, name, health, summoned }`.
+- **Kill:** `boss.defeated` + the boss loot table (boss_core + glands); the wave clears like any other (queue empty, nothing walking). Loot piles follow the normal sortie rules.
+- **Learner:** `threats.wave.boss { id, type, name, health, maxHealth, phase }` or null.
+- Not yet: more than one phase, boss-specific abilities, boss art (generic zombie sprite), blueprint unlocks from boss_core.
+
+## 28. Z8 as built (suppressor, noise lure, scream and blast noise)
+
+- **Suppressor:** an item (`suppressor`, HQ and storehouse storage) crafted at workshop level 2 (3 scrap + 2 rags, Crafting 2). `survivor.equip("suppressor")` is an ACCESSORY: she fetches one from base stock like a crafted weapon, fits it for good (`equipment.suppressor = true`, event `suppressor.fitted`) and keeps the weapon she holds. `NOT_NEEDED` once fitted, `INSUFFICIENT_RESOURCE` / `NO_DEPOT` as for any stock item. Her personal weapon's shots then add `noise.suppressorPercent` (50 %) less noise, rounded down (`shotNoise(defs, weapon, suppressed)`); a mounted weapon is never affected, and a melee weapon has no noise anyway.
+- **Noise lure:** `survivor.lure(tower)`. She carries a `noise_lure` (screamers drop one 25 % of the time; `survivor.take("noise_lure", 1)`), walks next to a repaired tower, works `actions.lure.ticks` (3) and sets it off: one lure leaves her hands, the wave's attention meter gets `noise.lure.attention` (20) and that tower's own noise `noise.lure.tower` (15), so it becomes the loudest tower and zombies with nobody outside to chase drift toward it (bait, Z6c). Event `noise.lured`. Failures: `NO_LURE`, `UNKNOWN_TARGET` (not a tower), `NEEDS_REPAIR` (ruined), `NO_PATH`. The attention is real: past `noise.threshold` it calls reinforcement walkers.
+- **Scream and blast noise:** every scream adds `noise.scream` (10) and every boomer explosion `noise.explosion` (15) to attention (not to a tower), through the shared `addNoise(ctx, amount, towerId?)`; `makeNoise` (shots) now uses it too.
+- **Config:** `noise` gains `scream`, `explosion` (whole >= 0) and `lure { attention, tower }` (whole >= 1), all validated. `SIM_VERSION` 0.38.0.
+- **Not yet:** the lure does not draw zombies by itself while survivors are outside; a lure is not a placed object (no art, no timer); no per-weapon noise art or sound.

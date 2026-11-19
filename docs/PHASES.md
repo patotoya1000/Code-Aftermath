@@ -29,6 +29,7 @@
 - [x] **PA-6** NPC sprites (2026-11-17): expanded placeholder sprite set for readable actor states (`work`, `guard`, `attack`, `hurt`, `dead`), kept in the renderer-only asset layer; fallback chain still resolves without touching gameplay state. `tests/assets-render.test.js`
 - [x] **PA-7** zombies (2026-11-17): same renderer-only architecture as survivors, with zombie animation keys, projection compatibility, and hit-testing added without creating gameplay rules. `tests/assets-render.test.js`
 - [x] **PA-8** interaction and UI (2026-11-17): selection, hover, logical lookup, and contextual overlays remain renderer-only and do not create new simulation rules. `tests/assets-render.test.js`
+- [x] **Z8** suppressor + noise lure + scream/blast noise (2026-11-19, `SIM_VERSION` 0.38.0; docs/game/20 section 28, `tests/lure-suppressor.test.js`).
 - Order changed: R4 before R3 — the learner must be able to *react* before the economy gets deeper (reasoning in the plan).
 - Spec: `docs/game/15-realtime-simulation-and-tasks.md`. The C2 line below ("turn-based free play") is historical.
 
