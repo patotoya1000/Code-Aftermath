@@ -34,6 +34,20 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   let now = 1000;
   const run = (ms, step = 16) => { for (let t = 0; t < ms; t += step) { now += step; frame(now); } };
 
+  // UI-R1: the selection card is not on screen until something is picked; the map never shares its width with a dock
+  assert.equal(els['inspector-region'].hidden, true, 'no card at start');
+  assert.match(html, /<div id="inspector-region" hidden>/);
+  assert.match(html, /id="card-clock"[\s\S]*id="btn-play"[\s\S]*id="card-system"/, 'play / speed live in the Clock card, not in the collapsed System card');
+  assert.doesNotMatch(html.slice(html.indexOf('id="sim-controls"')), /^[\s\S]{0,400}id="btn-play"/, 'System card no longer holds play');
+  run(64); // a few frames, so the renderer has laid the map out and can answer picks
+  let opened = false;
+  for (let y = 8; y < 640 && !opened; y += 12) for (let x = 8; x < 960 && !opened; x += 12) { await els['map-canvas'].fire('click', { clientX: x, clientY: y }); opened = els['inspector-region'].hidden === false && /ID: survivor_1/.test(els['inspector-card'].innerHTML); }
+  assert.equal(opened, true, 'clicking a survivor on the map opens her card (the scan may pass over buildings first; each opens its own card)');
+  for (const fn of docListeners.keydown) await fn({ key: 'Escape', altKey: false, preventDefault() {} });
+  assert.equal(els['inspector-region'].hidden, true, 'Esc closes the card');
+  await els['map-canvas'].fire('click', { clientX: 0, clientY: 0 });
+  assert.equal(els['inspector-region'].hidden, true, 'a click on bare ground keeps it closed');
+
   // Turns are gone; the controls are real. Starts paused so nothing drains while the learner reads.
   assert.equal(html.includes('btn-next-turn'), false);
   assert.match(els['clock-label'].textContent, /PAUSED · 1×/);
@@ -41,11 +55,12 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   run(2000);
   assert.match(els['clock-detail'].textContent, /TICK 0\b/, 'paused: time does not move');
 
-  // C3: every future control is disabled and labelled
-  for (const id of ['btn-assign', 'btn-task', 'btn-build', 'btn-survivors', 'btn-research', 'btn-menu', 'btn-settings']) {
+  // C3: only controls with no game logic yet (research, menu, settings) are disabled; task/assign/build/survivors are live
+  for (const id of ['btn-research', 'btn-menu', 'btn-settings']) {
     assert.match(html, new RegExp(`id="${id}" disabled`), `${id} must be disabled`);
   }
-  assert.equal((html.match(/class="soon"/g) ?? []).length, 7);
+  for (const id of ['btn-assign', 'btn-task', 'btn-build', 'btn-survivors']) assert.doesNotMatch(html, new RegExp(`id="${id}"[^>]*disabled`), `${id} must be live`);
+  assert.equal((html.match(/class="soon"/g) ?? []).length, 3);
 
   // Running code sends the command to the live world, costs a strategy point, and resumes the clock
   await els['btn-run-code'].fire('click');
@@ -100,8 +115,23 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   assert.match(els['lesson-instructions'].innerHTML, /Rest First/);
   assert.match(els['lesson-instructions'].innerHTML, /data-action="open-book" data-entry="command\.(rest|gather)"/);
   assert.match(els['clock-detail'].textContent, /TICK \d+/, 'free-play world was not reset by opening a lesson');
+  // UI-R1: in lesson mode Run says what it did in the code panel itself, and a later failed attempt never un-completes a lesson
+  assert.equal(els['btn-run-code'].textContent, 'Run Lesson Test');
+  els['code-editor'].value = 'if (survivor.needs.energy < 30) { survivor.rest(); }\nsurvivor.gather("wood", 10, 10);'; // a known solution (see gate-phase0.test.js)
+  await els['btn-run-code'].fire('click');
+  assert.match(els['code-execution-result'].textContent, /Lesson passed \(\d+\/\d+ goals\).*base is unchanged/);
+  assert.match(els['code-commands'].innerHTML, /cmd-chip ok/, 'one chip per goal');
+  assert.match(els['lesson-list'].innerHTML, /✓ Completed/);
+  els['code-editor'].value = 'survivor.gather("wood", 10, 10);'; // the naive attempt: the survivor is too tired
+  await els['btn-run-code'].fire('click');
+  assert.match(els['code-execution-result'].textContent, /goals met.*Lesson panel/);
+  assert.match(els['lesson-result'].innerHTML, /This attempt did not pass/);
+  assert.match(els['lesson-result'].innerHTML, /already completed this lesson/);
+  assert.match(els['lesson-list'].innerHTML, /✓ Completed/, 'the list agrees with the progress screen');
+  await new Promise((r) => setTimeout(r, 0));
   for (const fn of docListeners.click) await fn(click('exit-lesson'));
   assert.equal(els['lesson-player-panel'].style.display, 'none');
+  assert.equal(els['btn-run-code'].textContent, 'Run Code', 'leaving lesson mode restores the normal Run button');
 
   // save / load buttons round-trip the live session
   els['code-editor'].value = 'survivor.rest(5);';

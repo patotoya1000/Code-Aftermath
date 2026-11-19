@@ -11,15 +11,18 @@ import { placeholderManifestFor } from '../modules/assets/index.js';
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
+import { buildingActionList, survivorActionList, actionButtons } from './ui/actions.js'; // buttons that mirror the real command rules
+import { bindMapGestures } from './ui/gestures.js'; // drag to pan, wheel / pinch to zoom, click to pick
+import { mountHud } from './hud/hud.js'; // HUD skin: card folding, inspector tabs, tactical overlay (presentation only)
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-let app; let renderer; let hooks = null;
+let app; let renderer; let hooks = null; let hud = null;
 let freeSim; let clock;
 let selected = null; // { kind: 'npc' | 'building' | 'node', id }
-let isInspectorOpen = true;
+let cardOpen = false; // the selection card is only on screen after the learner picks something (or opens it from a list)
 let isCodePanelOpen = false;
 let isLessonMode = false;
 let currentLessonId = null;
@@ -40,6 +43,7 @@ async function init() {
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
   renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected, getCommands: () => app.codebook.entries.filter((e) => e.kind === 'command' && e.example) });
   await startScenario();
   renderHints();
   renderCodeAPI();
@@ -55,8 +59,9 @@ async function startScenario() {
   hooks = app.createHooks(sim);
   feed = []; eventCursor = 0; projKey = '';
   const first = freeSim.studentView().survivors[0];
-  selected = first ? { kind: 'npc', id: first.id } : null;
+  selected = first ? { kind: 'npc', id: first.id } : null; // she is who commands go to by default; her card stays closed until picked
   if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
+  cardOpen = false; paintCard();
   refreshUI();
 }
 
@@ -68,6 +73,7 @@ function loop(now) {
     const ran = clock.update(dt);
     hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
+    hud?.frame(currentProjection(), now);
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
@@ -143,7 +149,7 @@ function bar(label, val, max = 100, cls = '') {
 const section = (icon, title, body) => `<div class="section"><h3><span class="icon">${icon}</span>${esc(title)}</h3>${body}</div>`;
 const muted = (t) => `<span style="color:var(--muted);font-size:11px;">${esc(t)}</span>`;
 
-function survivorSections(card) {
+function survivorSections(card, view) {
   const needs = Object.entries(card.needs).map(([k, v]) => bar(k, v, 100, v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good')).join('');
   const attrs = Object.entries(card.attributes).map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('');
   const skills = Object.entries(card.skills);
@@ -158,6 +164,7 @@ function survivorSections(card) {
     section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
     section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted(`Carrying ${card.carry.load} / ${card.carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>`),
     taskSection(card.task, card.queued, card.lastTask),
+    section('⌨', 'Commands', `${actionButtons(survivorActionList(card, view), { view, survivorId: card.id })}${muted('Buttons add a command to the editor; nothing runs until you press Run.')}`),
     policySection(card.policies),
     hookSection(card.hooks),
   ].join('');
@@ -223,15 +230,7 @@ function powerSection(b) {
   return section('⚡', 'Power', `<div style="font-size:11px;">${body}</div>`);
 }
 
-function buildingActions(b) {
-  const lines = [`survivor.repair(${b.id})`];
-  if (b.water) lines.push('survivor.gather("water", 10)');
-  for (const r of b.recipes ?? []) lines.push(`survivor.${r.action}("${r.id}", 5)${r.working ? '' : b.condition === 'repaired' ? `  (needs ${b.type} level ${r.stationLevel})` : '  (repair it first)'}`);
-  if (b.upgrade) lines.push(`survivor.upgrade(${b.id})  → level ${b.upgrade.level}: ${Object.entries(b.upgrade.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`);
-  return lines.map((l) => `<div>${muted(l)}</div>`).join('');
-}
-
-function buildingSections(b) {
+function buildingSections(b, view) {
   const pct = Math.round((b.health / b.maxHealth) * 100);
   const storage = b.storageInfo
     ? Object.entries(b.storageInfo.capacity).map(([k, c]) => bar(k, b.storageInfo.current[k] ?? 0, c, 'good').replace(/<div class="value">\d+<\/div>/, `<div class="value">${b.storageInfo.current[k] ?? 0}/${c}</div>`)).join('')
@@ -242,7 +241,7 @@ function buildingSections(b) {
     waterSection(b),
     powerSection(b),
     b.cold ? section('❄', 'Cold storage', `<div style="font-size:11px;">${b.cold.working ? `Keeps the ${b.cold.capacity} oldest food units fresh: they age ${b.cold.factor}× slower.${b.cold.needsPower ? ' Powered.' : ' Needs no power.'}` : b.cold.needsPower && b.condition !== 'ruined' ? 'Freezer is off: it needs power, so food ages at the normal rate. Repair a generator or solar panel and keep it fuelled.' : 'Ruined: it protects nothing until it is repaired.'}</div>`) : '',
-    section('🔧', 'Actions', buildingActions(b)),
+    section('🔧', 'Actions', `${actionButtons(buildingActionList(b, view), { view, survivorId: selectedActor(view) })}${muted('Buttons add a command to the editor; nothing runs until you press Run.')}`),
   ].join('');
 }
 
@@ -254,12 +253,12 @@ function renderInspector() {
     const card = freeSim.inspector(selected.id);
     if (!card) { selected = null; return renderInspector(); }
     header = { glyph: '👤', name: card.identity.name, sub: `${card.status} · ${card.identity.background}`, meta: `<span>ID: ${esc(card.id)}</span><span>Age: ${card.identity.age}</span><span>Pos: ${card.x},${card.y}</span><span>Dir: ${card.direction}</span>` };
-    body = survivorSections(card);
+    body = survivorSections(card, view);
   } else if (selected.kind === 'building') {
     const b = view.buildings.find((x) => x.id === selected.id);
     if (!b) { selected = null; return renderInspector(); }
     header = { glyph: '🏗', name: b.name, sub: `${b.condition} · Lvl ${b.level}`, meta: `<span>ID: ${esc(b.id)}</span><span>Type: ${esc(b.type)}</span>` };
-    body = buildingSections(b);
+    body = buildingSections(b, view);
   } else {
     const n = view.nodes.find((x) => x.id === selected.id);
     if (!n) { selected = null; return renderInspector(); }
@@ -272,8 +271,19 @@ function renderInspector() {
 function selectEntity(kind, id) {
   selected = { kind, id };
   renderer.select(kind, id);
+  cardOpen = true; paintCard();
   refreshUI();
 }
+
+// The card floats over the map and never takes width from it. Phones keep their own tab layout, where the card is a tab.
+function paintCard() {
+  const region = $('inspector-region'); if (!region) return;
+  const mobile = isMobileLayout();
+  const show = Boolean(cardOpen && selected) || mobile;
+  region.hidden = !show;
+  document.body?.classList?.toggle('card-open', Boolean(cardOpen && selected) && !mobile);
+}
+function setCardOpen(on) { cardOpen = Boolean(on); paintCard(); }
 
 // ---------- Tutor (contextual, read-only) ----------
 function relevantCommandButtons(card, kind = 'npc') {
@@ -358,6 +368,15 @@ function insertExample(entryId) {
   if (!isCodePanelOpen) toggleCodePanel(); else ed.focus?.();
 }
 
+/** An action button puts its command into the editor and opens the code panel. It never runs anything itself. */
+function insertSnippet(text) {
+  const ed = $('code-editor'); if (!ed || !text) return;
+  ed.value = `${ed.value.trim() ? `${ed.value.replace(/\s+$/, '')}\n` : ''}${text}\n`;
+  if (!isCodePanelOpen) toggleCodePanel(); else ed.focus?.();
+}
+/** Which survivor a building button's command should address: the selected one if a survivor is selected, else the first. */
+function selectedActor(view) { return selected?.kind === 'npc' ? selected.id : view?.survivors?.[0]?.id; }
+
 function renderHints() {
   $('cmd-hints').innerHTML = app.apiDocs.commands.map((c) => `<div class="hint-chip"><span class="api-glyph">${esc(c.signature.split('  or')[0])}</span></div>`).join('');
 }
@@ -414,19 +433,20 @@ function lessonList() {
   return Object.values(app.defs.lessons);
 }
 
+// Completed = the app's progress record, which only ever grows. A later failed attempt never un-completes a lesson.
+const lessonDone = (id) => Boolean(app?.progress?.completed?.[id]);
+
 function renderLessonList() {
   const container = $('lesson-list');
   if (!container) return;
   const lessons = lessonList();
   container.innerHTML = lessons.map((l) => {
-    const prog = lessonAttempt && lessonAttempt.lessonId === l.id
-      ? lessonAttempt.passed ? 'passed' : 'attempted'
-      : '';
+    const prog = lessonDone(l.id) ? 'passed' : lessonAttempt && lessonAttempt.lessonId === l.id ? 'attempted' : '';
     const cls = `lesson-item ${prog}${currentLessonId === l.id ? ' active' : ''}`;
     return `<button type="button" class="${cls}" data-action="start-lesson" data-lesson="${esc(l.id)}" aria-label="Start lesson ${l.title}">
       <div class="lesson-title">${esc(l.title)}</div>
       <div class="lesson-brief">${esc(l.brief)}</div>
-      <div class="lesson-progress">${prog === 'passed' ? '✓ Passed' : prog === 'attempted' ? 'Attempted' : 'Not started'}</div>
+      <div class="lesson-progress">${prog === 'passed' ? '✓ Completed' : prog === 'attempted' ? 'Attempted, not passed yet' : 'Not started'}</div>
     </button>`;
   }).join('');
 }
@@ -464,11 +484,13 @@ function renderLessonResult() {
   if (!result || !lessonAttempt) return;
   const l = lessonList().find((x) => x.id === lessonAttempt.lessonId);
   const passed = lessonAttempt.passed;
+  const doneBefore = !passed && lessonDone(lessonAttempt.lessonId);
   result.style.display = 'block';
-  result.className = `lesson-result ${passed ? 'passed' : 'failed'}`;
+  result.className = `lesson-result ${passed ? 'passed' : doneBefore ? 'retry' : 'failed'}`;
   queueMicrotask(() => result.scrollIntoView?.({ block: 'nearest' })); // the drawer scrolls; keep the verdict in view
   result.innerHTML = `
-    <div class="lesson-result-header">${passed ? '✓ Lesson Passed' : '✗ Lesson Not Yet Passed'}</div>
+    <div class="lesson-result-header">${passed ? '✓ Lesson Passed' : doneBefore ? '✗ This attempt did not pass' : '✗ Lesson Not Yet Passed'}</div>
+    ${doneBefore ? '<div class="lesson-feedback">You already completed this lesson, so your progress is safe. This was only a retry.</div>' : ''}
     <div class="lesson-result-details">
       ${lessonAttempt.results?.map((r) => `<div class="goal-row"><span class="goal-tag ${r.passed ? 'ok' : 'fail'}">${r.passed ? '✓' : '✗'}</span><span class="goal-msg">${esc(r.message)}</span>${r.detail ? `<span class="goal-detail">(${esc(r.detail)})</span>` : ''}</div>`).join('')}
       ${lessonAttempt.feedback?.length ? `<div class="lesson-feedback">${lessonAttempt.feedback.join('<br>')}</div>` : ''}
@@ -514,6 +536,8 @@ async function startLesson(lessonId) {
   const editor = $('code-editor');
   const l = lessonList().find((x) => x.id === lessonId);
   if (editor && l) editor.value = l.starter;
+  paintRunButton();
+  setRunStatus('', 'Lesson mode: Run tests your code on the lesson world. Your base is not touched.');
   renderLessonList();
   renderLessonInstructions();
   renderUI();
@@ -530,16 +554,31 @@ function exitLesson() {
   stepInspectorActive = false;
   stepStep = 0;
   setLessonPanel(false);
+  paintRunButton();
+  setRunStatus('', 'Ready. Commands start working as soon as you run them; use PLAY if the simulation is paused.');
   const result = $('lesson-result');
   if (result) result.style.display = 'none';
   renderLessonList();
   renderUI();
 }
 
+// In lesson mode Run tests the code on the lesson's own hidden world (fixed seed, so the verdict is repeatable); the
+// learner's base is never touched. The code panel says so, because nothing moves on the map during a lesson test.
+function setRunStatus(cls, text) {
+  const r = $('code-execution-result'); if (!r) return;
+  r.className = `execution-result ${cls}`.trim(); r.textContent = text; r.title = text;
+}
+function goalChips(results = []) {
+  return results.map((g) => `<span class="cmd-chip ${g.passed ? 'ok' : 'fail'}">${g.passed ? '✓' : '✗'} ${esc(g.message)}${g.detail ? `<small>${esc(g.detail)}</small>` : ''}</span>`).join('');
+}
+
 async function runLessonAttempt(code) {
   if (!app || !currentLessonId) return;
   const l = lessonList().find((x) => x.id === currentLessonId);
   if (!l) return;
+  const btn = $('btn-run-code'); const list = $('code-commands');
+  if (btn) btn.disabled = true;
+  setRunStatus('', 'Testing your code on the lesson world… (your base is not touched)');
   try {
     const res = await app.runLesson(l.id, code);
     lessonAttempt = {
@@ -549,18 +588,26 @@ async function runLessonAttempt(code) {
       feedback: res.evaluation.feedback,
       attempt: res.attempt,
     };
+    const met = res.evaluation.results.filter((r) => r.passed).length; const total = res.evaluation.results.length;
+    setRunStatus(res.evaluation.passed ? 'ok' : 'fail', res.evaluation.passed
+      ? `✓ Lesson passed (${met}/${total} goals). This ran on the lesson's test world, so your base is unchanged.`
+      : `✗ ${met}/${total} goals met. Details and hints are in the Lesson panel. Your base is unchanged.`);
+    if (list) list.innerHTML = goalChips(res.evaluation.results);
     renderLessonResult();
     renderLessonList();
     renderUI();
   } catch (e) {
+    setRunStatus('fail', `Lesson failed to run: ${e.message}`);
     const result = $('lesson-result');
     if (result) {
       result.style.display = 'block';
       result.className = 'lesson-result failed';
       result.textContent = `Lesson failed to run: ${e.message}`;
     }
-  }
+  } finally { if (btn) btn.disabled = false; }
 }
+
+function paintRunButton() { const b = $('btn-run-code'); if (b) b.textContent = isLessonMode ? 'Run Lesson Test' : 'Run Code'; }
 
 async function handleRunCode() {
   if (isLessonMode && currentLessonId) {
@@ -641,6 +688,7 @@ async function loadSession() {
     const first = freeSim.studentView().survivors[0];
     selected = first ? { kind: 'npc', id: first.id } : null;
     if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
+    cardOpen = false; paintCard();
     refreshUI(); flash(`Loaded: tick ${r.savedTick}`);
   } catch (e) { flash(`Load failed: ${e.message}`); }
 }
@@ -649,16 +697,12 @@ function togglePlay() { clock.toggle(); refreshUI(); }
 function cycleSpeed() { clock.cycleSpeed(); refreshUI(); }
 
 function bindEvents() {
-  $('map-canvas').addEventListener('click', (e) => {
-    const rect = $('map-canvas').getBoundingClientRect();
-    const hit = renderer.pick(e.clientX - rect.left, e.clientY - rect.top, currentProjection());
-    if (hit) selectEntity(hit.kind, hit.id);
-  });
-  $('inspector-toggle')?.addEventListener('click', () => {
-    isInspectorOpen = !isInspectorOpen;
-    $('inspector').classList.toggle('collapsed', !isInspectorOpen);
-    $('inspector-toggle').textContent = isInspectorOpen ? '◂' : '▸';
-  });
+  bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pick(x, y, currentProjection()), onHit: (hit) => selectEntity(hit.kind, hit.id), onEmpty: () => setCardOpen(false) });
+  $('inspector-toggle')?.addEventListener('click', () => setCardOpen(false));
+  const zoomBy = (f) => { const r = $('map-canvas').getBoundingClientRect(); renderer.zoomAt(f, r.width / 2, r.height / 2); };
+  $('btn-zoom-in')?.addEventListener('click', () => zoomBy(1.25));
+  $('btn-zoom-out')?.addEventListener('click', () => zoomBy(1 / 1.25));
+  $('btn-recenter')?.addEventListener('click', () => renderer.resetCamera());
   $('btn-code')?.addEventListener('click', toggleCodePanel);
   $('btn-book')?.addEventListener('click', () => (isBookOpen() ? setBookOpen(false) : openBook(null)));
   $('codebook-close')?.addEventListener('click', () => setBookOpen(false));
@@ -678,6 +722,7 @@ function bindEvents() {
     const typing = tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT'; // shortcuts must never eat what the learner types
     if (e.key === 'Escape' && isBookOpen()) setBookOpen(false);
     else if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
+    else if (e.key === 'Escape' && cardOpen && !typing) setCardOpen(false);
     if ((e.key === 'b' || e.key === 'B') && e.altKey) (isBookOpen() ? setBookOpen(false) : openBook(null)); // Alt+B: Codebook
     if (e.key === ' ' && !isCodePanelOpen && !typing && tag !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
     if ((e.key === 'd' || e.key === 'D') && e.altKey) renderer.setDebug(!renderer.debug); // Alt+D: optional debug overlay
@@ -693,6 +738,7 @@ function bindEvents() {
     else if (action === 'exit-lesson') exitLesson();
     else if (action === 'open-book') openBook(el.dataset.entry || null);
     else if (action === 'insert-example') insertExample(el.dataset.entry);
+    else if (action === 'insert') insertSnippet(el.dataset.snippet);
     else if (action === 'lesson-list') { renderLessonList(); }
     else if (action === 'lesson-progress') renderProgressScreen();
     else if (action === 'mobile-tab') activateMobileTab(el.dataset.mobileTab || 'world');
@@ -710,6 +756,7 @@ function isMobileLayout() {
 function refreshMobileLayout() {
   const mobile = isMobileLayout();
   document.body?.classList?.toggle('mobile-layout', mobile);
+  paintCard();
   const tabs = ['world', 'code', 'book', 'inspect', 'lessons'];
   tabs.forEach((tab) => {
     const el = $('mobile-tab-' + tab);

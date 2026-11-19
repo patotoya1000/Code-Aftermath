@@ -1,8 +1,8 @@
 # Changelog of architectural transitions
 
-Purpose: stop future agents from following stale documentation. When an old document says OLD, the answer is CURRENT. Dates come from `docs/PHASES.md` and `docs/IMPLEMENTATION_PLAN_2026-11-13.md`.
+Purpose: stop future agents from following stale documentation. When an old document says OLD, the answer is CURRENT. Dates come from `docs/PHASES.md`.
 
-> **WARNING — do not restore anything marked OLD.** Many files under `docs/correction/` still describe OLD behaviour; they are historical and carry a banner. Only `docs/game/15-realtime-simulation-and-tasks.md`, `README.md` and `AI_MEMORY/` describe the active model.
+> **WARNING — do not restore anything marked OLD.** The turn-based the old correction folder set was deleted in the 2026-11-19 housekeeping; if you meet its names in old notes, ignore them. Only `docs/game/15-realtime-simulation-and-tasks.md`, `README.md` and `AI_MEMORY/` describe the active model.
 
 | When | OLD (obsolete) | CURRENT |
 |---|---|---|
@@ -46,11 +46,5 @@ Purpose: stop future agents from following stale documentation. When an old docu
 | 2026-11-18 (Z7d) | a screamer only walked to the wall and stood there (damage 0, `scream` was data only) | **Screamer**: `screamTick` (every `cooldownTicks` a living screamer queues up to `summons` walkers, total per wave capped by `waveCap` in `wave.summoned`), `zombie.screamed`; `SIM_VERSION` 0.35.0 (older saves are refused; zombies may carry `scream`, waves `summoned`) |
 | 2026-11-18 (Z7e) | the brute was a beefy walker (same speed and hit rhythm, no special rule) | **Tank**: `behaviour.type 'siege'` (`stepTicks`, `attackEveryTicks`, `wallMultiplier`; validated), used by `tickWave` movement/hit rhythm and `hitWall` (multiplier before wall armor); `SIM_VERSION` 0.36.0 (older saves are refused) |
 | 2026-11-18 (Z7f) | the boss was a schedule + data only: `waveStart` needed a random raid, so a boss day never started a wave; nothing could spawn `horde_king` | **Boss**: boss day = wave (`bossForDay` + escorts + boss last), `statsOf` (zombie or boss stats), `behaviourFor` + `bossPhase` (`phases[]`, `boss.phase`), boss `siege` behaviour, `boss.defeated`, `wave.boss`, learner `threats.wave.boss`; `SIM_VERSION` 0.37.0 (older saves are refused; zombies may carry `phase`, waves `boss`). Z7 complete |
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 | 2026-11-19 (Z8) | the suppressor and noise lure were half-built: a `lure.js` handler importing a missing `addNoise`, a test file, and `shotNoise(..., suppressed)` with no item, recipe, equip effect, API entry or noise config | **Wired end to end**: `suppressor` item + workshop-2 recipe, `equip("suppressor")` accessory, `survivor.lure(tower)`, `noise.scream` / `noise.explosion` / `noise.lure`, shared `addNoise`; `SIM_VERSION` 0.38.0 |
->>>>>>> 0306432 (Add tests for new zombie behaviors and mechanics)
-=======
-| 2026-11-19 (Z8) | the suppressor and noise lure were half-built: a `lure.js` handler importing a missing `addNoise`, a test file, and `shotNoise(..., suppressed)` with no item, recipe, equip effect, API entry or noise config | **Wired end to end**: `suppressor` item + workshop-2 recipe, `equip("suppressor")` accessory, `survivor.lure(tower)`, `noise.scream` / `noise.explosion` / `noise.lure`, shared `addNoise`; `SIM_VERSION` 0.38.0 |
->>>>>>> 0306432b2caa4efeea75ba52e4fee51861b8f2a4
+| 2026-11-19 (UI-R1) | the map shared its width with a 390px inspector dock; the code panel covered the whole screen; the map could not be panned; lesson Run reported only in the side drawer and the lesson list trusted the last attempt, not saved progress | **Full-screen map**: selection card floats over the map and opens only on selection (`cardOpen`); drag-pan / wheel / pinch zoom (`src/app/ui/gestures.js`); code panel and lesson drawer dock as a bottom band; play/speed live in the Clock card; lesson Run reports in the code panel; "completed" always comes from `app.progress.completed`. Presentation only, `SIM_VERSION` unchanged |
