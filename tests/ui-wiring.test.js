@@ -41,11 +41,12 @@ test('main screen: real play/pause/speed controls, code goes through sandbox, th
   run(2000);
   assert.match(els['clock-detail'].textContent, /TICK 0\b/, 'paused: time does not move');
 
-  // C3: every future control is disabled and labelled
-  for (const id of ['btn-assign', 'btn-task', 'btn-build', 'btn-survivors', 'btn-research', 'btn-menu', 'btn-settings']) {
+  // C3: only controls with no game logic yet (research, menu, settings) are disabled; task/assign/build/survivors are live
+  for (const id of ['btn-research', 'btn-menu', 'btn-settings']) {
     assert.match(html, new RegExp(`id="${id}" disabled`), `${id} must be disabled`);
   }
-  assert.equal((html.match(/class="soon"/g) ?? []).length, 7);
+  for (const id of ['btn-assign', 'btn-task', 'btn-build', 'btn-survivors']) assert.doesNotMatch(html, new RegExp(`id="${id}"[^>]*disabled`), `${id} must be live`);
+  assert.equal((html.match(/class="soon"/g) ?? []).length, 3);
 
   // Running code sends the command to the live world, costs a strategy point, and resumes the clock
   await els['btn-run-code'].fire('click');

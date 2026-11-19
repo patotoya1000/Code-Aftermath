@@ -7,37 +7,9 @@
 <title>CODE: AFTERMATH — Command Center</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="src/app/mainscreen.css">
+<link rel="stylesheet" href="src/app/hud/hud.css">
 </head>
-<body>
-<header id="top-bar">
-  <div class="brand">
-    <div class="logo-chip">CA</div>
-    <div class="title-group">
-      <h1>CODE: AFTERMATH</h1>
-      <p>Survival Base Management &bull; Programming Laboratory</p>
-    </div>
-  </div>
-
-  <div class="resources" id="resources"></div>
-
-  <div class="time" id="time-block">
-    <div class="day" id="clock-label">PAUSED · 1×</div>
-    <div class="clock" id="clock-detail">STRATEGY 10/10 · TICK 0</div>
-    <div class="clock" id="env-label" title="Day, season, time and weather">DAY 1</div>
-  </div>
-
-  <div class="controls" id="sim-controls">
-    <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
-    <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
-    <button type="button" class="sim-btn" id="btn-calendar" aria-label="Show the weather calendar">📅 CALENDAR</button>
-    <button type="button" class="sim-btn" id="btn-save" aria-label="Save this session">💾 SAVE</button>
-    <button type="button" class="sim-btn" id="btn-load" aria-label="Load the saved session">📂 LOAD</button>
-    <button type="button" class="sim-btn" id="btn-restart" aria-label="Restart scenario">RESTART</button>
-    <button type="button" class="sim-btn" id="btn-lessons" aria-label="Lesson mode">📚 LESSONS</button>
-  </div>
-</header>
-
-<div id="calendar-panel" class="calendar-panel" style="display:none;" role="dialog" aria-label="Weather calendar"></div>
+<body class="hud">
 <div id="mobile-tabs" class="mobile-tabs" style="display:none;" aria-label="Mobile workspace tabs">
   <button type="button" class="mobile-tab active" id="mobile-tab-world" data-action="mobile-tab" data-mobile-tab="world">World</button>
   <button type="button" class="mobile-tab" id="mobile-tab-code" data-action="mobile-tab" data-mobile-tab="code">Code</button>
@@ -45,88 +17,152 @@
   <button type="button" class="mobile-tab" id="mobile-tab-inspect" data-action="mobile-tab" data-mobile-tab="inspect">Inspect</button>
   <button type="button" class="mobile-tab" id="mobile-tab-lessons" data-action="mobile-tab" data-mobile-tab="lessons">Lessons</button>
 </div>
+
+<!-- HUD layout: the map fills the screen, every panel is a floating card (.hud-card) with a fold button, the inspector docks on the right.
+     All ids the game screen script binds to are unchanged; src/app/hud/hud.js only adds folding, tabs and the tactical overlay. -->
 <div id="app-shell">
   <div id="world-region">
     <h2>WORLD SIMULATION</h2>
     <div id="world-wrap">
       <canvas id="map-canvas" width="960" height="640" aria-label="Top-down map of the settlement"></canvas>
+      <canvas id="tactical-overlay" aria-hidden="true"></canvas>
       <div id="selection-ring" class="selection-ring" style="display:none;"></div>
       <div id="event-markers"></div>
     </div>
+
+    <!-- Top-left: resources, clock, system controls -->
+    <header id="top-bar">
+      <div class="brand">
+        <div class="logo-chip">CA</div>
+        <div class="title-group">
+          <h1>CODE: AFTERMATH</h1>
+          <p>Survival Base Management &bull; Programming Laboratory</p>
+        </div>
+      </div>
+
+      <section class="hud-card" id="card-resources" data-card="resources">
+        <div class="hud-head">
+          <button type="button" class="hud-fold" data-fold="resources" aria-expanded="true"><i class="dot"></i><span>Resources</span></button>
+          <button type="button" class="hud-mini" id="btn-res-all" title="Also show items you have none of" aria-pressed="false">ALL</button>
+        </div>
+        <div class="hud-body"><div class="resources" id="resources"></div></div>
+      </section>
+
+      <section class="hud-card" id="card-clock" data-card="clock">
+        <div class="hud-head"><button type="button" class="hud-fold" data-fold="clock" aria-expanded="true"><i class="dot amber"></i><span>Clock &amp; Wave</span></button></div>
+        <div class="hud-body">
+          <div class="time" id="time-block">
+            <div class="day" id="clock-label">PAUSED · 1×</div>
+            <div class="clock" id="clock-detail">STRATEGY 10/10 · TICK 0</div>
+            <div class="clock" id="env-label" title="Day, season, time and weather">DAY 1</div>
+            <div class="clock wave" id="hud-wave">NO WAVE</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="hud-card" id="card-system" data-card="system">
+        <div class="hud-head"><button type="button" class="hud-fold" data-fold="system" aria-expanded="true"><i class="dot sky"></i><span>System</span></button></div>
+        <div class="hud-body">
+          <div class="controls" id="sim-controls">
+            <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
+            <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
+            <button type="button" class="sim-btn" id="btn-calendar" aria-label="Show the weather calendar">📅 CALENDAR</button>
+            <button type="button" class="sim-btn" id="btn-save" aria-label="Save this session">💾 SAVE</button>
+            <button type="button" class="sim-btn" id="btn-load" aria-label="Load the saved session">📂 LOAD</button>
+            <button type="button" class="sim-btn" id="btn-restart" aria-label="Restart scenario">RESTART</button>
+            <button type="button" class="sim-btn" id="btn-lessons" aria-label="Lesson mode">📚 LESSONS</button>
+            <button type="button" class="sim-btn" id="btn-tactical" aria-pressed="true" title="Tactical map overlay: compound, road, gate and tower readouts">◎ TACTICAL</button>
+            <button type="button" class="sim-btn" id="btn-fold-all" title="Collapse or expand every card">⇕ FOLD ALL</button>
+          </div>
+        </div>
+      </section>
+    </header>
+
+    <div id="calendar-panel" class="calendar-panel" style="display:none;" role="dialog" aria-label="Weather calendar"></div>
+
+    <aside class="hud-card hud-tip" id="card-tip" data-card="tip">
+      <div class="hud-head"><button type="button" class="hud-fold" data-fold="tip" aria-expanded="true"><span>Tip</span></button></div>
+      <div class="hud-body">Click any building, tower, gate, survivor or zombie to inspect it.</div>
+    </aside>
+
+    <!-- Bottom: event log (left) and navigation bar (centre) -->
+    <div id="command-region">
+      <section class="hud-card" id="nav-panel" data-card="navpanel" hidden>
+        <div class="hud-head">
+          <button type="button" class="hud-fold" data-fold="navpanel" aria-expanded="true"><i class="dot sky"></i><span id="nav-panel-title">Panel</span></button>
+          <button type="button" class="hud-mini" id="nav-panel-close" aria-label="Close this panel">✕</button>
+        </div>
+        <div class="hud-body" id="nav-panel-body"></div>
+      </section>
+
+      <section class="hud-card" id="log-card" data-card="log">
+        <div class="hud-head">
+          <button type="button" class="hud-fold" data-fold="log" aria-expanded="true"><i class="dot cyan"></i><span>CMD DISPLAY // EVENT &amp; PROGRESS LOG</span></button>
+          <span class="hud-gate" id="hud-gate" title="Gate condition">GATE: —</span>
+          <button type="button" class="hud-mini" id="btn-log-clear" title="Clear the log view">CLR</button>
+        </div>
+        <div class="hud-body">
+          <div id="event-feed" aria-live="polite"><span class="hint">The world keeps running. Open CODE, run a command, and watch your survivors work. Events appear here.</span></div>
+          <div id="cmd-hints"></div>
+        </div>
+      </section>
+
+      <section class="hud-card" id="nav-card" data-card="nav">
+        <div class="hud-head"><button type="button" class="hud-fold" data-fold="nav" aria-expanded="true"><span>Navigation Bar</span></button></div>
+        <div class="hud-body">
+          <div id="cmd-bar">
+            <button type="button" class="cmd-btn code" id="btn-code" aria-label="Open code interface"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>CODE</button>
+            <button type="button" class="cmd-btn book" id="btn-book" aria-label="Open the Codebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>BOOK</button>
+            <button type="button" class="cmd-btn" id="btn-task" data-nav="task" aria-label="Task board: what every survivor is doing" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>TASK</button>
+            <button type="button" class="cmd-btn" id="btn-assign" data-nav="assign" aria-label="Assign a command to a survivor" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>ASSIGN</button>
+            <button type="button" class="cmd-btn" id="btn-build" data-nav="build" aria-label="Buildings: repair and upgrade" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>BUILDING</button>
+            <button type="button" class="cmd-btn" id="btn-survivors" data-nav="survivors" aria-label="Survivors and their needs" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>SURVIVORS</button>
+            <!-- No game logic behind these yet, so they stay disabled (the wiring test keeps them honest). Research: there is no research system in the simulation. -->
+            <button type="button" class="cmd-btn" id="btn-research" disabled title="There is no research system in the game logic yet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>RESEARCH<small class="soon">Not yet scheduled</small></button>
+            <button type="button" class="cmd-btn" id="btn-menu" disabled title="Coming in Phase I3"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>MENU<small class="soon">Coming in Phase I3</small></button>
+            <button type="button" class="cmd-btn" id="btn-settings" disabled title="Coming in Phase I3"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>SETTING<small class="soon">Coming in Phase I3</small></button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
+
+  <!-- Right: vertical tabs + docked inspector -->
   <div id="inspector-region">
-    <button type="button" id="inspector-toggle" aria-label="Toggle inspector">▸</button>
-    <div id="inspector">
-      <div id="inspector-card">
-        <div class="header">
-          <div class="portrait" id="inspector-portrait" role="img" aria-label="Survivor portrait">?</div>
-          <div class="info">
-            <div class="name" id="inspector-name">—</div>
-            <div class="sub" id="inspector-sub">No survivor selected</div>
-            <div class="meta-row" id="inspector-meta"></div>
-          </div>
-        </div>
+    <nav id="inspector-tabs" role="tablist" aria-label="Inspector tabs" aria-orientation="vertical">
+      <button type="button" id="inspector-toggle" aria-label="Toggle inspector" title="Show or hide the inspector">◂</button>
+      <button type="button" class="inspector-tab active" role="tab" data-tab="info" aria-selected="true">Info</button>
+      <button type="button" class="inspector-tab" role="tab" data-tab="stats" aria-selected="false">Stats</button>
+      <button type="button" class="inspector-tab" role="tab" data-tab="equipment" aria-selected="false">Equipment</button>
+      <button type="button" class="inspector-tab" role="tab" data-tab="bag" aria-selected="false">Bag</button>
+      <button type="button" class="inspector-tab" role="tab" data-tab="command" aria-selected="false">Command</button>
+    </nav>
+    <div id="inspector-dock">
+      <section class="hud-card" id="card-selector" data-card="selector">
+        <div class="hud-head"><button type="button" class="hud-fold" data-fold="selector" aria-expanded="true"><span>Active Asset / Unit</span></button></div>
+        <div class="hud-body"><select id="entity-selector" aria-label="Choose an asset or unit to inspect"></select></div>
+      </section>
 
-        <div class="section">
-          <h3><span class="icon">❤</span>Needs</h3>
-          <div class="needs-grid" id="inspector-needs"></div>
-        </div>
-
-        <div class="section">
-          <h3><span class="icon">⚡</span>Attributes</h3>
-          <div class="attrs-grid" id="inspector-attrs"></div>
-        </div>
-
-        <div class="section">
-          <h3><span class="icon">🎒</span>Equipment</h3>
-          <div class="equip-grid" id="inspector-equip"></div>
-        </div>
-
-        <div id="task-panel">
-          <div class="section">
-            <h3><span class="icon">📋</span>Current Task</h3>
-            <div class="current-task">
-              <div class="task-icon" id="task-icon">⏳</div>
-              <div class="task-info">
-                <div class="task-title" id="task-title">No active task</div>
-                <div class="task-target" id="task-target">—</div>
-                <div class="task-progress"><div class="task-progress-fill" id="task-progress-fill" style="width:0%"></div></div>
-                <div class="task-meta" id="task-meta">—</div>
-              </div>
-            </div>
-          </div>
-          <div class="section">
-            <h3><span class="icon">📜</span>Task Queue</h3>
-            <div id="task-queue"></div>
-          </div>
+      <div id="inspector">
+        <div id="inspector-card">
+          <div class="header"><div class="portrait">?</div><div class="info"><div class="name">—</div><div class="sub">Select a survivor, building or resource</div></div></div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div id="command-region">
-    <div id="cmd-bar">
-      <button type="button" class="cmd-btn code" id="btn-code" aria-label="Open code interface">CODE</button>
-      <button type="button" class="cmd-btn book" id="btn-book" aria-label="Open the Codebook">📖 BOOK</button>
-      <button type="button" class="cmd-btn" id="btn-assign" disabled>ASSIGN TASK<small class="soon">Coming in Phase I5</small></button>
-      <button type="button" class="cmd-btn" id="btn-task" disabled>TASK<small class="soon">Coming in Phase I5</small></button>
-      <button type="button" class="cmd-btn" id="btn-build" disabled>BUILD<small class="soon">Coming in Phase I11</small></button>
-      <button type="button" class="cmd-btn" id="btn-survivors" disabled>SURVIVORS<small class="soon">Coming in Phase I5</small></button>
-      <button type="button" class="cmd-btn" id="btn-research" disabled>RESEARCH<small class="soon">Not yet scheduled</small></button>
-      <button type="button" class="cmd-btn" id="btn-menu" disabled>MENU<small class="soon">Coming in Phase I3</small></button>
-      <button type="button" class="cmd-btn" id="btn-settings" disabled>SETTINGS<small class="soon">Coming in Phase I3</small></button>
-    </div>
-    <div id="cmd-hints"></div>
-    <div id="event-feed" aria-live="polite"><span class="hint">The world keeps running. Open CODE, run a command, and watch your survivors work. Events appear here.</span></div>
-  </div>
+      <section class="hud-card" id="card-roster" data-card="roster">
+        <div class="hud-head"><button type="button" class="hud-fold" data-fold="roster" aria-expanded="true"><span>Compound Roster</span></button><span class="hud-gate">CLICK TO INSPECT</span></div>
+        <div class="hud-body"><div id="roster-mini-grid"></div></div>
+      </section>
 
-  <div id="tutor-region">
-    <div id="tutor-panel">
-      <div id="tutor-header">
-        <div id="tutor-title"><span class="tutor-icon">🎓</span>AI Tutor</div>
-      </div>
-      <div id="tutor-content">
-        <div id="tutor-empty">Select a survivor or building to receive contextual guidance.</div>
+      <div id="tutor-region">
+        <div id="tutor-panel" class="hud-card" data-card="tutor">
+          <div id="tutor-header" class="hud-head">
+            <button type="button" class="hud-fold" data-fold="tutor" aria-expanded="true" id="tutor-title"><span class="tutor-icon">🎓</span><span>AI Tutor</span></button>
+          </div>
+          <div id="tutor-content" class="hud-body">
+            <div id="tutor-empty">Select a survivor or building to receive contextual guidance.</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -11,12 +11,14 @@ import { placeholderManifestFor } from '../modules/assets/index.js';
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
+import { buildingActionList, survivorActionList, actionButtons } from './ui/actions.js'; // buttons that mirror the real command rules
+import { mountHud } from './hud/hud.js'; // HUD skin: card folding, inspector tabs, tactical overlay (presentation only)
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
-let app; let renderer; let hooks = null;
+let app; let renderer; let hooks = null; let hud = null;
 let freeSim; let clock;
 let selected = null; // { kind: 'npc' | 'building' | 'node', id }
 let isInspectorOpen = true;
@@ -40,6 +42,7 @@ async function init() {
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
   renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected, getCommands: () => app.codebook.entries.filter((e) => e.kind === 'command' && e.example) });
   await startScenario();
   renderHints();
   renderCodeAPI();
@@ -68,6 +71,7 @@ function loop(now) {
     const ran = clock.update(dt);
     hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
+    hud?.frame(currentProjection(), now);
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
@@ -143,7 +147,7 @@ function bar(label, val, max = 100, cls = '') {
 const section = (icon, title, body) => `<div class="section"><h3><span class="icon">${icon}</span>${esc(title)}</h3>${body}</div>`;
 const muted = (t) => `<span style="color:var(--muted);font-size:11px;">${esc(t)}</span>`;
 
-function survivorSections(card) {
+function survivorSections(card, view) {
   const needs = Object.entries(card.needs).map(([k, v]) => bar(k, v, 100, v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good')).join('');
   const attrs = Object.entries(card.attributes).map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('');
   const skills = Object.entries(card.skills);
@@ -158,6 +162,7 @@ function survivorSections(card) {
     section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
     section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted(`Carrying ${card.carry.load} / ${card.carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>`),
     taskSection(card.task, card.queued, card.lastTask),
+    section('⌨', 'Commands', `${actionButtons(survivorActionList(card, view), { view, survivorId: card.id })}${muted('Buttons add a command to the editor; nothing runs until you press Run.')}`),
     policySection(card.policies),
     hookSection(card.hooks),
   ].join('');
@@ -223,15 +228,7 @@ function powerSection(b) {
   return section('⚡', 'Power', `<div style="font-size:11px;">${body}</div>`);
 }
 
-function buildingActions(b) {
-  const lines = [`survivor.repair(${b.id})`];
-  if (b.water) lines.push('survivor.gather("water", 10)');
-  for (const r of b.recipes ?? []) lines.push(`survivor.${r.action}("${r.id}", 5)${r.working ? '' : b.condition === 'repaired' ? `  (needs ${b.type} level ${r.stationLevel})` : '  (repair it first)'}`);
-  if (b.upgrade) lines.push(`survivor.upgrade(${b.id})  → level ${b.upgrade.level}: ${Object.entries(b.upgrade.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`);
-  return lines.map((l) => `<div>${muted(l)}</div>`).join('');
-}
-
-function buildingSections(b) {
+function buildingSections(b, view) {
   const pct = Math.round((b.health / b.maxHealth) * 100);
   const storage = b.storageInfo
     ? Object.entries(b.storageInfo.capacity).map(([k, c]) => bar(k, b.storageInfo.current[k] ?? 0, c, 'good').replace(/<div class="value">\d+<\/div>/, `<div class="value">${b.storageInfo.current[k] ?? 0}/${c}</div>`)).join('')
@@ -242,7 +239,7 @@ function buildingSections(b) {
     waterSection(b),
     powerSection(b),
     b.cold ? section('❄', 'Cold storage', `<div style="font-size:11px;">${b.cold.working ? `Keeps the ${b.cold.capacity} oldest food units fresh: they age ${b.cold.factor}× slower.${b.cold.needsPower ? ' Powered.' : ' Needs no power.'}` : b.cold.needsPower && b.condition !== 'ruined' ? 'Freezer is off: it needs power, so food ages at the normal rate. Repair a generator or solar panel and keep it fuelled.' : 'Ruined: it protects nothing until it is repaired.'}</div>`) : '',
-    section('🔧', 'Actions', buildingActions(b)),
+    section('🔧', 'Actions', `${actionButtons(buildingActionList(b, view), { view, survivorId: selectedActor(view) })}${muted('Buttons add a command to the editor; nothing runs until you press Run.')}`),
   ].join('');
 }
 
@@ -254,12 +251,12 @@ function renderInspector() {
     const card = freeSim.inspector(selected.id);
     if (!card) { selected = null; return renderInspector(); }
     header = { glyph: '👤', name: card.identity.name, sub: `${card.status} · ${card.identity.background}`, meta: `<span>ID: ${esc(card.id)}</span><span>Age: ${card.identity.age}</span><span>Pos: ${card.x},${card.y}</span><span>Dir: ${card.direction}</span>` };
-    body = survivorSections(card);
+    body = survivorSections(card, view);
   } else if (selected.kind === 'building') {
     const b = view.buildings.find((x) => x.id === selected.id);
     if (!b) { selected = null; return renderInspector(); }
     header = { glyph: '🏗', name: b.name, sub: `${b.condition} · Lvl ${b.level}`, meta: `<span>ID: ${esc(b.id)}</span><span>Type: ${esc(b.type)}</span>` };
-    body = buildingSections(b);
+    body = buildingSections(b, view);
   } else {
     const n = view.nodes.find((x) => x.id === selected.id);
     if (!n) { selected = null; return renderInspector(); }
@@ -357,6 +354,15 @@ function insertExample(entryId) {
   setBookOpen(false);
   if (!isCodePanelOpen) toggleCodePanel(); else ed.focus?.();
 }
+
+/** An action button puts its command into the editor and opens the code panel. It never runs anything itself. */
+function insertSnippet(text) {
+  const ed = $('code-editor'); if (!ed || !text) return;
+  ed.value = `${ed.value.trim() ? `${ed.value.replace(/\s+$/, '')}\n` : ''}${text}\n`;
+  if (!isCodePanelOpen) toggleCodePanel(); else ed.focus?.();
+}
+/** Which survivor a building button's command should address: the selected one if a survivor is selected, else the first. */
+function selectedActor(view) { return selected?.kind === 'npc' ? selected.id : view?.survivors?.[0]?.id; }
 
 function renderHints() {
   $('cmd-hints').innerHTML = app.apiDocs.commands.map((c) => `<div class="hint-chip"><span class="api-glyph">${esc(c.signature.split('  or')[0])}</span></div>`).join('');
@@ -693,6 +699,7 @@ function bindEvents() {
     else if (action === 'exit-lesson') exitLesson();
     else if (action === 'open-book') openBook(el.dataset.entry || null);
     else if (action === 'insert-example') insertExample(el.dataset.entry);
+    else if (action === 'insert') insertSnippet(el.dataset.snippet);
     else if (action === 'lesson-list') { renderLessonList(); }
     else if (action === 'lesson-progress') renderProgressScreen();
     else if (action === 'mobile-tab') activateMobileTab(el.dataset.mobileTab || 'world');
