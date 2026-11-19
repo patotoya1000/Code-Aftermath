@@ -11,7 +11,7 @@ import { buildingActionList, survivorActionList, actionButtons, addressSurvivor 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
 // Which inspector tab each section (by its heading) belongs to; anything not listed stays on Info so nothing is ever hidden for good.
-const TAB_OF = [[/^(needs|conditions|attributes|skills|traits)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage)/i, 'bag'], [/^(policies|hooks)/i, 'command']];
+const TAB_OF = [[/^(needs|conditions|attributes|skills|traits)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage)/i, 'bag'], [/^(policies|hooks|actions)/i, 'command']];
 const KEY_ORDER = ['hq', 'tower', 'gate', 'workshop', 'kitchen', 'field', 'well', 'storage'];
 
 const noop = { frame() {}, foldAll() {}, get state() { return {}; } };
@@ -169,6 +169,7 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
     }
   }
 
+<<<<<<< HEAD
 
   // ---------- navigation panels: Task / Assign / Building / Survivors (read the real view; buttons only insert code) ----------
   const panel = $('nav-panel'); const panelBody = $('nav-panel-body'); const panelTitle = $('nav-panel-title');
@@ -231,6 +232,8 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
   panelBody?.addEventListener('click', (e) => { const b = e.target?.closest?.('[data-pick]'); if (b) { const p = pickOf(b.dataset.pick); select(p.kind, p.id); } });
   panelBody?.addEventListener('change', (e) => { const k = e.target?.dataset?.assign; if (!k) return; assignPick[k] = e.target.value; renderNav(true); });
 
+=======
+>>>>>>> 04edefa66a7bf87e66ed7f552e583f9e2007a81f
   // ---------- tactical overlay ----------
   const mapCanvas = $('map-canvas'); const ov = $('tactical-overlay'); const ctx = ov?.getContext?.('2d');
   let view = null;
