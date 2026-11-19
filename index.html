@@ -57,10 +57,6 @@
             <div class="clock" id="env-label" title="Day, season, time and weather">DAY 1</div>
             <div class="clock wave" id="hud-wave">NO WAVE</div>
           </div>
-          <div class="transport" id="transport">
-            <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
-            <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
-          </div>
         </div>
       </section>
 
@@ -68,6 +64,8 @@
         <div class="hud-head"><button type="button" class="hud-fold" data-fold="system" aria-expanded="true"><i class="dot sky"></i><span>System</span></button></div>
         <div class="hud-body">
           <div class="controls" id="sim-controls">
+            <button type="button" class="sim-btn active" id="btn-play" aria-label="Play or pause the simulation">▶ PLAY</button>
+            <button type="button" class="sim-btn" id="btn-speed" aria-label="Change simulation speed">1×</button>
             <button type="button" class="sim-btn" id="btn-calendar" aria-label="Show the weather calendar">📅 CALENDAR</button>
             <button type="button" class="sim-btn" id="btn-save" aria-label="Save this session">💾 SAVE</button>
             <button type="button" class="sim-btn" id="btn-load" aria-label="Load the saved session">📂 LOAD</button>
@@ -80,17 +78,11 @@
       </section>
     </header>
 
-    <div id="map-tools" class="map-tools" role="group" aria-label="Map view">
-      <button type="button" class="hud-mini" id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (or use the mouse wheel / pinch)">＋</button>
-      <button type="button" class="hud-mini" id="btn-zoom-out" aria-label="Zoom out" title="Zoom out">－</button>
-      <button type="button" class="hud-mini" id="btn-recenter" aria-label="Reset the map view" title="Reset the map view (or double-click the map)">⌖</button>
-    </div>
-
     <div id="calendar-panel" class="calendar-panel" style="display:none;" role="dialog" aria-label="Weather calendar"></div>
 
     <aside class="hud-card hud-tip" id="card-tip" data-card="tip">
       <div class="hud-head"><button type="button" class="hud-fold" data-fold="tip" aria-expanded="true"><span>Tip</span></button></div>
-      <div class="hud-body">Click a survivor, building, tower, gate or zombie to open its card. Drag the map to pan; wheel or pinch to zoom.</div>
+      <div class="hud-body">Click any building, tower, gate, survivor or zombie to inspect it.</div>
     </aside>
 
     <!-- Bottom: event log (left) and navigation bar (centre) -->
@@ -136,9 +128,9 @@
   </div>
 
   <!-- Right: vertical tabs + docked inspector -->
-  <div id="inspector-region" hidden>
+  <div id="inspector-region">
     <nav id="inspector-tabs" role="tablist" aria-label="Inspector tabs" aria-orientation="vertical">
-      <button type="button" id="inspector-toggle" aria-label="Close the card" title="Close the card (Esc)">✕</button>
+      <button type="button" id="inspector-toggle" aria-label="Toggle inspector" title="Show or hide the inspector">◂</button>
       <button type="button" class="inspector-tab active" role="tab" data-tab="info" aria-selected="true">Info</button>
       <button type="button" class="inspector-tab" role="tab" data-tab="stats" aria-selected="false">Stats</button>
       <button type="button" class="inspector-tab" role="tab" data-tab="equipment" aria-selected="false">Equipment</button>

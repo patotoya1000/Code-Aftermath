@@ -11,7 +11,7 @@ import { buildingActionList, survivorActionList, actionButtons, addressSurvivor 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
 // Which inspector tab each section (by its heading) belongs to; anything not listed stays on Info so nothing is ever hidden for good.
-const TAB_OF = [[/^(needs|conditions|attributes|skills|traits)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage)/i, 'bag'], [/^(policies|hooks)/i, 'command']];
+const TAB_OF = [[/^(needs|conditions|attributes|skills|traits)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage)/i, 'bag'], [/^(policies|hooks|actions)/i, 'command']];
 const KEY_ORDER = ['hq', 'tower', 'gate', 'workshop', 'kitchen', 'field', 'well', 'storage'];
 
 const noop = { frame() {}, foldAll() {}, get state() { return {}; } };
@@ -171,7 +171,7 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
   }
 
 
-  // ---------- navigation panels: Task / Assign / Building / Survivors (read the real view; buttons only insert code) ----------
+// ---------- navigation panels: Task / Assign / Building / Survivors (read the real view; buttons only insert code) ----------
   const panel = $('nav-panel'); const panelBody = $('nav-panel-body'); const panelTitle = $('nav-panel-title');
   const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors' };
   let navMode = null; let navSig = ''; const assignPick = { survivor: null, command: 'command.gather' };
