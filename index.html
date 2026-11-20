@@ -78,15 +78,20 @@
           </div>
         </div>
       </section>
+      <div class="screen-badge" id="screen-badge" data-alert="none" role="status" aria-live="polite" title="Which map you are on. Use the arrows at the screen edges (or the left and right arrow keys)."><span class="sb-no" id="sb-no">MAP 2</span><b class="sb-name" id="sb-name">OUTPOST</b><span class="sb-dots" id="sb-dots" aria-hidden="true"><i></i><i class="on"></i><i></i></span></div>
     </header>
 
-    <div id="zone-bar" class="zone-bar" role="group" aria-label="Map zones: town, outpost, front">
-      <button type="button" class="zone-arrow" id="zone-west" aria-label="Look west" title="One zone west">◂</button>
-      <button type="button" class="zone-btn" id="zone-town" data-zone="town" aria-pressed="false" title="TOWN: survivors to recruit (opens the Town panel)">TOWN</button>
-      <button type="button" class="zone-btn" id="zone-outpost" data-zone="outpost" aria-pressed="true" title="OUTPOST: your base behind the wall">OUTPOST</button>
-      <button type="button" class="zone-btn" id="zone-front" data-zone="front" aria-pressed="false" title="FRONT: beyond the wall (opens Expeditions)">FRONT</button>
-      <button type="button" class="zone-arrow" id="zone-east" aria-label="Look east" title="One zone east">▸</button>
-    </div>
+    <!-- Map screens: MAP 1 TOWN (static, slides in from the west), MAP 2 OUTPOST (the live canvas), MAP 3 FRONT (static, slides in from the east). Presentation only. -->
+    <section class="screen-pane screen-pane-town" id="screen-town" aria-label="Map 1: the town" aria-hidden="true">
+      <div class="scene-wrap" id="scene-town"></div>
+      <aside class="scene-detail hud-card" id="detail-town" hidden><div class="hud-head"><span class="sd-title" id="detail-town-title"></span><button type="button" class="hud-mini" data-detail-close="town" aria-label="Close">×</button></div><div class="sd-body" id="detail-town-body"></div></aside>
+    </section>
+    <section class="screen-pane screen-pane-front" id="screen-front" aria-label="Map 3: the front" aria-hidden="true">
+      <div class="scene-wrap" id="scene-front"></div>
+      <aside class="scene-detail hud-card" id="detail-front" hidden><div class="hud-head"><span class="sd-title" id="detail-front-title"></span><button type="button" class="hud-mini" data-detail-close="front" aria-label="Close">×</button></div><div class="sd-body" id="detail-front-body"></div></aside>
+    </section>
+    <button type="button" class="screen-arrow screen-arrow-west" id="screen-west" aria-label="Go to the town map"><span class="sa-glyph" aria-hidden="true">◂</span><span class="sa-label" id="screen-west-label">TOWN</span></button>
+    <button type="button" class="screen-arrow screen-arrow-east" id="screen-east" data-alert="none" aria-label="Go to the front map"><span class="sa-glyph" aria-hidden="true">▸</span><span class="sa-label" id="screen-east-label">FRONT</span></button>
 
     <div id="map-tools" class="map-tools" role="group" aria-label="Map view">
       <button type="button" class="hud-mini" id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (or use the mouse wheel / pinch)">＋</button>

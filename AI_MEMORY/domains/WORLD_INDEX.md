@@ -8,7 +8,7 @@ Builds the authoritative initial GameState from `defs + scenarioId + seed` (same
 
 # Responsibilities
 
-- Scenarios `stage1`, `stage1_tired`, `stage1_weary` (24×16 map, perimeter wall) and `stage1_line` (same settlement behind a full-height line wall at x = 16; inside = west, waves spawn east; W2).
+- Scenarios `stage1`, `stage1_tired`, `stage1_weary` (24×16 map, perimeter wall) `stage1_line` (same settlement behind a full-height line wall at x = 16; inside = west, waves spawn east; W2) and `stage1_long` (the LIVE default: a 40×16 map, the stage-1 settlement shifted 6 cells east behind a line wall at x = 22, gate (22,7), forest and road beyond it; screens 2026-11-20).
 - Open ledger accounts, create buildings, nodes (RNG-rolled amounts), survivors.
 - Terrain zones/paths are presentation-only ground (forest zone, forest path) carried to the renderer through the render projection.
 

@@ -6,7 +6,8 @@
 //   • tactical overlay: a transparent canvas over the map (compound wash, road, gate + tower readouts, zombie health bars)
 // The overlay uses the renderer's own viewport, so it stays aligned with the sprites under pan/zoom/resize.
 import { cellRect, cellCenter, gridToScreen } from '../../modules/viewport/index.js';
-import { buildingActionList, survivorActionList, townActionList, trainActionList, scavengeActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
+import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
+import { townPanelHtml, scavengePanelHtml } from '../ui/panels.js';
 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
@@ -202,42 +203,8 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
         <span class="np-needs">${['health', 'hunger', 'thirst', 'energy'].map((k) => `<label>${k.slice(0, 3)}${npBar(s.needs[k])}</label>`).join('')}</span></div></div>`).join('');
       return `${rows}<div class="np-sub">${view.town?.open ? `${view.town.survivors} survivors, ${view.town.freeBeds} free bed${view.town.freeBeds === 1 ? '' : 's'}. Open TOWN to recruit.` : 'The town opens soon.'}</div>`;
     }
-    if (navMode === 'town') {
-      const t = view.town;
-      if (!t?.open) return `<div class="np-sub">The town sends nobody before day ${esc(t?.opensOnDay ?? '?')}.</div>`;
-      const list = townActionList(view);
-      const head = `<div class="np-sub">Day ${t.day} · ${t.survivors} survivors · ${t.freeBeds} free bed${t.freeBeds === 1 ? '' : 's'} · new board in ${t.nextBoardInDays} day${t.nextBoardInDays === 1 ? '' : 's'}. The town takes supplies only.</div>`;
-      const rows = list.map((a) => {
-        const o = a.offer;
-        const stats = [...Object.entries(o.skills).map(([k, v]) => `${k} ${v}`), ...o.traits].join(' · ') || 'no skills yet';
-        const cost = a.price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
-        return `<div class="np-row"><div class="np-main"><strong>${esc(o.name)}${o.train ? ' 🚆' : ''}</strong><span>${esc(stats)}</span><span class="np-sub">STR ${o.attributes.strength} AGI ${o.attributes.agility} END ${o.attributes.endurance} · worth ${o.worth}</span><span class="np-sub">${cost}</span></div>${actionButtons([a], {})}</div>`;
-      }).join('');
-      const tr = t.train;
-      const trainHead = tr?.present
-        ? `<div class="np-sub"><strong>TRAIN IN</strong> · leaves in ${tr.leavesInDays} day${tr.leavesInDays === 1 ? '' : 's'}. Extra recruits are marked above; goods below.</div>`
-        : `<div class="np-sub">Next train: day ${t.train?.nextArrivalDay} (in ${t.train?.arrivesInDays} day${t.train?.arrivesInDays === 1 ? '' : 's'}).</div>`;
-      const goods = trainActionList(view).map((a) => {
-        const g = a.goods;
-        const cost = a.price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
-        return `<div class="np-row"><div class="np-main"><strong>${esc(g.name)}</strong><span>${g.left} of ${g.qty} left</span><span class="np-sub">each: ${cost}</span></div>${actionButtons([a], {})}</div>`;
-      }).join('');
-      return `${head}${rows}${trainHead}${goods}`;
-    }
-    if (navMode === 'scavenge') {
-      const sv = view.scavenge;
-      if (!sv?.open) return `<div class="np-sub">Expeditions start on day ${esc(sv?.opensOnDay ?? '?')}.</div>`;
-      const b = view.board ?? {};
-      const head = `<div class="np-sub">Day ${sv.day} · ${b.duskInTicks > 0 ? `dusk in ${b.duskInTicks} ticks` : 'night: the gate is shut'} · ${(b.raids ?? []).length ? `raid on day ${esc(b.raids[0].day)}` : 'no raid announced'}. A survivor outside when a wave starts is lost.</div>`;
-      const away = (sv.away ?? []).map((a) => `<div class="np-sub"><strong>${esc(a.survivorId)}</strong> is at ${esc(a.siteId)}, back in ${a.returnsInTicks} ticks</div>`).join('');
-      const rows = scavengeActionList(view).map((a) => {
-        const s = a.site;
-        const gain = Object.entries(s.expected).map(([i, r]) => `${r[0]}-${r[1]} ${esc(i)}`).join(', ');
-        return `<div class="np-row"><div class="np-main"><strong>${esc(s.name)}</strong><span>${s.ticks} ticks · danger ${s.dangerToday}% · ${s.recoveryPercent}% recovered</span><span class="np-sub">${gain}</span></div>${actionButtons([a], {})}</div>`;
-      }).join('');
-      const lost = (sv.lost ?? []).length ? `<div class="np-sub bad">Lost outside: ${esc(sv.lost.map((l) => l.name).join(', '))}</div>` : '';
-      return `${head}${away}${rows}${lost}`;
-    }
+    if (navMode === 'town') return townPanelHtml(view);
+    if (navMode === 'scavenge') return scavengePanelHtml(view);
     if (navMode === 'assign') {
       const cmds = getCommands(); const cmd = cmds.find((c) => c.id === assignPick.command) ?? cmds[0];
       const sid = survivors.some((s) => s.id === assignPick.survivor) ? assignPick.survivor : survivors[0]?.id;
@@ -303,7 +270,7 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
       for (let y = y1; y <= y2 + 1; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.moveTo(r.x, sy); ctx.lineTo(r.x + r.w, sy); }
       ctx.stroke();
       ctx.setLineDash([6, 5]); ctx.strokeStyle = 'rgba(56,189,248,.38)'; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); ctx.setLineDash([]);
-      if (cell >= 22) { ctx.font = mono(fs - 1, 700); ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(125,211,252,.7)'; ctx.fillText('COMPOUND', r.x + 6, r.y + 5); }
+      if (cell >= 22) { ctx.font = mono(fs - 1, 700); ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(125,211,252,.7)'; ctx.fillText(fb.shape === 'line' ? 'OUTPOST' : 'COMPOUND', r.x + 6, r.y + 5); }
     }
 
     // road: the dirt path that leaves the gate, with a dashed approach lane running on to the map edge

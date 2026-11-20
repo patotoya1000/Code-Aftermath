@@ -211,8 +211,16 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - All numbers are placeholders: a day has 240 ticks and about 120 of daylight, so the shipped sites take 40-110 ticks. `board.duskInTicks` exists so the learner can decide whether a trip fits.
 - Not in W3: parties of several survivors, per-site events, ammo or weapon use outside, a lesson, town health. The HUD zone navigation bar is W1.
 
-## W1: the zone bar is a camera shortcut (2026-11-20)
+## W1: the zone bar is a camera shortcut (2026-11-20) - SUPERSEDED by the map screens, see the next section
 
 - Zones are regions of the ONE simulation grid split by the wall, never separate maps. `zonesFor` reads only the render projection, so it works for a perimeter and a line wall and costs the engine nothing.
 - TOWN is a panel, not a place: its button moves the camera to the west end and opens the Town panel; FRONT opens Expeditions (the Events card of docs/game/21 section 10). A button never changes the simulation.
 - Not built: the town health meter (needs a design decision on what drops it besides a fallen wall).
+
+## Map screens replace the zone bar (2026-11-20)
+
+- The owner wanted TOWN and FRONT to feel like maps: arrows at the left and right screen edges that slide gracefully into the town and the front, a display saying which map you are on, a static town map where you click the store and other objects, and a static front map where you click an area to scavenge. The old camera-only zone bar could not do this (and did nothing at zoom 1).
+- Still ONE simulation grid. MAP 2 OUTPOST is the live canvas on the new 40x16 `stage1_long` line-wall map. MAP 1 TOWN and MAP 3 FRONT are static presentation maps over it; they never exist in the state, saves or replays, and the simulation keeps running under them.
+- A click on a map object only opens a card and its buttons insert code (same rule as every UI button). There is NO "start a raid" command: waves are scheduled and start by themselves at dusk, so the raid road is a read-only forecast. Adding a player-triggered raid would be a new simulation rule and needs its own design decision.
+- The red pulse on the east arrow is derived from the view (`alertLevel`: wave active = red, raid or boss due tonight within 60 ticks of dusk = amber).
+- `stage1_line` (24x16) stays for its tests; `stage1_long` is the live default. Lessons keep `stage1` / `stage1_tired` / `stage1_weary`.

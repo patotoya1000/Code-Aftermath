@@ -50,9 +50,9 @@ check(shell.y >= bar.y + bar.height - 1, 'game shell starts below the header (no
 check(box.width > 400, 'map uses the full world column, not a narrow strip');
 
 // I2: the gate is a real, selectable world object, and the code hint the UI shows for it actually runs
-const t = Math.min(box.width / 24, box.height / 16);
-const ox = box.x + (box.width - 24 * t) / 2; const oy = box.y + (box.height - 16 * t) / 2;
-await page.mouse.click(ox + 16.5 * t, oy + 7.5 * t); // gate tile (16, 7)
+const t = Math.min(box.width / 40, box.height / 16); // the live map is the 40x16 line-wall map (stage1_long)
+const ox = box.x + (box.width - 40 * t) / 2; const oy = box.y + (box.height - 16 * t) / 2;
+await page.mouse.click(ox + 22.5 * t, oy + 7.5 * t); // gate tile (22, 7), in the line wall
 check((await text('#inspector-card')).includes('Gate'), 'clicking the gate selects it');
 check((await text('#inspector-card')).includes('survivor.repair(gate)'), 'inspector hint names the gate by id');
 await page.click('#btn-code');
@@ -60,6 +60,21 @@ await page.fill('#code-editor', 'survivor.repair(gate);');
 await page.click('#btn-run-code');
 await page.waitForFunction(() => document.querySelector('#code-execution-result')?.textContent.includes('sent'), null, { timeout: 15000 });
 check((await text('#code-execution-result')).includes('1 command(s) sent'), 'repair(gate) runs with a building selected');
+
+// Map screens: edge arrows slide the TOWN / FRONT maps over the live OUTPOST map; the badge says which map it is
+await page.click('#code-close').catch(() => {});
+check((await text('#screen-badge')).includes('MAP 2') && (await text('#screen-badge')).includes('OUTPOST'), 'the badge starts on MAP 2 OUTPOST');
+await page.click('#screen-west'); await page.waitForTimeout(800);
+check((await text('#screen-badge')).includes('MAP 1') && await page.locator('#screen-west').isDisabled(), 'the west arrow slides to MAP 1 TOWN and is disabled at the end');
+await page.click('[data-spot="hall"]');
+check(await page.locator('#detail-town').isVisible(), 'clicking the recruit hall opens its panel');
+await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.waitForTimeout(800);
+await page.click('#screen-east'); await page.waitForTimeout(800);
+check((await text('#screen-badge')).includes('MAP 3') && await page.locator('#screen-east').isDisabled(), 'the east arrow slides to MAP 3 FRONT');
+await page.click('[data-spot="junkyard"]');
+check((await text('#detail-front-title')).includes('Junkyard'), 'clicking a site on the front map opens it');
+await page.click('#screen-west'); await page.waitForTimeout(800);
+check((await text('#screen-badge')).includes('MAP 2'), 'and back to the live map');
 
 // Stabilization pass: shortcuts never eat typing, lesson buttons work under the CSP, save/load round-trips
 const panelOpen = () => page.evaluate(() => document.querySelector('#code-panel')?.classList.contains('open'));

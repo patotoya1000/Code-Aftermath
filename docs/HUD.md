@@ -22,9 +22,11 @@ Nothing here changes the simulation; the engine modules are untouched.
 - Navigation bar: CODE, BOOK, TASK (what each survivor is doing), ASSIGN (pick a survivor and a codebook command), BUILDING (condition, repair/upgrade) and SURVIVORS (needs) open a panel above the bar. RESEARCH is shown but disabled because the game logic has no research system; MENU and SETTINGS wait for Phase I3.
 - Tested in `tests/ui-actions.test.js` (every enabled snippet runs through the real sandbox).
 
-## W1 (2026-11-20): zone bar
-- `#zone-bar` floats at the top centre of the map: ◂ TOWN · OUTPOST · FRONT ▸. Each button centres the camera (`renderer.centerOn`) on a region derived from the wall (`src/app/ui/zones.js`); the highlighted zone follows the camera, also while dragging. TOWN opens the Town panel, FRONT opens the Expeditions panel. Presentation only.
-- Tests: `tests/zones.test.js`.
+## Map screens (2026-11-20): MAP 1 TOWN · MAP 2 OUTPOST · MAP 3 FRONT
+- The live map is the 40x16 line-wall map (`stage1_long`): the outpost west of the wall, the front east of it. `#screen-west` / `#screen-east` are big arrows on the left and right screen edges (also the Left/Right keys); `#screen-badge` in the top bar says `MAP n NAME` with position dots (green outpost, blue town, amber front).
+- TOWN (west) and FRONT (east) are static SVG maps (`src/app/ui/scenes.js`) that slide over the canvas (`#screen-town`, `#screen-front`; the canvas dims and shifts like parallax; reduced-motion users get no slide). Click an object: recruit hall, train station, housing (town); a scavenge site or the raid road (front). A card opens beside the map with the real rows (`src/app/ui/panels.js`, shared with the nav-bar panels); Esc closes it, Esc again returns to OUTPOST.
+- The east arrow pulses red while a wave is on and amber when a raid is due tonight and dusk is near. There is no "start a raid" button: waves are scheduled (see DECISIONS).
+- Presentation only: buttons insert code, nothing here changes the running simulation. Tests: `tests/screens.test.js`, `tests/long-map.test.js`.
 
 ## UI-R1 (2026-11-19): the map never shrinks
 - **Selection card:** the inspector (`#inspector-region`) floats over the top-right of the map and is `hidden` until a survivor, building or resource is picked. ✕, Esc or a click on bare ground closes it (`cardOpen` in `mainscreen.js`). Phones keep the tab layout.

@@ -218,4 +218,23 @@ stage1Line.buildings.find((b) => b.id === 'fence').bounds = { x1: 16, y1: 0, x2:
 stage1Line.buildings.find((b) => b.id === 'fence').x = 16;
 stage1Line.buildings.find((b) => b.id === 'fence').y = 12;
 
-export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary, stage1_line: stage1Line };
+// The LONG map (docs/game/21 sections 3 and 5): the stage-1 settlement shifted 6 cells east on a 40x16 map, behind a line wall at x = 22 with the gate at (22,7).
+// West of the wall = the outpost (22 cells: the settlement plus room to grow), east = the front (17 cells of road, forest and the wave's walk-in from x = 39).
+// Every building keeps the SAME distance to the wall as in stage 1 (hq, towers, tank, storage), so nothing about the rules changes - only the room around them.
+const stage1Long = structuredClone(stage1);
+stage1Long.name = 'Stage 1 — The Long Wall (40x16)';
+stage1Long.map = { width: 40, height: 16 };
+const SHIFT = 6;
+for (const b of stage1Long.buildings) b.x += SHIFT;
+for (const n of stage1Long.nodes) n.x += SHIFT;
+for (const sv of stage1Long.survivors) sv.x += SHIFT;
+const longFence = stage1Long.buildings.find((b) => b.id === 'fence');
+longFence.bounds = { x1: 22, y1: 0, x2: 22, y2: 15, shape: 'line' };
+longFence.x = 22; longFence.y = 12;
+stage1Long.terrain = {
+  zones: [{ id: 'forest', label: 'Forest', x1: 29, y1: 1, x2: 39, y2: 14 }],
+  paths: [{ id: 'forest_path', cells: [[23, 7], [24, 7], [25, 7], [26, 7], [27, 7], [28, 7]] }],
+};
+stage1Long.nodes.push({ id: 'tree_4', type: 'tree', x: 31, y: 3 }, { id: 'tree_5', type: 'tree', x: 33, y: 9 });
+
+export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary, stage1_line: stage1Line, stage1_long: stage1Long };

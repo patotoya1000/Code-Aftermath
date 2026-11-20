@@ -12,7 +12,9 @@ import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
 import { buildingActionList, survivorActionList, actionButtons } from './ui/actions.js'; // buttons that mirror the real command rules
-import { zonesFor, activeZone, neighbourZone } from './ui/zones.js'; // TOWN / OUTPOST / FRONT camera bar (W1, presentation only)
+import { SCREENS, screenOf, arrowState, alertLevel } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
+import { townSceneSvg, frontSceneSvg } from './ui/scenes.js';
+import { recruitHtml, trainHtml, housingHtml, scavengeHeadHtml, scavengeRowsHtml, scavengeLostHtml, raidHtml } from './ui/panels.js';
 import { bindMapGestures } from './ui/gestures.js'; // drag to pan, wheel / pinch to zoom, click to pick
 import { mountHud } from './hud/hud.js'; // HUD skin: card folding, inspector tabs, tactical overlay (presentation only)
 
@@ -54,7 +56,7 @@ async function init() {
 }
 
 async function startScenario() {
-  const { sim } = await app.createFreeSim({ scenarioId: 'stage1', seed: 1 });
+  const { sim } = await app.createFreeSim({ scenarioId: 'stage1_long', seed: 1 }); // the 40x16 line-wall map (docs/game/21): town behind the wall, the front beyond it
   freeSim = sim;
   clock = app.createClock(sim);
   hooks = app.createHooks(sim);
@@ -75,7 +77,6 @@ function loop(now) {
     hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
     hud?.frame(currentProjection(), now);
-    paintZones();
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
@@ -91,6 +92,7 @@ function currentProjection() {
 
 function refreshUI() {
   if (!freeSim) return;
+  paintScreens();
   updateTopBar();
   renderInspector();
   updateTutor();
@@ -698,34 +700,76 @@ async function loadSession() {
 function togglePlay() { clock.toggle(); refreshUI(); }
 function cycleSpeed() { clock.cycleSpeed(); refreshUI(); }
 
-// ---- W1: zone bar. The camera looks at TOWN / OUTPOST / FRONT; TOWN and FRONT also open the panel that belongs to them. No simulation involved. ----
-let zoneShown = null;
-function paintZones() {
-  const vp = renderer?.viewport; if (!vp?.center) return;
-  const zones = zonesFor(currentProjection());
-  const here = activeZone(zones, vp.center).id;
-  if (here === zoneShown) return;
-  zoneShown = here;
-  for (const z of ['town', 'outpost', 'front']) { const b = $(`zone-${z}`); if (!b) continue; b.classList?.toggle('active', z === here); b.setAttribute?.('aria-pressed', String(z === here)); }
-  const i = zones.findIndex((z) => z.id === here);
-  if ($('zone-west')) $('zone-west').disabled = i <= 0;
-  if ($('zone-east')) $('zone-east').disabled = i >= zones.length - 1;
+// ---- Map screens. MAP 1 TOWN and MAP 3 FRONT are static maps that slide over the live OUTPOST canvas; the edge arrows and the arrow keys move between them.
+// Nothing here touches the simulation: it keeps running underneath, and every button on a map only inserts code into the editor. ----
+let screenId = 'outpost'; const picked = { town: null, front: null }; const sceneSig = {}; let pressing = false;
+const TITLES = { hall: 'Recruit hall', station: 'Train station', housing: 'Housing', raid: 'Raid road' };
+function detailFor(kind, view) {
+  const spot = picked[kind]; if (!spot) return null;
+  if (spot === 'hall') return { title: TITLES.hall, html: recruitHtml(view) };
+  if (spot === 'station') return { title: TITLES.station, html: trainHtml(view) };
+  if (spot === 'housing') return { title: TITLES.housing, html: housingHtml(view) };
+  if (spot === 'raid') return { title: TITLES.raid, html: raidHtml(view) };
+  const site = (view.scavenge?.sites ?? []).find((s) => s.id === spot);
+  return site ? { title: site.name, html: `${scavengeHeadHtml(view)}${scavengeRowsHtml(view, site.id)}${scavengeLostHtml(view)}` } : null;
 }
-function goZone(id) {
-  const z = zonesFor(currentProjection()).find((q) => q.id === id); if (!z) return;
-  renderer.centerOn(z.x, z.y);
-  if (z.panel) { const nav = $(z.panel === 'town' ? 'btn-town' : 'btn-scavenge'); if (nav && nav.getAttribute?.('aria-pressed') !== 'true') nav.click?.(); }
-  zoneShown = null; paintZones();
+function paintScreens(force = false) {
+  if (!freeSim) return;
+  const view = freeSim.studentView();
+  const here = screenOf(screenId); const arrows = arrowState(screenId); const alert = alertLevel(view);
+  const region = $('world-region'); if (region?.dataset) region.dataset.screen = screenId;
+  const badge = $('screen-badge'); if (badge?.dataset) { badge.dataset.screen = screenId; badge.dataset.alert = alert; }
+  if ($('sb-no')) $('sb-no').textContent = `MAP ${here.no}`;
+  if ($('sb-name')) $('sb-name').textContent = here.label;
+  Array.from($('sb-dots')?.children ?? []).forEach((d, i) => d.classList?.toggle('on', i === here.no - 1));
+  for (const dir of ['west', 'east']) {
+    const b = $(`screen-${dir}`); if (!b) continue; const a = arrows[dir];
+    b.disabled = a.disabled; if (b.dataset) b.dataset.screenTo = a.to;
+    b.setAttribute?.('aria-label', a.disabled ? 'No more maps this way' : `Go to the ${a.label.toLowerCase()} map`);
+    // the red pulse warns about the FRONT: only an arrow that leads there (or sits on the way) carries the alert
+    if (b.dataset) b.dataset.alert = dir === 'east' && !a.disabled && a.to === 'front' ? alert : 'none';
+    if ($(`screen-${dir}-label`)) $(`screen-${dir}-label`).textContent = a.disabled ? '' : (dir === 'east' && alert === 'raid' ? 'RAID!' : a.label);
+  }
+  for (const [kind, build] of [['town', townSceneSvg], ['front', frontSceneSvg]]) {
+    const pane = $(`screen-${kind}`); if (!pane) continue;
+    pane.setAttribute?.('aria-hidden', String(screenId !== kind));
+    if (screenId !== kind && !force && sceneSig[kind]) continue; // a map that is off screen is redrawn when it slides in
+    if (pressing) continue; // never swap the DOM under a click in progress
+    const svg = build(view, { active: picked[kind] });
+    const d = detailFor(kind, view); const dsig = d ? `${d.title}|${d.html}` : '';
+    const sig = `${svg}#${dsig}`;
+    if (!force && sig === sceneSig[kind]) continue;
+    sceneSig[kind] = sig;
+    const wrap = $(`scene-${kind}`); if (wrap) wrap.innerHTML = svg;
+    const det = $(`detail-${kind}`);
+    if (det) { det.hidden = !d; if (d) { $(`detail-${kind}-title`).textContent = d.title; $(`detail-${kind}-body`).innerHTML = d.html; } }
+    pane.classList.toggle('has-detail', Boolean(d));
+  }
 }
-function stepZone(dir) {
-  const zones = zonesFor(currentProjection());
-  goZone(neighbourZone(zones, activeZone(zones, renderer.viewport.center).id, dir).id);
+function setScreen(id) {
+  if (!SCREENS.some((s) => s.id === id) || id === screenId) return;
+  screenId = id; paintScreens(true);
+  const pane = $(`screen-${id}`); if (pane) pane.querySelector?.('[data-spot]')?.focus?.({ preventScroll: true });
+}
+function stepScreen(dir) { const a = arrowState(screenId)[dir === -1 ? 'west' : 'east']; if (!a.disabled) setScreen(a.to); }
+function pickSpot(kind, id) { picked[kind] = picked[kind] === id ? null : id; paintScreens(true); }
+function bindScreens() {
+  $('screen-west')?.addEventListener('click', () => stepScreen(-1));
+  $('screen-east')?.addEventListener('click', () => stepScreen(1));
+  for (const kind of ['town', 'front']) {
+    const pane = $(`screen-${kind}`); if (!pane) continue;
+    pane.addEventListener('pointerdown', () => { pressing = true; });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) pane.addEventListener(ev, () => { pressing = false; });
+    pane.addEventListener('click', (e) => {
+      const close = e.target?.closest?.('[data-detail-close]'); if (close) { picked[kind] = null; paintScreens(true); return; }
+      const spot = e.target?.closest?.('[data-spot]'); if (spot) pickSpot(kind, spot.dataset.spot);
+    });
+    pane.addEventListener('keydown', (e) => { const spot = e.target?.closest?.('[data-spot]'); if (spot && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault?.(); e.stopPropagation?.(); pickSpot(kind, spot.dataset.spot); } });
+  }
 }
 
 function bindEvents() {
-  for (const z of ['town', 'outpost', 'front']) $(`zone-${z}`)?.addEventListener('click', () => goZone(z));
-  $('zone-west')?.addEventListener('click', () => stepZone(-1));
-  $('zone-east')?.addEventListener('click', () => stepZone(1));
+  bindScreens();
   bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pick(x, y, currentProjection()), onHit: (hit) => selectEntity(hit.kind, hit.id), onEmpty: () => setCardOpen(false) });
   $('inspector-toggle')?.addEventListener('click', () => setCardOpen(false));
   const zoomBy = (f) => { const r = $('map-canvas').getBoundingClientRect(); renderer.zoomAt(f, r.width / 2, r.height / 2); };
@@ -751,7 +795,10 @@ function bindEvents() {
     const typing = tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT'; // shortcuts must never eat what the learner types
     if (e.key === 'Escape' && isBookOpen()) setBookOpen(false);
     else if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
+    else if (e.key === 'Escape' && !typing && screenId !== 'outpost' && picked[screenId]) { picked[screenId] = null; paintScreens(true); }
+    else if (e.key === 'Escape' && !typing && screenId !== 'outpost') setScreen('outpost');
     else if (e.key === 'Escape' && cardOpen && !typing) setCardOpen(false);
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !typing && !e.altKey && !e.ctrlKey && !e.metaKey && !isCodePanelOpen && !isBookOpen()) { e.preventDefault?.(); stepScreen(e.key === 'ArrowLeft' ? -1 : 1); }
     if ((e.key === 'b' || e.key === 'B') && e.altKey) (isBookOpen() ? setBookOpen(false) : openBook(null)); // Alt+B: Codebook
     if (e.key === ' ' && !isCodePanelOpen && !typing && tag !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
     if ((e.key === 'd' || e.key === 'D') && e.altKey) renderer.setDebug(!renderer.debug); // Alt+D: optional debug overlay
