@@ -191,3 +191,12 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - Goods cannot also be payment items (validated), so the town never sells back what it takes. A quantity purchase is priced on the total worth, rounded up once, not unit price times n.
 - `town.buy` is a second `global` instant command beside `town.recruit`; both are checked before any change. Train recruits join the same `town.offers` list (marked `train: true`) and use the same bed rule.
 - Open (placeholder): how often it comes (5-7 days) and what it carries; tune in a playtest.
+
+## W2: the wall is data, the rule lives in one place (2026-11-20)
+
+- A line wall is the SAME fence building with `bounds.shape: 'line'` (x1 = x2, y 0 to height-1), not a new building type, so repair, upgrade, armor, health, towers and the gate keep working unchanged. A scenario picks the shape; the default scenarios keep the perimeter (their tests and lessons are untouched).
+- All wall geometry goes through four pure kernel helpers (`isLineWall`, `wallCellsOf`, `onWall`, `insideWall`). Do not write new rectangle-edge math in a module: call these.
+- Inside a line = west of it (x < x1). The wave spawns on the east edge; the seed still chooses WHERE along that edge. Flanking is gone by design (docs/game/21 section 5); variety must come from wave composition and noise.
+- A line must span the whole map height, so no route around it exists; a validation refuses anything shorter, so a scenario cannot ship a wall that can be walked around by accident.
+- Kept as before (not new in W2): a destroyed wall still blocks survivors until it is repaired; a wall that is already destroyed at dusk is not a breach (only a hit that destroys it during the wave is).
+- Not in this step: scavenge expeditions (W3), a lesson or menu entry for `stage1_line`, capped end pieces and per-segment hit points.

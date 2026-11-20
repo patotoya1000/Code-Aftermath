@@ -33,7 +33,7 @@ export function groundGrid(frame) {
   const terrain = frame.terrain || {};
   for (const z of terrain.zones || []) if (GROUND_VARIANTS[z.ground]) for (let y = z.y1; y <= z.y2; y++) for (let x = z.x1; x <= z.x2; x++) set(x, y, z.ground);
   const buildings = frame.buildings || [];
-  for (const b of buildings) if (b.bounds) for (let y = b.bounds.y1 + 1; y < b.bounds.y2; y++) for (let x = b.bounds.x1 + 1; x < b.bounds.x2; x++) if (grid[y]?.[x] === DEFAULT_GROUND) set(x, y, 'dirt');
+  for (const b of buildings) if (b.bounds && b.bounds.shape !== 'line') for (let y = b.bounds.y1 + 1; y < b.bounds.y2; y++) for (let x = b.bounds.x1 + 1; x < b.bounds.x2; x++) if (grid[y]?.[x] === DEFAULT_GROUND) set(x, y, 'dirt');
   for (const p of terrain.paths || []) for (const [x, y] of p.cells) set(x, y, 'dirt');
   for (const b of buildings) if (!b.bounds && (b.condition === 'ruined' || b.condition === 'damaged')) {
     const r = b.footprint ?? { x1: b.x, y1: b.y, x2: b.x, y2: b.y }; // PA-5: the whole footprint, not just the door

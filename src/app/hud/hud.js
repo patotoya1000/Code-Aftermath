@@ -280,7 +280,8 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
     // compound: darker wasteland outside, a faint tactical wash + grid inside the fence line
     const fence = buildings.find((b) => b.type === 'fence' && b.bounds);
     if (fence) {
-      const { x1, y1, x2, y2 } = fence.bounds; const r = cellRect(vp, x1, y1, x2 - x1 + 1, y2 - y1 + 1);
+      // W2: a line wall protects everything west of it (the wash covers x 0..line); a perimeter wash covers its rectangle
+      const fb = fence.bounds; const { x1, y1, x2, y2 } = fb.shape === 'line' ? { x1: 0, y1: fb.y1, x2: fb.x1, y2: fb.y2 } : fb; const r = cellRect(vp, x1, y1, x2 - x1 + 1, y2 - y1 + 1);
       ctx.save(); ctx.beginPath(); ctx.rect(world.x, world.y, world.w, world.h); ctx.rect(r.x, r.y, r.w, r.h); ctx.fillStyle = 'rgba(6,9,14,.30)'; ctx.fill('evenodd'); ctx.restore();
       ctx.fillStyle = 'rgba(56,189,248,.045)'; ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.strokeStyle = 'rgba(56,189,248,.07)'; ctx.lineWidth = 1; ctx.beginPath();

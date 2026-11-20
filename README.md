@@ -4,7 +4,7 @@ A **modular monolith**: one deployable app (static files, offline-first, no buil
 enforced boundaries. Vanilla ES modules; Node ≥ 22 for tests.
 
 ```
-npm test          # 594 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
+npm test          # 603 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
 SOAK_SEEDS=300 npm test   # deep randomized soak (invariants after every 50 ticks)
 npm run serve     # http://localhost:8080  (ES modules need http://, not file://)
 npm run smoke     # real-browser check (needs Playwright + Chromium) — (C9 gate: passing)

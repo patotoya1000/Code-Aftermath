@@ -1,3 +1,4 @@
+import { wallCellsOf } from '../../kernel/index.js';
 // PA-4 static objects and fences. Presentation only (spec §4, §6, §17, §22 phase 4).
 // 1. Object registry: every world object has an explicit LOGICAL footprint (grid cells) that is independent of how big its
 //    sprite is drawn. A tree's canopy may reach over its neighbours; the tree still occupies exactly its own cell.
@@ -20,11 +21,8 @@ export function footprintCells(x, y, spec) {
 }
 
 /** Cells on the perimeter of an inclusive rectangle (same order the renderer always used). */
-export function perimeterOf({ x1, y1, x2, y2 }) {
-  const out = [];
-  for (let x = x1; x <= x2; x++) { out.push([x, y1]); if (y2 > y1) out.push([x, y2]); }
-  for (let y = y1 + 1; y < y2; y++) { out.push([x1, y]); if (x2 > x1) out.push([x2, y]); }
-  return out;
+export function perimeterOf(bounds) {
+  return wallCellsOf(bounds); // W2: a rectangle's edge, or a full-height line when bounds.shape is 'line'
 }
 
 export const fencePieceKey = (mask, level, condition) => `fence_${pathKeyForMask(mask).slice(5)}_lv${level}_${condition}`;

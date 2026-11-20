@@ -1,4 +1,4 @@
-import { hashString, chebyshev, directionFromDelta } from '../../kernel/index.js';
+import { hashString, chebyshev, directionFromDelta, isLineWall, wallCellsOf, insideWall } from '../../kernel/index.js';
 import { stockKey, available, discard } from '../resources/index.js';
 import { applyHealth, blockedTiles, findPath } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
@@ -303,15 +303,14 @@ const SIDES = ['north', 'east', 'south', 'west'];
 const cellKey = (x, y) => `${x},${y}`;
 const fenceOf = (state) => Object.values(state.buildings).find((b) => b.type === 'fence');
 const gateOf = (state) => Object.values(state.buildings).find((b) => b.type === 'gate');
-const isInside = (fence, p) => !!fence?.bounds && p.x > fence.bounds.x1 && p.x < fence.bounds.x2 && p.y > fence.bounds.y1 && p.y < fence.bounds.y2;
+const isInside = (fence, p) => !!fence?.bounds && insideWall(fence.bounds, p);
 
 /** Tiles zombies cannot walk through: what blocks survivors (closed gate included), except that a destroyed fence (0 health) no longer blocks. */
 function zombieBlocked(state) {
   const blocked = blockedTiles(state);
   const f = fenceOf(state);
   if (f?.bounds && f.health <= 0) {
-    const { x1, y1, x2, y2 } = f.bounds;
-    for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) if (x === x1 || x === x2 || y === y1 || y === y2) blocked.delete(cellKey(x, y));
+    for (const [x, y] of wallCellsOf(f.bounds)) blocked.delete(cellKey(x, y));
   }
   return blocked;
 }
@@ -321,11 +320,9 @@ function wallCells(state) {
   const f = fenceOf(state), g = gateOf(state);
   const out = [];
   if (!f?.bounds || f.health <= 0) return out;
-  const { x1, y1, x2, y2 } = f.bounds;
   const gateCell = g && g.health > 0 ? cellKey(g.x, g.y) : null;
   const openGate = g && g.health <= 0 ? cellKey(g.x, g.y) : null;
-  for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) {
-    if (!(x === x1 || x === x2 || y === y1 || y === y2)) continue;
+  for (const [x, y] of wallCellsOf(f.bounds)) {
     const k = cellKey(x, y);
     if (k === openGate) continue; // a destroyed gate is an opening, not a wall
     out.push({ x, y, building: k === gateCell ? g : f });
@@ -336,7 +333,9 @@ function wallCells(state) {
 /** Where the wave's zombies enter the map: a tile on one edge (chosen from the seed and day), spread a little along it. */
 function spawnCell(state, day, n, blocked) {
   const { width: w, height: h } = state.map;
-  const side = num(state.seed, day, 'side') % 4;
+  // W2: a LINE wall fixes the spawn edge to the east (the far side of the wall); a perimeter keeps the side chosen from seed + day.
+  const line = isLineWall(fenceOf(state)?.bounds);
+  const side = line ? 1 : num(state.seed, day, 'side') % 4;
   const len = side % 2 === 0 ? w : h;
   const base = num(state.seed, day, 'at') % len;
   for (let i = 0; i < len; i++) {

@@ -60,7 +60,7 @@ export const well = {
 const stage1 = {
   name: 'Stage 1 — The Ruined Settlement',
   map: { width: 24, height: 16 },
-  stock: { wood: 0, stone: 0, food: 6, water: 6, wheat: 10 }, // wheat is a starting stock until farming exists
+  stock: { wood: 100, stone: 100, food: 6, water: 6, wheat: 10 }, // wheat is a starting stock until farming exists
   buildings: [
     { id: 'hq', type: 'hq', level: 1, x: 11, y: 7, health: 200 },
     { id: 'fence', type: 'fence', level: 1, x: 11, y: 12, health: 20, bounds: { x1: 6, y1: 3, x2: 16, y2: 12 } },

@@ -1,4 +1,4 @@
-import { AftermathError, deepFreeze } from '../../kernel/index.js';
+import { AftermathError, deepFreeze, isLineWall, onWall } from '../../kernel/index.js';
 import { items, carry } from './data/items.js';
 import { actions, needs, clock, policies, hooks } from './data/actions.js';
 import { survivorTemplates, SKILLS, TRAITS, progression } from './data/survivors.js';
@@ -14,7 +14,6 @@ import { town } from './data/town.js';
 
 const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure'];
 
-const onRectEdge = ({ x1, y1, x2, y2 }, x, y) => x >= x1 && x <= x2 && y >= y1 && y <= y2 && (x === x1 || x === x2 || y === y1 || y === y2);
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
 
 /** Geometry rules a scenario must satisfy (so a bad layout fails at load time, not as a rendering glitch). */
@@ -23,7 +22,12 @@ function validateWorldLayout(id, s, d, need) {
   const fences = s.buildings.filter((b) => b.bounds);
   for (const f of fences) {
     const { x1, y1, x2, y2 } = f.bounds;
-    need(isTile(s, x1, y1) && isTile(s, x2, y2) && x1 < x2 && y1 < y2, `scenario ${id}: ${f.id} bounds must be a rectangle inside the map`);
+    if (f.bounds.shape === undefined) need(isTile(s, x1, y1) && isTile(s, x2, y2) && x1 < x2 && y1 < y2, `scenario ${id}: ${f.id} bounds must be a rectangle inside the map`);
+    else {
+      // W2: a line wall is one column across the WHOLE map height, so there is no way around it (shape 'line' is the only other shape).
+      need(isLineWall(f.bounds), `scenario ${id}: ${f.id} bounds shape \"${f.bounds.shape}\" is unknown (use \"line\" or leave it out)`);
+      need(isTile(s, x1, y1) && isTile(s, x2, y2) && x1 === x2 && y1 === 0 && y2 === s.map.height - 1, `scenario ${id}: ${f.id} is a line wall: x1 must equal x2 and it must run the full map height (y 0 to ${s.map.height - 1})`);
+    }
   }
   const ids = new Set();
   for (const e of [...s.buildings, ...s.nodes, ...s.survivors]) {
@@ -41,7 +45,7 @@ function validateWorldLayout(id, s, d, need) {
       const k = `${x},${y}`;
       need(!taken.has(k), `scenario ${id}: ${where(b)} footprint overlaps ${taken.get(k)} at ${k}`);
       taken.set(k, b.id);
-      need(!fences.some((f) => onRectEdge(f.bounds, x, y)), `scenario ${id}: ${where(b)} footprint touches the fence line at ${k}`);
+      need(!fences.some((f) => onWall(f.bounds, x, y)), `scenario ${id}: ${where(b)} footprint touches the fence line at ${k}`);
       for (const sv of s.survivors) need(sv.x !== x || sv.y !== y, `scenario ${id}: survivor ${sv.id} starts inside the footprint of ${b.id}`);
     }
   }
@@ -52,7 +56,7 @@ function validateWorldLayout(id, s, d, need) {
     taken.set(key, e.id);
   }
   for (const b of s.buildings.filter((q) => !q.bounds)) {
-    const onFence = fences.some((f) => onRectEdge(f.bounds, b.x, b.y));
+    const onFence = fences.some((f) => onWall(f.bounds, b.x, b.y));
     const wantsFence = Boolean(d.buildings[b.type]?.perimeter);
     need(wantsFence === onFence, wantsFence ? `scenario ${id}: ${where(b)} is a ${b.type} and must sit on the fence line` : `scenario ${id}: ${where(b)} must not sit on the fence line (only perimeter buildings such as the gate may)`);
   }

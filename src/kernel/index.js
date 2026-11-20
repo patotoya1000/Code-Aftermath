@@ -7,4 +7,4 @@ export {
   SIM_VERSION, API_VERSION, SUPPORTED_API_VERSIONS, REPLAY_FORMAT, SAVE_FORMAT, STATE_SCHEMA,
 } from './versions.js';
 export { deepFreeze, clone, hasOwn, own } from './util.js';
-export { DIRECTIONS, directionFromDelta, chebyshev } from './grid.js';
+export { DIRECTIONS, directionFromDelta, chebyshev, isLineWall, wallCellsOf, onWall, insideWall } from './grid.js';

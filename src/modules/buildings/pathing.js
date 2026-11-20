@@ -4,10 +4,12 @@
 // What blocks a survivor:
 //   - a building with `blocks: true` (copied from its definition) blocks its own tile — or, with a `footprint` (PA-5), every tile of it;
 //     the building's (x, y) stays its DOOR: the place survivors walk to,
-//   - a fence (a building with `bounds`) blocks every tile of its rectangle's PERIMETER,
+//   - a fence (a building with `bounds`) blocks every tile of its wall: a rectangle's PERIMETER, or (W2) one full-height LINE,
 //   - except a tile where a non-blocking building stands (the gate): that perimeter tile is open - unless a zombie wave is on (Z2), when the gate is closed.
 // Nodes (trees, rocks) do not block; they are things you walk up to. The DESTINATION tile is always enterable, so
 // `moveTo(hq)` and "walk to the storehouse" still work even though those tiles are blocked for passing through.
+
+import { wallCellsOf } from '../../kernel/index.js';
 
 const key = (x, y) => `${x},${y}`;
 
@@ -22,8 +24,7 @@ export function blockedTiles(state) {
   for (const b of all) {
     if (b.blocks === false) continue;
     if (b.bounds) {
-      const { x1, y1, x2, y2 } = b.bounds;
-      for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) if (x === x1 || x === x2 || y === y1 || y === y2) blocked.add(key(x, y));
+      for (const [x, y] of wallCellsOf(b.bounds)) blocked.add(key(x, y));
     } else if (b.footprint) {
       const { x1, y1, x2, y2 } = b.footprint;
       for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) blocked.add(key(x, y));

@@ -210,4 +210,12 @@ const stage1Weary = structuredClone(stage1);
 stage1Weary.name = 'Stage 1 — Worn Down';
 stage1Weary.survivors[0].needs = { energy: 30 };
 
-export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary };
+// W2 (docs/game/21 section 5): the same settlement behind a LINE wall - one column at x = 16 running the whole map height, with the gate in it.
+// Inside = west of the line; the wave always spawns on the east edge; there is no way around the wall. Everything else is stage 1 unchanged.
+const stage1Line = structuredClone(stage1);
+stage1Line.name = 'Stage 1 — The Long Wall';
+stage1Line.buildings.find((b) => b.id === 'fence').bounds = { x1: 16, y1: 0, x2: 16, y2: 15, shape: 'line' };
+stage1Line.buildings.find((b) => b.id === 'fence').x = 16;
+stage1Line.buildings.find((b) => b.id === 'fence').y = 12;
+
+export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary, stage1_line: stage1Line };

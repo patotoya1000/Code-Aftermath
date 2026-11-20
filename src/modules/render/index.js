@@ -1,3 +1,4 @@
+import { wallCellsOf } from '../../kernel/index.js';
 import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement } from '../assets/index.js';
 import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, visibleCells, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
@@ -16,11 +17,8 @@ const COLORS = {
 const LABEL_MIN_TILE = 26; // below this tile size world labels would only add clutter
 
 /** Cells on the perimeter of an inclusive rectangle. */
-export function perimeterCells({ x1, y1, x2, y2 }) {
-  const out = [];
-  for (let x = x1; x <= x2; x++) { out.push([x, y1]); if (y2 > y1) out.push([x, y2]); }
-  for (let y = y1 + 1; y < y2; y++) { out.push([x1, y]); if (x2 > x1) out.push([x2, y]); }
-  return out;
+export function perimeterCells(bounds) {
+  return wallCellsOf(bounds); // W2: a rectangle's edge, or one full-height line (bounds.shape 'line')
 }
 
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };

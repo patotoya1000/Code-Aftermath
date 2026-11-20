@@ -8,6 +8,7 @@ Columns: Purpose · Owns · Does not own · Used by · Depends on · Tests · Me
 | `src/kernel/eventlog.js` | Append-only event log | event storage, `hash`, `since` | event meaning | simulation, session, UI | `kernel/hash.js` | kernel, invariants | EVENT_INDEX | IMPLEMENTED |
 | `src/kernel/rng.js` | Seeded RNG | deterministic randomness | — | world, sandbox | — | kernel | REPLAY_INDEX | IMPLEMENTED |
 | `src/kernel/hash.js` | Stable stringify + checksum | state/log hashes | security | replay, persistence | — | kernel, stabilization | REPLAY_INDEX | IMPLEMENTED |
+| `src/kernel/grid.js` | Grid vocabulary + wall geometry | 8 directions, `chebyshev`, W2 `isLineWall` / `wallCellsOf` / `onWall` / `insideWall` (perimeter or line wall) | wall rules (who is hit) | pathing, threats, definitions, assets, render, HUD | — | wall-line, pathing | WORLD_INDEX | IMPLEMENTED |
 | `src/kernel/versions.js` | Version stamps | `SIM_VERSION`, `API_VERSION`, formats | — | replay, persistence, simulation | — | stabilization | SAVELOAD_INDEX | IMPLEMENTED |
 | `src/modules/simulation/index.js` | The simulation (sole state writer) | tick loop, submit, strategy points, timeline | action details, rendering | session, app | actions, survivors, projection | simulation, realtime, invariants | SIMULATION_INDEX | IMPLEMENTED |
 | `src/modules/simulation/clock.js` | Clock driver | play/pause/speed/pacing | any rule | app | — | realtime | SIMULATION_INDEX | IMPLEMENTED |
