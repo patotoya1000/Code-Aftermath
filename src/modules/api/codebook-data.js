@@ -16,6 +16,7 @@ export const COMMAND_GROUPS = [
   { id: 'tasks', title: 'Queue & Stop' },
   { id: 'combat', title: 'Combat' },
   { id: 'town', title: 'Town & Recruiting' },
+  { id: 'scavenge', title: 'Expeditions' },
 ];
 
 export const READ_GROUPS = [
@@ -60,6 +61,9 @@ export const OUTCOMES = {
   UNKNOWN_TARGET: 'That target is not something this command can use (for example, lure needs a tower such as tower_1).',
   NO_LURE: 'She carries no noise lure. Bring one from storage first: survivor.take("noise_lure", 1). Screamers sometimes drop them.',
   HOPPER_FULL: 'The hopper already holds as much as it can. It empties as the weapon fires.',
+  NOT_OPEN: 'Expeditions do not start before the day shown in scavenge.opensOnDay.',
+  AWAY: 'She is out on an expedition and takes no commands until she is back (scavenge.away says when).',
+  DEPARTED: 'She walked out of the gate and is away. The expedition resolves when she returns: read scavenge.history, or watch scavenge.away.',
   CARRY_FULL: 'Her hands are full: she cannot carry even one more unit of that. Deposit something first.',
 };
 
@@ -242,6 +246,15 @@ export const COMMAND_BOOK = {
     reads: ['read.town'], outcomes: [],
     notes: ['A refusal is reported in the command result with a code: NO_TRAIN, NO_SUCH_OFFER, SOLD_OUT, STORAGE_FULL, NOT_ACCEPTED or CANNOT_AFFORD.', 'The train stays one day: what you do not buy is gone. It is announced a day ahead (town.train.arrivesInDays).', 'The train also brings extra recruits; they appear in town.offers with train: true and are hired with town.recruit.'],
   },
+  scavenge: {
+    group: 'scavenge', keywords: ['scavenge', 'expedition', 'site', 'loot', 'gate', 'away', 'danger', 'recovery', 'explore'],
+    effect: 'She walks to the gate and leaves. After the site\'s trip time she is back at the gate with loot, which goes into base stock (what does not fit is left behind). A site you just looted yields little until it has regrown. A dangerous trip can hurt her: half the loot and some health. The trip also costs hunger, thirst and energy.',
+    requires: ['A site id from scavenge.sites', 'No zombie wave on (the gate is shut)', 'Enough energy to work', 'A way to the gate'],
+    parameters: [['siteId', 'The id of an entry in scavenge.sites, such as \"roadside_store\".']],
+    example: 'const site = scavenge.sites.find((s) => s.recoveryPercent >= 80);\nif (site && board.duskInTicks > site.ticks + 20) {\n  survivor.scavenge(site.id);\n}',
+    reads: ['read.scavenge', 'read.board', 'read.threats'], outcomes: ['UNKNOWN_TARGET', 'NOT_OPEN', 'WAVE_ACTIVE', 'EXHAUSTED', 'NO_PATH', 'DEPARTED', 'AWAY'],
+    notes: ['If a wave starts while she is away she is lost for good (scavenge.lost). Nothing recalls her: check board.duskInTicks before sending anyone.', 'The command finishes when she leaves (stop reason DEPARTED); while she is away other commands to her fail with AWAY.'],
+  },
   equip: {
     group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat', 'suppressor', 'silencer'],
     effect: 'She takes the weapon in hand (a crafted one comes out of base stock, the one she held goes back). Her next attack or guard uses it.',
@@ -351,6 +364,10 @@ export const READS = [
     summary: 'Some days bring an event: rats eat part of the stored food, a machine breaks down, or a supply cache turns up. The schedule is public a couple of days ahead (upcoming), so you can prepare. history lists what has happened and what it cost or gave.', example: 'for (const e of events.upcoming) {\n  console.log(e.name, "in", e.inDays, "days");\n}' },
   { slug: 'town', group: 'world', covers: 'town', title: 'Town offers', path: 'town', keywords: ['recruit', 'hire', 'offer', 'price', 'bed', 'survivor', 'accepts', 'board'],
     summary: 'The town behind the wall sends survivors to hire, and now and then a TRAIN arrives for one day with extra recruits and a few goods (weapons, ammo, bone meal) in limited quantities: town.train says when the next one comes and what it carries.  paid with supplies from base stock. offers lists who stands at the gate (stats, worth and the price in each item the town accepts), freeBeds says whether anyone can be housed, and nextBoardInDays says when the board changes. The offers are fixed for a seed and day, so you can plan: compare the price with what you have, then hire with town.recruit.', example: 'console.log(town.freeBeds, town.nextBoardInDays, town.train.nextArrivalDay);\nfor (const o of town.offers) {\n  console.log(o.id, o.name, o.price.bread);\n}' },
+  { slug: 'scavenge', group: 'world', covers: 'scavenge', title: 'Expedition sites', path: 'scavenge', keywords: ['site', 'expedition', 'loot', 'danger', 'recovery', 'away', 'lost'],
+    summary: 'Sites beyond the wall that a survivor can scavenge: how long the trip takes (ticks), the danger (more on a raid day), how much of the site has recovered since it was last looted (recoveryPercent) and what it should give (expected). away lists who is out and when she returns; lost lists survivors who were outside when a wave started; history lists the recent returns.', example: 'for (const s of scavenge.sites) {\n  console.log(s.id, s.ticks, s.dangerToday, s.recoveryPercent);\n}' },
+  { slug: 'board', group: 'world', covers: 'board', title: 'Event board', path: 'board', keywords: ['raid', 'dusk', 'train', 'event', 'schedule', 'warning', 'site'],
+    summary: 'Everything that is coming or open in one place: board.duskInTicks (0 at night), the raids and bosses scheduled soon, risk events, the train, and the scavenge sites with their danger and recovery today. Use it to decide whether an expedition can be home before dusk.', example: 'console.log(board.duskInTicks, board.raids.length);' },
   { slug: 'threats', group: 'world', covers: 'threats', title: 'Night raids', path: 'threats', keywords: ['zombie', 'raid', 'defense', 'fence', 'strength', 'dusk', 'walker', 'boomer', 'armor', 'boss', 'weapon', 'tower', 'noise', 'loot', 'sortie', 'pile'],
     summary: 'Some nights a raid of zombies comes. The schedule is public two days ahead: its strength and which zombies are in it. At dusk the wave starts: the gate closes, zombies walk in from one map edge, go for any survivor still OUTSIDE the wall first, and otherwise hit the fence or gate until dawn (walls have armor that grows with their level, so a stronger fence shrugs off weak zombies). If a wall is destroyed the raid is breached and part of the food and water is looted at dawn. Survivors cannot pass the closed gate either way, so bring everyone inside before dusk (threats.wave tells you when a wave is on). New zombie kinds appear on later days (threats.zombies lists role, armor and firstDay), a boss is a fixed milestone (threats.bosses), and threats.weapons, threats.towers and threats.noise describe the defence (every shot is noise: too much attention brings reinforcements, and zombies drift toward the loudest tower, so the rifle and minigun are bait as well as firepower) (towers hold ranged posts and mounted weapons). Survivors can fight (attack, guard). A zombie that dies leaves loot where it fell; threats.loot lists the piles ({ item, qty, x, y, daysLeft }) and whether a sortie may go out now (sortieOpen). The gate opens when a wave is cleared, collect() fetches the loot, and anything left lies there only until a day after the wave ended.', example: 'for (const r of threats.upcoming) {\n  console.log(r.inDays, r.strength);\n}\nif (threats.wave.active) {\n  console.log("wave on, gate closed:", threats.wave.gateClosed);\n}\nfor (const p of threats.loot.piles) {\n  console.log(p.item, p.qty, p.daysLeft);\n}' },
   { slug: 'nodes', group: 'world', covers: 'nodes', title: 'Resource nodes', path: 'nodes', keywords: ['tree', 'rock', 'wood', 'stone', 'amount'],

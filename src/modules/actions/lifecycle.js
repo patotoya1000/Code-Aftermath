@@ -38,6 +38,8 @@ export const FailureReason = Object.freeze({
   NO_MOUNT: 'NO_MOUNT', // reload: no weapon installed on the tower uses that ammo
   NO_LURE: 'NO_LURE', // lure: she carries no noise lure (survivor.take("noise_lure", 1))
   HOPPER_FULL: 'HOPPER_FULL', // reload: the hopper already holds as much as it can
+  NOT_OPEN: 'NOT_OPEN', // scavenge: expeditions do not start before the day data/scavenge.js `startDay`
+  AWAY: 'AWAY', // a survivor out on an expedition takes no commands until she is back
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',
   REPLACED: 'REPLACED', // a newer command from the same program took over this survivor
@@ -53,6 +55,7 @@ export const StopReason = Object.freeze({
   EXHAUSTED: 'EXHAUSTED',           // the survivor is too tired to keep working
   NO_DEPOT: 'NO_DEPOT',             // no working storage building accepts what she carries
   NO_PATH: 'NO_PATH',               // she cannot walk to where the work is
+  DEPARTED: 'DEPARTED',             // scavenge: she walked out of the gate and is away (the expedition resolves when she returns)
   NO_INGREDIENTS: 'NO_INGREDIENTS', // cook: the next batch cannot be paid for from base stock
   NO_STATION: 'NO_STATION',         // cook: the station stopped working (or is gone)
   NO_POWER: 'NO_POWER',             // cook/craft: a powered recipe waited too long for the grid (generator out of fuel, night, ...)

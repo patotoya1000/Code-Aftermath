@@ -1,4 +1,4 @@
-# 21. The Outpost Wall, the Town Behind It, Events and the Economy (DESIGN — updated 2026-11-20: **W2 the line wall, W4 recruiting and W5 the train are IMPLEMENTED**; W1 and W3 are not)
+# 21. The Outpost Wall, the Town Behind It, Events and the Economy (DESIGN — updated 2026-11-20: **W1 the zone bar, W2 the line wall, W3 scavenging, W4 recruiting and W5 the train are ALL IMPLEMENTED**)
 
 > Status: a direction the owner described and a plan built on it. Items marked **[decided]** were stated by the owner; **[proposed]** are recommendations to confirm; **[open]** need an answer before the phase that uses them.
 > Builds on [20](20-zombies-waves-loot-design.md) (waves, sorties, towers) and [19](19-codebook-and-ui-display.md) / [HUD.md](../HUD.md) (screen layout).
@@ -106,9 +106,9 @@ The game never involves real money: no purchases, no store, no premium tier, no 
 | Phase | What | Exit check |
 |---|---|---|
 | **W0** | This document, reviewed | Owner confirms the [proposed]/[open] items |
-| **W1** | HUD navigation bar + Events card + Town panel placeholders (visual only) | Camera pans between zones; cards fold; all current tests pass |
+| **W1** (DONE 2026-11-20) | HUD navigation bar + Events card + Town panel placeholders (visual only) | Camera pans between zones; cards fold; all current tests pass. Built as `#zone-bar` + `src/app/ui/zones.js`; the Town panel (W4) and the Expeditions panel (W3, the Events card) were built first and the bar opens them. The town health meter is not built |
 | **W2** (DONE 2026-11-20) | `line` wall scenario (engine + scenario data), `perimeter` kept | New scenario test: spawn east, "inside" = west, no path around; old scenario tests untouched. Built as `bounds.shape: 'line'` + kernel helpers in `src/kernel/grid.js`, scenario `stage1_line`, `tests/wall-line.test.js`; the full-height rule replaces the "closed by terrain" idea (no terrain needed) |
-| **W3** | Event board + scavenge expeditions (rule-resolved), raids unchanged | Deterministic per seed; a survivor outside during a wave is lost first |
+| **W3** (DONE 2026-11-20) | Event board + scavenge expeditions (rule-resolved), raids unchanged | Deterministic per seed; a survivor outside during a wave is lost first. Built as `src/modules/scavenge/`, `data/scavenge.js`, `tests/scavenge.test.js`; `events.board()` became the read `board`, `survivor.scavenge(siteId)` as designed; site `expiresDay` was dropped because sites regenerate. Open question 1 answered with the placeholder regrow days per site |
 | **W4** (DONE 2026-11-20) | Town recruit offers priced by stats, `town.recruit` | Hiring costs resources only; deterministic per seed; save/replay round-trips. Built as `src/modules/town/`, `data/town.js`, `tests/town.test.js`; reads are properties (`town.offers`, `town.freeBeds`), not functions. Open question 3 answered with the placeholder in `data/town.js` `pricing` (needs are not priced); beds: working hq 2 + tent 2 |
 | **W5** (DONE 2026-11-20) | The train: scheduled visits with recruits and goods (weapons) | Train is a pure function of (seed, visit); goods are limited per visit. Built in `src/modules/town/`, `data/town.js` `train`, `tests/train.test.js`. Open question 4 answered with the placeholder: every 5-7 days, stays one day, announced a day ahead |
 

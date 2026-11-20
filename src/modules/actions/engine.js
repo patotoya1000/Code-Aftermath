@@ -68,7 +68,7 @@ export function createActionEngine(defs) {
     const { state } = ctx;
     const actor = state.survivors[a.actorId];
     if (!actor) return terminate(ctx, a, Status.FAILED, FailureReason.UNKNOWN_ACTOR);
-    if (actor.status !== 'active') return terminate(ctx, a, Status.FAILED, FailureReason.ACTOR_DOWNED);
+    if (actor.status !== 'active') return terminate(ctx, a, Status.FAILED, actor.status === 'away' ? FailureReason.AWAY : FailureReason.ACTOR_DOWNED);
     const h = handlerOf(a);
 
     if (a.status === Status.QUEUED) {

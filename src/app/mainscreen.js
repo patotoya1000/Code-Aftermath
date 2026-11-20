@@ -12,6 +12,7 @@ import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
 import { buildingActionList, survivorActionList, actionButtons } from './ui/actions.js'; // buttons that mirror the real command rules
+import { zonesFor, activeZone, neighbourZone } from './ui/zones.js'; // TOWN / OUTPOST / FRONT camera bar (W1, presentation only)
 import { bindMapGestures } from './ui/gestures.js'; // drag to pan, wheel / pinch to zoom, click to pick
 import { mountHud } from './hud/hud.js'; // HUD skin: card folding, inspector tabs, tactical overlay (presentation only)
 
@@ -74,6 +75,7 @@ function loop(now) {
     hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
     hud?.frame(currentProjection(), now);
+    paintZones();
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
@@ -696,7 +698,34 @@ async function loadSession() {
 function togglePlay() { clock.toggle(); refreshUI(); }
 function cycleSpeed() { clock.cycleSpeed(); refreshUI(); }
 
+// ---- W1: zone bar. The camera looks at TOWN / OUTPOST / FRONT; TOWN and FRONT also open the panel that belongs to them. No simulation involved. ----
+let zoneShown = null;
+function paintZones() {
+  const vp = renderer?.viewport; if (!vp?.center) return;
+  const zones = zonesFor(currentProjection());
+  const here = activeZone(zones, vp.center).id;
+  if (here === zoneShown) return;
+  zoneShown = here;
+  for (const z of ['town', 'outpost', 'front']) { const b = $(`zone-${z}`); if (!b) continue; b.classList?.toggle('active', z === here); b.setAttribute?.('aria-pressed', String(z === here)); }
+  const i = zones.findIndex((z) => z.id === here);
+  if ($('zone-west')) $('zone-west').disabled = i <= 0;
+  if ($('zone-east')) $('zone-east').disabled = i >= zones.length - 1;
+}
+function goZone(id) {
+  const z = zonesFor(currentProjection()).find((q) => q.id === id); if (!z) return;
+  renderer.centerOn(z.x, z.y);
+  if (z.panel) { const nav = $(z.panel === 'town' ? 'btn-town' : 'btn-scavenge'); if (nav && nav.getAttribute?.('aria-pressed') !== 'true') nav.click?.(); }
+  zoneShown = null; paintZones();
+}
+function stepZone(dir) {
+  const zones = zonesFor(currentProjection());
+  goZone(neighbourZone(zones, activeZone(zones, renderer.viewport.center).id, dir).id);
+}
+
 function bindEvents() {
+  for (const z of ['town', 'outpost', 'front']) $(`zone-${z}`)?.addEventListener('click', () => goZone(z));
+  $('zone-west')?.addEventListener('click', () => stepZone(-1));
+  $('zone-east')?.addEventListener('click', () => stepZone(1));
   bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pick(x, y, currentProjection()), onHit: (hit) => selectEntity(hit.kind, hit.id), onEmpty: () => setCardOpen(false) });
   $('inspector-toggle')?.addEventListener('click', () => setCardOpen(false));
   const zoomBy = (f) => { const r = $('map-canvas').getBoundingClientRect(); renderer.zoomAt(f, r.width / 2, r.height / 2); };

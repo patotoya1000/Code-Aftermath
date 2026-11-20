@@ -200,3 +200,19 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - A line must span the whole map height, so no route around it exists; a validation refuses anything shorter, so a scenario cannot ship a wall that can be walked around by accident.
 - Kept as before (not new in W2): a destroyed wall still blocks survivors until it is repaired; a wall that is already destroyed at dusk is not a breach (only a hit that destroys it during the wave is).
 - Not in this step: scavenge expeditions (W3), a lesson or menu entry for `stage1_line`, capped end pieces and per-segment hit points.
+
+## W3: expeditions are rules, not a second map (2026-11-20)
+
+- v1 resolves a trip from data and a hash (docs/game/21 section 6): no second map, no tile-by-tile walking. The survivor walks to the gate with the normal `scavenge` action, which COMPLETES when she departs (stop reason `DEPARTED`); the return is done by the simulation (`scavengeTick`), not by an action, so a `stop()` or a replacing command can never strand her.
+- While away she is `status 'away'`: not drawn, not wave prey, no needs decay (the trip's cost is paid on return from `needsPer10Ticks`), and other commands fail with `AWAY`. A command queued behind `scavenge` therefore fails: learner code must check `scavenge.away` first.
+- The rule from docs/game/20 stands: nothing recalls a survivor. A wave that starts while she is away removes her for good (`state.scavenge.lost`, `survivor.lost`). Her id is never reused by `town.recruit`. Losing the last survivor ends the game in practice: it is the learner's mistake to learn from.
+- Sites regenerate (decided): a looted site gives `minRecovery` % at once and regrows over its `regrowDays`; nearer sites regrow faster and are cheaper in ticks but more dangerous only on raid days (`raidDayDanger`). Danger is fixed at departure and visible beforehand (`scavenge.sites[].dangerToday`).
+- A hurt trip returns half the loot and costs health but never kills (health stays at least 1). Loot goes straight into base stock, limited by storage room; the rest is reported as `leftBehind`.
+- All numbers are placeholders: a day has 240 ticks and about 120 of daylight, so the shipped sites take 40-110 ticks. `board.duskInTicks` exists so the learner can decide whether a trip fits.
+- Not in W3: parties of several survivors, per-site events, ammo or weapon use outside, a lesson, town health. The HUD zone navigation bar is W1.
+
+## W1: the zone bar is a camera shortcut (2026-11-20)
+
+- Zones are regions of the ONE simulation grid split by the wall, never separate maps. `zonesFor` reads only the render projection, so it works for a perimeter and a line wall and costs the engine nothing.
+- TOWN is a panel, not a place: its button moves the camera to the west end and opens the Town panel; FRONT opens Expeditions (the Events card of docs/game/21 section 10). A button never changes the simulation.
+- Not built: the town health meter (needs a design decision on what drops it besides a fallen wall).

@@ -33,6 +33,7 @@ export const progression = {
     craft:  { skill: 'crafting',   xp: 4,    fullUntil: 2, teachesUpTo: 6 }, // per finished workshop batch
     farm:   { skill: 'farming',   xp: 2,    fullUntil: 2, teachesUpTo: 6 }, // per finished chore (plant, water, harvest)
     combat: { skill: 'combat',    xp: 2,    fullUntil: 2, teachesUpTo: 8 }, // per successful combat hit
+    scavenge: { skill: 'gathering', xp: 3, fullUntil: 3, teachesUpTo: 8 }, // per expedition that came back with something (W3)
   },
 };
 

@@ -141,7 +141,7 @@ export function recruit(ctx, params) {
   const pay = chooseItem(state, defs, offer, params.item);
   const gate = state.buildings.gate ?? state.buildings.hq;
   let n = Object.keys(state.survivors).length + 1;
-  while (state.survivors[`survivor_${n}`]) n += 1;
+  while (state.survivors[`survivor_${n}`] || state.scavenge?.lost?.some((l) => l.id === `survivor_${n}`)) n += 1;
   const id = `survivor_${n}`;
   const s = createSurvivor(defs, { id, template: t.candidates.template, name: offer.name, x: gate.x - 1, y: gate.y });
   Object.assign(s.attributes, offer.attributes);

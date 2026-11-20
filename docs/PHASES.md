@@ -23,7 +23,8 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [x] **W4** (2026-11-20) town recruit offers priced by stats, paid with supplies only, `town.recruit`, beds, HUD TOWN panel (`SIM_VERSION` 0.39.0)
 - [x] **W5** (2026-11-20) the town train: pure schedule, extra recruits, limited goods, `town.buy` (`SIM_VERSION` 0.40.0)
 - [x] **W2** (2026-11-20) `line` wall: full-height column, inside = west, waves spawn east, scenario `stage1_line`; `perimeter` kept (`SIM_VERSION` unchanged)
-- [ ] W1 zone navigation bar · [ ] W3 event board + scavenge expeditions (never in the same phase as a wall change)
+- [x] **W3** (2026-11-20) event board + scavenge expeditions: `survivor.scavenge`, `scavenge` / `board` reads, recovery, danger, lost-on-wave, HUD EXPEDITIONS (`SIM_VERSION` 0.41.0)
+- [x] **W1** (2026-11-20) zone bar: camera pans TOWN / OUTPOST / FRONT, opens the Town and Expeditions panels (presentation only)
 
 ## UI and art
 - [x] UI-1 Codebook · UI-2 live inspection · UI-3 contextual help · UI-4 lesson↔Codebook links · UI-5 mobile tabs · UI-6 polish

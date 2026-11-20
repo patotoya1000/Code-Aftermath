@@ -202,6 +202,11 @@ body.hud #map-canvas.panning { cursor:grabbing; }
 .transport .sim-btn { width:auto; height:28px; padding:0 12px; font:700 11px var(--font-mono); }
 
 /* Map tools */
+.zone-bar { position:absolute; z-index:20; left:50%; top:10px; transform:translateX(-50%); display:flex; align-items:center; gap:4px; padding:3px; background:var(--card); border:1px solid var(--card-line); border-radius:8px; }
+.zone-bar .zone-btn, .zone-bar .zone-arrow { background:transparent; color:inherit; border:1px solid transparent; border-radius:6px; padding:4px 10px; font:inherit; font-size:11px; font-weight:700; letter-spacing:.06em; cursor:pointer; }
+.zone-bar .zone-arrow { padding:4px 8px; }
+.zone-bar .zone-btn.active { border-color:var(--card-line); background:rgba(56,189,248,.16); }
+.zone-bar button:disabled { opacity:.4; cursor:default; }
 .map-tools { position:absolute; z-index:20; right:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:4px; }
 .map-tools .hud-mini { width:30px; height:30px; padding:0; font-size:15px; background:var(--card); border-color:var(--card-line); }
 body.hud.card-open .map-tools { right:392px; }

@@ -509,7 +509,7 @@ export function tickWave(ctx) {
   if (wave.queue.length > 0 && (state.tick - wave.startTick) % rules.spawnEveryTicks === 0) spawn(ctx, wave, blocked);
   const fence = fenceOf(state);
   const survivors = Object.values(state.survivors).sort((a, b) => (a.id < b.id ? -1 : 1));
-  const prey = survivors.filter((s) => wave.breached || !isInside(fence, s.position)).map((s) => ({ id: s.id, x: s.position.x, y: s.position.y }));
+  const prey = survivors.filter((s) => s.status !== 'away').filter((s) => wave.breached || !isInside(fence, s.position)).map((s) => ({ id: s.id, x: s.position.x, y: s.position.y }));
   const walls = wallCells(state);
   const lure = loudestTower(state); // Z6c: with nobody outside to chase, zombies go for the wall nearest the loudest tower
   for (const id of Object.keys(state.threats.zombies).sort()) {

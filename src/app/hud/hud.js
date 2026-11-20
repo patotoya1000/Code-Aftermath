@@ -6,7 +6,7 @@
 //   • tactical overlay: a transparent canvas over the map (compound wash, road, gate + tower readouts, zombie health bars)
 // The overlay uses the renderer's own viewport, so it stays aligned with the sprites under pan/zoom/resize.
 import { cellRect, cellCenter, gridToScreen } from '../../modules/viewport/index.js';
-import { buildingActionList, survivorActionList, townActionList, trainActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
+import { buildingActionList, survivorActionList, townActionList, trainActionList, scavengeActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
@@ -173,7 +173,7 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
 
   // ---------- navigation panels: Task / Assign / Building / Survivors (read the real view; buttons only insert code) ----------
   const panel = $('nav-panel'); const panelBody = $('nav-panel-body'); const panelTitle = $('nav-panel-title');
-  const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors', town: 'Town' };
+  const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors', town: 'Town', scavenge: 'Expeditions' };
   let navMode = null; let navSig = ''; const assignPick = { survivor: null, command: 'command.gather' };
   const npBar = (v) => `<span class="np-bar"><i style="width:${Math.max(0, Math.min(100, v))}%" class="${v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good'}"></i></span>`;
   const first = (list, ids) => list.filter((a) => ids.includes(a.id));
@@ -223,6 +223,20 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
         return `<div class="np-row"><div class="np-main"><strong>${esc(g.name)}</strong><span>${g.left} of ${g.qty} left</span><span class="np-sub">each: ${cost}</span></div>${actionButtons([a], {})}</div>`;
       }).join('');
       return `${head}${rows}${trainHead}${goods}`;
+    }
+    if (navMode === 'scavenge') {
+      const sv = view.scavenge;
+      if (!sv?.open) return `<div class="np-sub">Expeditions start on day ${esc(sv?.opensOnDay ?? '?')}.</div>`;
+      const b = view.board ?? {};
+      const head = `<div class="np-sub">Day ${sv.day} · ${b.duskInTicks > 0 ? `dusk in ${b.duskInTicks} ticks` : 'night: the gate is shut'} · ${(b.raids ?? []).length ? `raid on day ${esc(b.raids[0].day)}` : 'no raid announced'}. A survivor outside when a wave starts is lost.</div>`;
+      const away = (sv.away ?? []).map((a) => `<div class="np-sub"><strong>${esc(a.survivorId)}</strong> is at ${esc(a.siteId)}, back in ${a.returnsInTicks} ticks</div>`).join('');
+      const rows = scavengeActionList(view).map((a) => {
+        const s = a.site;
+        const gain = Object.entries(s.expected).map(([i, r]) => `${r[0]}-${r[1]} ${esc(i)}`).join(', ');
+        return `<div class="np-row"><div class="np-main"><strong>${esc(s.name)}</strong><span>${s.ticks} ticks · danger ${s.dangerToday}% · ${s.recoveryPercent}% recovered</span><span class="np-sub">${gain}</span></div>${actionButtons([a], {})}</div>`;
+      }).join('');
+      const lost = (sv.lost ?? []).length ? `<div class="np-sub bad">Lost outside: ${esc(sv.lost.map((l) => l.name).join(', '))}</div>` : '';
+      return `${head}${away}${rows}${lost}`;
     }
     if (navMode === 'assign') {
       const cmds = getCommands(); const cmd = cmds.find((c) => c.id === assignPick.command) ?? cmds[0];

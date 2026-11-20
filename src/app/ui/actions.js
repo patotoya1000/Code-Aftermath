@@ -110,6 +110,22 @@ export function trainActionList(view = {}) {
   });
 }
 
+/**
+ * Expeditions (W3): one entry per scavenge site. `enabled` mirrors what the player can see: expeditions are open, no wave is on (dusk countdown not 0),
+ * and the round trip fits before dusk. The snippet is the real call. Danger, recovery and a regrown site are shown by the panel.
+ */
+export function scavengeActionList(view = {}) {
+  const sv = view.scavenge;
+  if (!sv?.open) return [];
+  const dusk = view.board?.duskInTicks ?? 0;
+  const free = (view.survivors ?? []).some((s) => s.status === 'active');
+  return sv.sites.map((s) => {
+    const home = dusk > s.ticks + 10;
+    const reason = !free ? 'Nobody is free to go.' : dusk === 0 ? 'The gate is shut at night.' : !home ? `The trip takes ${s.ticks} ticks and dusk is ${dusk} away: she would be lost if a wave starts.` : `${s.ticks} ticks away, ${s.dangerToday}% danger, ${s.recoveryPercent}% recovered.`;
+    return { id: `scavenge:${s.id}`, site: s, label: `Scavenge ${s.name}`, snippet: `survivor.scavenge(\"${s.id}\");`, enabled: free && home, reason };
+  });
+}
+
 /** HTML for a list of actions. `view`+`survivorId` (optional) address the snippet to that survivor. */
 export function actionButtons(list, { view, survivorId } = {}) {
   return `<div class="act-grid">${list.map((a) => {

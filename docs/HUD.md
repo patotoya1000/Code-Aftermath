@@ -22,6 +22,10 @@ Nothing here changes the simulation; the engine modules are untouched.
 - Navigation bar: CODE, BOOK, TASK (what each survivor is doing), ASSIGN (pick a survivor and a codebook command), BUILDING (condition, repair/upgrade) and SURVIVORS (needs) open a panel above the bar. RESEARCH is shown but disabled because the game logic has no research system; MENU and SETTINGS wait for Phase I3.
 - Tested in `tests/ui-actions.test.js` (every enabled snippet runs through the real sandbox).
 
+## W1 (2026-11-20): zone bar
+- `#zone-bar` floats at the top centre of the map: ◂ TOWN · OUTPOST · FRONT ▸. Each button centres the camera (`renderer.centerOn`) on a region derived from the wall (`src/app/ui/zones.js`); the highlighted zone follows the camera, also while dragging. TOWN opens the Town panel, FRONT opens the Expeditions panel. Presentation only.
+- Tests: `tests/zones.test.js`.
+
 ## UI-R1 (2026-11-19): the map never shrinks
 - **Selection card:** the inspector (`#inspector-region`) floats over the top-right of the map and is `hidden` until a survivor, building or resource is picked. ✕, Esc or a click on bare ground closes it (`cardOpen` in `mainscreen.js`). Phones keep the tab layout.
 - **Camera:** `src/app/ui/gestures.js` — drag pans, wheel/pinch zooms at the pointer, double-click on bare ground resets; ＋ − ⌖ buttons sit on the right edge. A press that moves under 5 px is still a click.

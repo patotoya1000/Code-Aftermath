@@ -220,6 +220,14 @@ export const COMMANDS = {
       return { offerId: args[0], ...(qty !== undefined ? { qty } : {}), ...(args.length === 3 ? { item: args[2] } : {}) };
     },
   },
+  scavenge: {
+    type: 'scavenge', signature: 'survivor.scavenge(siteId)',
+    doc: 'Go on an expedition: walk to the gate and leave for a site (read scavenge.sites for the ids, how long the trip takes, the danger today, how much of the site has recovered and what it should yield). She is away for the site\'s ticks, then comes back at the gate with loot that goes into base stock; a looted site yields little until it has regrown, and a dangerous trip can hurt her (half the loot). While she is away she takes no commands. If a zombie wave starts before she is back she is LOST for good: nothing recalls her, so check board.duskInTicks and board.raids before you send anyone.',
+    params(args) {
+      if (args.length !== 1 || typeof args[0] !== 'string' || !args[0]) throw bad('scavenge', 'use survivor.scavenge(\"roadside_store\") with a site id from scavenge.sites');
+      return { siteId: args[0] };
+    },
+  },
   attack: {
     type: 'attack', signature: 'survivor.attack(zombie)',
     doc: 'Attack a zombie during an active wave. The survivor moves to weapon range and fires or strikes by the weapon reload speed. Melee weapons never gain tower range bonuses. Running out of ammunition stops with NO_AMMO.',
@@ -264,6 +272,8 @@ export const READ_SURFACE = [
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
   'events   (risk events: { upcoming: [{ day, inDays, id, name, kind, harm }] scheduled soon - the schedule is public, prepare for it; history: [{ day, id, name, outcome, detail }] what has happened })',
   'town   (the town behind the wall: { open, day, opensOnDay, nextBoardInDays, survivors, beds, freeBeds, accepts: item -> { value, inStock }, offers: [{ id, name, attributes, skills, traits, worth, price: item -> units, train, hired, canAfford }] (train: true = came on the train), train: { present, nextArrivalDay, arrivesInDays, leavesInDays, visit, goods: [{ id, item, name, qty, left, worth, price: item -> units, canAfford }] }, history } - offers are public and fixed per seed and day; hire with town.recruit(offerId, item?))',
+  'scavenge   (expeditions: { open, opensOnDay, day, sites: [{ id, name, ticks (away), danger, dangerToday (more on a raid day), regrowDays, recoveryPercent (100 = untouched, low = looted recently), lastLootedDay, yield: item -> [min, max] at full recovery, expected: the same scaled by recovery, awayNow }], away: [{ survivorId, siteId, returnTick, returnsInTicks, danger }], lost: [{ id, name, day, siteId }] survivors lost outside during a wave, history: [{ day, survivorId, siteId, outcome: \"clean\" | \"hurt\" | \"empty\", loot, recoveryPercent }] } - a survivor who is away has survivor.status \"away\" and takes no commands until she returns)',
+  'board   (everything coming or open: { day, duskInTicks (0 at night), raids: [{ day, inDays, strength }], bosses: [{ day, inDays, boss }], events: [{ day, inDays, id, name }], train: { present, arrivesInDays, leavesInDays }, sites: [{ id, name, ticks, dangerToday, recoveryPercent }], away })',
   'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, reinforceEvery, reinforceCap, decayPerTick, attention (the noise of the wave now), loudest (tower id or null), reinforced (extra zombies it has drawn) }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, loot: { sortieOpen, piles: [{ id, item, qty, x, y, daysLeft }] } zombie loot on the ground (daysLeft = dawns until it is gone, null while its wave is on), upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',

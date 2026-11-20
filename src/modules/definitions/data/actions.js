@@ -69,6 +69,11 @@ export const actions = {
   collect: { handler: 'collect', range: 1, ticksPerTile: 1, ticksPerUnit: 1, unloadTicks: 2,
     capability: { attributes: { strength: 1, agility: 1 }, skills: { gathering: 0 } },
   },
+  // scavenge (W3, docs/game/21 section 6): walk to the gate and LEAVE for a site. The action completes the moment she departs (stop reason DEPARTED); she is then
+  // away (`survivor.status 'away'`, shown by the `scavenge` read) until the simulation brings her back with loot. See data/scavenge.js.
+  scavenge: { handler: 'scavenge', range: 0, ticksPerTile: 1,
+    capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
+  },
   // equip (Z5): put a weapon in her hands. A crafted weapon is taken from base stock (she walks to the storage that holds it); the weapon she held goes back
   // into stock (a starter weapon is never stocked, it can always be picked up again). It needs a minimum Combat skill (`weapons.<id>.minCombat`).
   equip: { handler: 'equip', range: 1, ticksPerTile: 1, ticks: 2,

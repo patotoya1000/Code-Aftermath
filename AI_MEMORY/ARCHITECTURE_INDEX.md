@@ -59,12 +59,13 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `power` | `resources`, `buildings`, `environment` |
 | `events` | `resources`, `buildings`, `spoilage`, `environment` |
 | `town` | `resources`, `buildings`, `spoilage`, `environment`, `survivors` |
+| `scavenge` | `resources`, `buildings`, `spoilage`, `environment`, `survivors`, `threats`, `events`, `town` |
 | `threats` | `resources`, `buildings`, `spoilage`, `environment` |
 | `farming` | `resources`, `buildings`, `environment`, `survivors` |
 | `world` | `resources`, `survivors`, `buildings`, `spoilage`, `farming` |
-| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `town`, `threats` |
-| `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage`, `farming` |
-| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `town`, `threats` |
+| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `town`, `threats`, `scavenge` |
+| `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage`, `farming`, `threats`, `scavenge` |
+| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `town`, `threats`, `scavenge` |
 | `environment` | — |
 | `api` | — |
 | `sandbox` | `api` |

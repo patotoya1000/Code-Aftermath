@@ -11,8 +11,9 @@ import { events, eventSchedule } from './data/events.js';
 import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
 import { weapons, towers, noise } from './data/arsenal.js';
 import { town } from './data/town.js';
+import { scavenge } from './data/scavenge.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure', 'scavenge'];
 
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
 
@@ -198,6 +199,16 @@ export function validateDefinitions(d) {
   need(tr && Number.isInteger(tr.gapDays?.min) && Number.isInteger(tr.gapDays?.max) && tr.gapDays.min > tr.stayDays && tr.gapDays.min <= tr.gapDays.max, 'town.train: gapDays needs whole min <= max, and min longer than stayDays (visits never overlap)');
   need(tr && Object.keys(tr.goods ?? {}).length >= tr.goodsPerVisit && Object.entries(tr.goods).every(([i, g]) => d.items[i] && !d.town.payWith[i] && Number.isInteger(g.worth) && g.worth >= 1 && Array.isArray(g.qty) && Number.isInteger(g.qty[0]) && Number.isInteger(g.qty[1]) && g.qty[0] >= 1 && g.qty[0] <= g.qty[1]), 'town.train: goods needs at least goodsPerVisit known items (not payment items) with worth >= 1 and qty [min, max]');
   need(tw && tr && tc && tc.skills.count + tr.bonusSkills <= tc.skills.pool.length, 'town.train: bonusSkills would exceed the skill pool');
+  const sv = d.scavenge;
+  need(sv && ['startDay', 'historyLimit'].every((k) => Number.isInteger(sv[k]) && sv[k] >= 1), 'scavenge: startDay and historyLimit must be whole numbers >= 1');
+  need(sv && [sv.raidDayDanger, sv.hurtLootPercent, sv.hurtDamage, sv.minRecovery].every((n) => Number.isInteger(n) && n >= 0) && sv.hurtLootPercent <= 100 && sv.minRecovery <= 100, 'scavenge: raidDayDanger, hurtLootPercent (0-100), hurtDamage and minRecovery (0-100) must be whole numbers >= 0');
+  need(sv && ['hunger', 'thirst', 'energy'].every((k) => Number.isInteger(sv.needsPer10Ticks?.[k]) && sv.needsPer10Ticks[k] >= 0), 'scavenge: needsPer10Ticks needs whole hunger, thirst and energy numbers >= 0');
+  need(sv && Object.keys(sv.sites ?? {}).length >= 1, 'scavenge: at least one site is needed');
+  for (const [id, st] of Object.entries(sv?.sites ?? {})) {
+    need(typeof st.name === 'string' && st.name && Number.isInteger(st.ticks) && st.ticks >= 1 && Number.isInteger(st.regrowDays) && st.regrowDays >= 1, `scavenge site ${id}: needs a name, whole ticks >= 1 and whole regrowDays >= 1`);
+    need(Number.isInteger(st.danger) && st.danger >= 0 && st.danger <= 100, `scavenge site ${id}: danger must be a whole percent 0-100`);
+    need(Object.keys(st.yield ?? {}).length >= 1 && Object.entries(st.yield).every(([i, r]) => d.items[i] && Array.isArray(r) && r.length === 2 && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[0] <= r[1] && r[1] >= 1), `scavenge site ${id}: yield needs known items with [min, max] whole ranges`);
+  }
   const fm = d.farming;
   need(fm?.nutrients && d.items[fm.nutrients.item] && Number.isInteger(fm.nutrients.ticksPerUnit) && fm.nutrients.ticksPerUnit >= 1 && Number.isInteger(fm.nutrients.cap) && fm.nutrients.cap >= fm.nutrients.ticksPerUnit, 'farming: nutrients needs a known item, whole ticksPerUnit >= 1 and cap >= ticksPerUnit');
   need(fm?.fertilizer && d.items[fm.fertilizer.item] && Number.isInteger(fm.fertilizer.yieldBonus) && fm.fertilizer.yieldBonus >= 1, 'farming: fertilizer needs a known item and a whole yieldBonus % >= 1');
@@ -343,7 +354,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);
