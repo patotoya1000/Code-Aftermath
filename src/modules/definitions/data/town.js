@@ -28,4 +28,20 @@ export const town = {
     names: ['Ash', 'Bram', 'Cleo', 'Dara', 'Eli', 'Faye', 'Gus', 'Hana', 'Ivo', 'June', 'Kade', 'Lena', 'Milo', 'Nell', 'Otto', 'Pia', 'Quinn', 'Rhea', 'Sol', 'Tess', 'Uma', 'Vik', 'Wren', 'Yara'],
   },
   historyLimit: 10,
+  // W5 the train (docs/game/21 section 7). A train from the town arrives now and then, a PURE function of (seed, visit number): the first one on
+  // `firstDay`, then every `gapDays.min`..`gapDays.max` days. It is announced `warnDays` ahead and stays `stayDays` days; what it carries is
+  // limited and different each visit, and whatever is not bought when it leaves is gone. It brings `recruits` extra candidates (each with
+  // `bonusSkills` more skills than the gate board) and `goodsPerVisit` goods picked from `goods`, each in a quantity range, priced per unit
+  // in trade points and paid with the same `payWith` supplies as recruits.
+  train: {
+    firstDay: 4, gapDays: { min: 5, max: 7 }, stayDays: 1, warnDays: 1, recruits: 2, bonusSkills: 1, goodsPerVisit: 3,
+    goods: {
+      advanced_spear: { worth: 36, qty: [1, 1] },
+      bow: { worth: 44, qty: [1, 1] },
+      crossbow: { worth: 80, qty: [1, 1] },
+      arrows: { worth: 2, qty: [10, 20] },
+      bolts: { worth: 3, qty: [10, 20] },
+      bone_meal: { worth: 6, qty: [3, 6] },
+    },
+  },
 };

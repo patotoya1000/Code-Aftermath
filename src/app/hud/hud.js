@@ -6,7 +6,7 @@
 //   • tactical overlay: a transparent canvas over the map (compound wash, road, gate + tower readouts, zombie health bars)
 // The overlay uses the renderer's own viewport, so it stays aligned with the sprites under pan/zoom/resize.
 import { cellRect, cellCenter, gridToScreen } from '../../modules/viewport/index.js';
-import { buildingActionList, survivorActionList, townActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
+import { buildingActionList, survivorActionList, townActionList, trainActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
@@ -211,9 +211,18 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
         const o = a.offer;
         const stats = [...Object.entries(o.skills).map(([k, v]) => `${k} ${v}`), ...o.traits].join(' · ') || 'no skills yet';
         const cost = a.price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
-        return `<div class="np-row"><div class="np-main"><strong>${esc(o.name)}</strong><span>${esc(stats)}</span><span class="np-sub">STR ${o.attributes.strength} AGI ${o.attributes.agility} END ${o.attributes.endurance} · worth ${o.worth}</span><span class="np-sub">${cost}</span></div>${actionButtons([a], {})}</div>`;
+        return `<div class="np-row"><div class="np-main"><strong>${esc(o.name)}${o.train ? ' 🚆' : ''}</strong><span>${esc(stats)}</span><span class="np-sub">STR ${o.attributes.strength} AGI ${o.attributes.agility} END ${o.attributes.endurance} · worth ${o.worth}</span><span class="np-sub">${cost}</span></div>${actionButtons([a], {})}</div>`;
       }).join('');
-      return `${head}${rows}`;
+      const tr = t.train;
+      const trainHead = tr?.present
+        ? `<div class="np-sub"><strong>TRAIN IN</strong> · leaves in ${tr.leavesInDays} day${tr.leavesInDays === 1 ? '' : 's'}. Extra recruits are marked above; goods below.</div>`
+        : `<div class="np-sub">Next train: day ${t.train?.nextArrivalDay} (in ${t.train?.arrivesInDays} day${t.train?.arrivesInDays === 1 ? '' : 's'}).</div>`;
+      const goods = trainActionList(view).map((a) => {
+        const g = a.goods;
+        const cost = a.price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
+        return `<div class="np-row"><div class="np-main"><strong>${esc(g.name)}</strong><span>${g.left} of ${g.qty} left</span><span class="np-sub">each: ${cost}</span></div>${actionButtons([a], {})}</div>`;
+      }).join('');
+      return `${head}${rows}${trainHead}${goods}`;
     }
     if (navMode === 'assign') {
       const cmds = getCommands(); const cmd = cmds.find((c) => c.id === assignPick.command) ?? cmds[0];

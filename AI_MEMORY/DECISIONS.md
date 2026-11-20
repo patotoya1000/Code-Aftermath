@@ -185,3 +185,9 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - **Housing**: a hire needs a free bed; working hq and tent give 2 each (so the starting camp holds 4). Upkeep is simply the new survivor's own hunger and thirst.
 - The train (W5), town health, scavenging (W3) and the line wall (W2) are NOT part of this step.
 
+## W5: the train is a shop that closes (2026-11-20)
+
+- Visit k arrives on a hashed gap after visit k-1 (min gap must exceed the stay, so visits never overlap); cargo is a pure function of (seed, k); nothing carries over: unbought goods and unhired train recruits leave when the train does (doc 21: "miss it and the offer leaves"). State is only `state.town.bought`.
+- Goods cannot also be payment items (validated), so the town never sells back what it takes. A quantity purchase is priced on the total worth, rounded up once, not unit price times n.
+- `town.buy` is a second `global` instant command beside `town.recruit`; both are checked before any change. Train recruits join the same `town.offers` list (marked `train: true`) and use the same bed rule.
+- Open (placeholder): how often it comes (5-7 days) and what it carries; tune in a playtest.

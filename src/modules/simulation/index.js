@@ -6,7 +6,7 @@ import { tickPower } from '../power/index.js';
 import { ageFood } from '../spoilage/index.js';
 import { tickFarms, farmDay } from '../farming/index.js';
 import { eventDay } from '../events/index.js';
-import { recruit, townDay } from '../town/index.js';
+import { recruit, buy, townDay } from '../town/index.js';
 import { raidWarning, waveStart, waveDawn, tickWave, lootDawn, tickMounts, mountDemands, tickNoise } from '../threats/index.js';
 import { createActionEngine } from '../actions/index.js';
 import { studentView, renderProjection, inspectorCard } from '../projection/index.js';
@@ -47,6 +47,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     if (command.type === 'policy') { engine.setPolicy(ctx, command.actorId, command.params ?? {}); return null; }
     if (command.type === 'policy_clear') { engine.clearPolicy(ctx, command.actorId, command.params ?? {}); return null; }
     if (command.type === 'recruit') { recruit(ctx, command.params ?? {}); return null; } // W4: hiring is instant and checked before anything changes
+    if (command.type === 'buy') { buy(ctx, command.params ?? {}); return null; } // W5: buying train goods is instant and checked before anything changes
     if (command.type === 'hook_register') { setHook(ctx, command.actorId, command.params ?? {}); return null; }
     if (command.type === 'hook_clear') { clearHook(ctx, command.actorId, command.params ?? {}); return null; }
     if (!hasOwn(defs.actions, command.type)) throw new AftermathError('UNKNOWN_ACTION', `Unknown action type ${command.type}`);

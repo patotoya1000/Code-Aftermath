@@ -95,6 +95,21 @@ export function townActionList(view = {}) {
   });
 }
 
+/**
+ * Town train (W5): one entry per goods line while the train is in. Enabled only when some is left, storage-independent rules the player can see
+ * (stock covers the price); the snippet is the real call. Storage room is checked by the game itself and reported on refusal.
+ */
+export function trainActionList(view = {}) {
+  const t = view.town;
+  if (!t?.open || !t.train?.present) return [];
+  return t.train.goods.map((g) => {
+    const price = Object.entries(g.price).filter(([i]) => t.accepts[i]).map(([i, n]) => ({ item: i, qty: n, ok: (t.accepts[i].inStock ?? 0) >= n }));
+    const payer = price.find((p) => p.ok);
+    const reason = g.left < 1 ? 'Sold out.' : !payer ? `Not enough supplies: ${price.map((p) => `${p.qty} ${p.item}`).join(' or ')} each.` : `Pays ${payer.qty} ${payer.item} per unit from base stock.`;
+    return { id: `buy:${g.id}`, goods: g, price, label: `Buy ${g.name}`, snippet: `town.buy("${g.id}");`, enabled: g.left > 0 && Boolean(payer), reason };
+  });
+}
+
 /** HTML for a list of actions. `view`+`survivorId` (optional) address the snippet to that survivor. */
 export function actionButtons(list, { view, survivorId } = {}) {
   return `<div class="act-grid">${list.map((a) => {

@@ -22,7 +22,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     power: { produced: 0, demand: 0 }, // the grid totals of the last tick (see the power module)
     threats: { history: [], wave: null, zombies: {}, counter: 0, loot: {}, lootCounter: 0, attention: 0, towerNoise: {} }, // night raids resolved (newest last), the wave in progress and its zombies (see the threats module)
     events: { history: [] }, // risk events that have happened (see the events module), newest last
-    town: { hired: {}, history: [] }, // offers already hired (offerId -> survivorId) and a short hire history (see the town module)
+    town: { hired: {}, bought: {}, history: [] }, // offers already hired (offerId -> survivorId) and a short hire history (see the town module)
     plots: {}, // farming plots (see the farming module): { id, farmId, index, crop, stage, progress, water, damage }
   };
   for (const item of Object.keys(defs.items)) openAccount(state, stockKey(item), sc.stock[item] ?? 0);

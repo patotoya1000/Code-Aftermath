@@ -210,6 +210,16 @@ export const COMMANDS = {
       return { offerId: args[0], ...(args.length === 2 ? { item: args[1] } : {}) };
     },
   },
+  buy: {
+    type: 'buy', instant: true, global: true, signature: 'town.buy(goodsId, qty, item)',
+    doc: 'Buy goods from the town train while it is in (read town.train.goods for the ids, what is left and the price per item). `qty` is optional (1 or more, up to what is left). Payment is taken from base stock like town.recruit: with no item named, town.buy("train_1_bow") pays with the first of wheat, potato, carrot, bread, wood, stone, hot meal or MRE that covers the price; name an accepted item as the third argument to choose, e.g. town.buy("train_1_arrows", 10, "bread"). The goods go into base stock (equip a weapon with survivor.equip). It works at once or says why not (no train, sold out, storage full, cannot afford); a refusal costs nothing. Goods not bought when the train leaves are gone.',
+    params(args) {
+      if (args.length < 1 || args.length > 3 || typeof args[0] !== 'string' || !args[0]) throw bad('buy', 'use town.buy("train_1_bow"), town.buy("train_1_arrows", 10) or town.buy("train_1_arrows", 10, "bread")');
+      const qty = optInt('buy', 'qty', args[1], 1, 100);
+      if (args.length === 3 && (typeof args[2] !== 'string' || !args[2])) throw bad('buy', 'the payment must be an item name like "bread"');
+      return { offerId: args[0], ...(qty !== undefined ? { qty } : {}), ...(args.length === 3 ? { item: args[2] } : {}) };
+    },
+  },
   attack: {
     type: 'attack', signature: 'survivor.attack(zombie)',
     doc: 'Attack a zombie during an active wave. The survivor moves to weapon range and fires or strikes by the weapon reload speed. Melee weapons never gain tower range bonuses. Running out of ammunition stops with NO_AMMO.',
@@ -253,7 +263,7 @@ export const READ_SURFACE = [
   'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
   'events   (risk events: { upcoming: [{ day, inDays, id, name, kind, harm }] scheduled soon - the schedule is public, prepare for it; history: [{ day, id, name, outcome, detail }] what has happened })',
-  'town   (the town behind the wall: { open, day, opensOnDay, nextBoardInDays, survivors, beds, freeBeds, accepts: item -> { value, inStock }, offers: [{ id, name, attributes, skills, traits, worth, price: item -> units, hired, canAfford }], history } - offers are public and fixed per seed and day; hire with town.recruit(offerId, item?))',
+  'town   (the town behind the wall: { open, day, opensOnDay, nextBoardInDays, survivors, beds, freeBeds, accepts: item -> { value, inStock }, offers: [{ id, name, attributes, skills, traits, worth, price: item -> units, train, hired, canAfford }] (train: true = came on the train), train: { present, nextArrivalDay, arrivesInDays, leavesInDays, visit, goods: [{ id, item, name, qty, left, worth, price: item -> units, canAfford }] }, history } - offers are public and fixed per seed and day; hire with town.recruit(offerId, item?))',
   'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, reinforceEvery, reinforceCap, decayPerTick, attention (the noise of the wave now), loudest (tower id or null), reinforced (extra zombies it has drawn) }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, loot: { sortieOpen, piles: [{ id, item, qty, x, y, daysLeft }] } zombie loot on the ground (daysLeft = dawns until it is gone, null while its wave is on), upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
