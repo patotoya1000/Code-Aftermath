@@ -1,0 +1,74 @@
+{
+ "tree_green_full": {
+  "w": 192,
+  "h": 182
+ },
+ "tree_green_worn": {
+  "w": 167,
+  "h": 177
+ },
+ "tree_green_stump": {
+  "w": 81,
+  "h": 59
+ },
+ "tree_dead_full": {
+  "w": 171,
+  "h": 148
+ },
+ "tree_dead_worn": {
+  "w": 154,
+  "h": 147
+ },
+ "tree_dead_stump": {
+  "w": 97,
+  "h": 59
+ },
+ "tree_autumn_full": {
+  "w": 181,
+  "h": 134
+ },
+ "tree_autumn_worn": {
+  "w": 133,
+  "h": 134
+ },
+ "tree_autumn_stump": {
+  "w": 102,
+  "h": 60
+ },
+ "rock_spire_full": {
+  "w": 155,
+  "h": 139
+ },
+ "rock_spire_worn": {
+  "w": 145,
+  "h": 102
+ },
+ "rock_spire_rubble": {
+  "w": 64,
+  "h": 33
+ },
+ "rock_arch_full": {
+  "w": 183,
+  "h": 123
+ },
+ "rock_arch_worn": {
+  "w": 161,
+  "h": 104
+ },
+ "rock_arch_rubble": {
+  "w": 71,
+  "h": 35
+ },
+ "rock_slab_full": {
+  "w": 192,
+  "h": 122
+ },
+ "rock_slab_worn": {
+  "w": 159,
+  "h": 100
+ },
+ "rock_slab_rubble": {
+  "w": 67,
+  "h": 32
+ }
+}

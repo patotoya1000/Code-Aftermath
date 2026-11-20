@@ -27,7 +27,7 @@ Active model: **real-time simulation** (continuous ticks, standing actions, lear
 | Replay / determinism | `AI_MEMORY/systems/REPLAY_INDEX.md` | |
 | Renderer, UI, projections | `AI_MEMORY/systems/RENDERER_INDEX.md` | ASSET_INDEX |
 | Codebook, API manual, UI display plan | `AI_MEMORY/systems/CODEBOOK_UI_INDEX.md` | API |
-| Pixel-art renderer plan (PA-1…PA-8) | `docs/game/18-grid-pixel-art-asset-integration.md` | `AI_MEMORY/systems/RENDERER_INDEX.md` |
+| Painted-art renderer plan (PA-1…PA-8; pixel art scrapped 2026-11-20) | `docs/game/18-grid-asset-integration.md` | `AI_MEMORY/systems/RENDERER_INDEX.md` |
 | Lessons, validators, curriculum | `AI_MEMORY/systems/LESSON_INDEX.md` | API |
 | Sprites / atlas / asset ids | `AI_MEMORY/assets/ASSET_INDEX.md` | `AI_MEMORY/assets/SPRITE_INDEX.md` + the relevant `*_ASSETS.md` |
 | Why was it built this way | `AI_MEMORY/DECISIONS.md` | `AI_MEMORY/CHANGELOG.md` |

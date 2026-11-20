@@ -2,6 +2,7 @@ import { DIRECTIONS } from '../../kernel/index.js';
 import { GROUND_VARIANTS, terrainKey, paintTerrainTile, PATH_KEYS, paintPathTile } from './terrain.js';
 
 import { paintFencePiece, fencePieceKey } from './objects.js';
+export { NODE_ART_DIR, REF_W, WORN_BELOW, NODE_FAMILIES, nodeStage, nodeSpriteKey, createNodeArt } from './nodeart.js';
 export { OBJECT_SPECS, objectSpec, footprintCells, fenceCells, fencePieceKey, buildingRect, buildingCells, buildingPlacement } from './objects.js';
 export { GROUND_KINDS, GROUND_VARIANTS, terrainKey, tileVariant, groundGrid, tileKeyAt, pathKeyForMask, pathCells, PATH_KEYS } from './terrain.js';
 

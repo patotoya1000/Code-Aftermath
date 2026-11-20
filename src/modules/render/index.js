@@ -1,5 +1,5 @@
 import { wallCellsOf } from '../../kernel/index.js';
-import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement } from '../assets/index.js';
+import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, REF_W } from '../assets/index.js';
 import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, visibleCells, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
 // Production world renderer. Input: the RENDER PROJECTION only (never GameState). Output: pixels.
@@ -24,7 +24,7 @@ export function perimeterCells(bounds) {
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };
 
 export function mountRenderer(canvas, {
-  manifest = DEFAULT_MANIFEST(), atlasImage = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
+  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
@@ -178,7 +178,11 @@ export function mountRenderer(canvas, {
         const n = a.n; const spec = objectSpec(n.type);
         const e = resolver.resolveNode({ type: n.type, visual: n.visual });
         note('node', 'node', n.id, e, { x: n.x, y: n.y, visual: n.visual, footprint: spec.footprint, spriteSize: spec.spriteSize });
-        if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
+        const art = nodeArt ? nodeArt.get(nodeArt.key(n.type, n.id, nodeStage(n.amount ?? (n.visual === 'available' ? 1 : 0), n.capacity))) : null;
+        if (art) { // painted sprite: bottom-centre on the cell's foot, width relative to the type's biggest sprite (stump < tree)
+          const w = vp.cell * spec.spriteSize * (art.naturalWidth / (REF_W[n.type] ?? art.naturalWidth)); const h = w * (art.naturalHeight / art.naturalWidth);
+          ctx.drawImage(art, tileCenterX(n.x) - w / 2, tileFootY(n.y) - h, w, h);
+        } else if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
         continue;
       }
       if (a.z) {

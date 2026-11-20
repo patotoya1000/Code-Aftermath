@@ -1,9 +1,9 @@
 // Viewport (PA-1): the ONE place that converts between grid cells (world logic) and canvas pixels (presentation).
-// docs/game/18-grid-pixel-art-asset-integration.md §12–14, §26: "the game thinks in grid cells, the renderer in pixels";
+// docs/game/18-grid-asset-integration.md §12–14, §26: "the game thinks in grid cells, the renderer in pixels";
 // camera movement must never change a logical position. Pure functions over frozen values: no DOM, no state, no kernel.
 //
 // Model: the map is fitted into the canvas (as before), then a camera zooms and pans it.
-//   cell   = fitScale × zoom           pixels per grid cell (whole pixels in `integer` mode, for crisp pixel art)
+//   cell   = fitScale × zoom           pixels per grid cell (whole pixels in `integer` mode, for crisp edges; optional, painted art scales smoothly)
 //   screen = origin + grid × cell      origin = canvas centre − camera centre × cell
 // At zoom 1 the camera is locked to the map centre, which is exactly the original "fit and centre" layout.
 

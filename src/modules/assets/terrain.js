@@ -1,7 +1,7 @@
 // PA-2 terrain: which ground each grid cell shows, and which tile variant. Pure functions over plain data (the render
 // projection). Presentation only: nothing here is read by gameplay, and nothing here uses the simulation RNG — variety comes
 // from a hash of the cell coordinates, so a cell always looks the same (no flicker, no save-file impact).
-// Spec: docs/game/18-grid-pixel-art-asset-integration.md §5.1, §22 phase 2.
+// Spec: docs/game/18-grid-asset-integration.md §5.1, §22 phase 2.
 
 /** Ground kinds and how many interchangeable tile variants each has. */
 export const GROUND_VARIANTS = Object.freeze({ grass: 4, dirt: 3, soil: 2, damaged: 2 });
