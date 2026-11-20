@@ -58,12 +58,13 @@ A module may import only its own files, `src/kernel/index.js`, and the `index.js
 | `spoilage` | `resources`, `buildings` |
 | `power` | `resources`, `buildings`, `environment` |
 | `events` | `resources`, `buildings`, `spoilage`, `environment` |
+| `town` | `resources`, `buildings`, `spoilage`, `environment`, `survivors` |
 | `threats` | `resources`, `buildings`, `spoilage`, `environment` |
 | `farming` | `resources`, `buildings`, `environment`, `survivors` |
 | `world` | `resources`, `survivors`, `buildings`, `spoilage`, `farming` |
-| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `threats` |
+| `projection` | `resources`, `survivors`, `buildings`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `town`, `threats` |
 | `actions` | `resources`, `survivors`, `buildings`, `capability`, `water`, `spoilage`, `farming` |
-| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `threats` |
+| `simulation` | `survivors`, `actions`, `projection`, `capability`, `environment`, `water`, `spoilage`, `farming`, `power`, `events`, `town`, `threats` |
 | `environment` | — |
 | `api` | — |
 | `sandbox` | `api` |

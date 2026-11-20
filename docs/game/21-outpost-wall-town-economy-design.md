@@ -1,4 +1,4 @@
-# 21. The Outpost Wall, the Town Behind It, Events and the Economy (DESIGN — updated 2026-11-19 with the owner's decisions; NOT implemented)
+# 21. The Outpost Wall, the Town Behind It, Events and the Economy (DESIGN — updated 2026-11-20: **W4 recruiting is IMPLEMENTED**; W1, W2, W3 and W5 are not)
 
 > Status: a direction the owner described and a plan built on it. Items marked **[decided]** were stated by the owner; **[proposed]** are recommendations to confirm; **[open]** need an answer before the phase that uses them.
 > Builds on [20](20-zombies-waves-loot-design.md) (waves, sorties, towers) and [19](19-codebook-and-ui-display.md) / [HUD.md](../HUD.md) (screen layout).
@@ -109,7 +109,7 @@ The game never involves real money: no purchases, no store, no premium tier, no 
 | **W1** | HUD navigation bar + Events card + Town panel placeholders (visual only) | Camera pans between zones; cards fold; all current tests pass |
 | **W2** | `line` wall scenario (engine + scenario data), `perimeter` kept | New scenario test: spawn east, "inside" = west, no path around; old scenario tests untouched |
 | **W3** | Event board + scavenge expeditions (rule-resolved), raids unchanged | Deterministic per seed; a survivor outside during a wave is lost first |
-| **W4** | Town recruit offers priced by stats, `town.recruit` | Hiring costs resources only; deterministic per seed; save/replay round-trips |
+| **W4** (DONE 2026-11-20) | Town recruit offers priced by stats, `town.recruit` | Hiring costs resources only; deterministic per seed; save/replay round-trips. Built as `src/modules/town/`, `data/town.js`, `tests/town.test.js`; reads are properties (`town.offers`, `town.freeBeds`), not functions. Open question 3 answered with the placeholder in `data/town.js` `pricing` (needs are not priced); beds: working hq 2 + tent 2 |
 | **W5** | The train: scheduled visits with recruits and goods (weapons) | Train is a pure function of (seed, day); goods are limited per visit |
 
 Rule: **never combine W2 and W3** (a new wall shape and a new expedition system in one phase).

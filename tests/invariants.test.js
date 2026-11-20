@@ -103,7 +103,7 @@ test('storage capacity is a hard limit: an unbounded gather stops with STORAGE_F
 
 test('the Game API accepts requests only: every API command maps to an action/policy/hook/stop type the simulation validates, never to a state write', async () => {
   const { COMMANDS } = await import('../src/modules/api/index.js');
-  const allowed = new Set([...Object.keys(defs.actions), 'stop', 'policy', 'policy_clear', 'hook_register', 'hook_clear', null]);
+  const allowed = new Set([...Object.keys(defs.actions), 'stop', 'policy', 'policy_clear', 'hook_register', 'hook_clear', 'recruit', null]); // 'recruit' (W4) is the town module's instant command: it validates everything in town/index.js before any change
   for (const [name, c] of Object.entries(COMMANDS)) assert.ok(allowed.has(c.type), `survivor.${name}() maps to unknown type ${c.type}`);
 });
 

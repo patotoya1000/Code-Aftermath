@@ -19,6 +19,10 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [x] Z1 data · Z2 wave entities · Z3 combat · Z4 loot + sorties · Z5 weapons/ammo · Z6a towers · Z6b mounted weapons · Z6c noise
 - [x] Z7a–f runner, boomer, thrower, screamer, tank, boss · Z8 suppressor + noise lure (`SIM_VERSION` 0.38.0)
 
+## Town and outpost economy (docs/game/21)
+- [x] **W4** (2026-11-20) town recruit offers priced by stats, paid with supplies only, `town.recruit`, beds, HUD TOWN panel (`SIM_VERSION` 0.39.0)
+- [ ] **W5** the town train (scheduled visits with recruits and weapons) · [ ] W1 zone navigation bar · [ ] W2 `line` wall · [ ] W3 event board + scavenge expeditions (never W2 and W3 in one phase)
+
 ## UI and art
 - [x] UI-1 Codebook · UI-2 live inspection · UI-3 contextual help · UI-4 lesson↔Codebook links · UI-5 mobile tabs · UI-6 polish
 - [x] **UI-R1** (2026-11-19) full-screen map, on-map selection card, drag-pan / zoom, bottom-docked code and lesson panels, lesson Run feedback, completion from saved progress
@@ -28,7 +32,6 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 
 ## Still to do
 - [ ] Playtest balance of the whole zombie ladder (long game)
-- [ ] Town/outpost economy and recruiting (`docs/game/21-outpost-wall-town-economy-design.md`, decided, not implemented)
 - [ ] Step/inspect mode UI · training buildings and specialization · encumbrance/equipment effects · research system
 - [ ] Pruning of finished actions (O1) · offline/release packaging · instructor tools
 

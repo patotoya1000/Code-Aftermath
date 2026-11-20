@@ -15,6 +15,7 @@ export const COMMAND_GROUPS = [
   { id: 'rules', title: 'Policies & Events' },
   { id: 'tasks', title: 'Queue & Stop' },
   { id: 'combat', title: 'Combat' },
+  { id: 'town', title: 'Town & Recruiting' },
 ];
 
 export const READ_GROUPS = [
@@ -223,6 +224,15 @@ export const COMMAND_BOOK = {
     reads: ['read.threats', 'read.carry', 'read.base-stock', 'read.capacity'], outcomes: ['NO_LOOT', 'WAVE_ACTIVE', 'STORAGE_FULL', 'NO_DEPOT', 'EXHAUSTED', 'NO_PATH'],
     notes: ['Loot lies on the ground until a day after the wave ended, then it is gone: threats.loot.piles shows daysLeft. The gate opens when a wave is cleared, so a sortie can go out the same night; the next wave stops it (she is not pulled back).'],
   },
+  recruit: {
+    group: 'town', keywords: ['town', 'hire', 'recruit', 'survivor', 'offer', 'price', 'bed', 'pay'],
+    effect: 'A new survivor joins at the gate at once, with the stats shown in the offer, and the price leaves base stock. Nothing happens (and nothing is spent) if the hire is refused.',
+    requires: ['A board of offers (the town opens on day 2)', 'A free bed (town.freeBeds): repair or upgrade the hq and tents', 'Enough of one accepted item in base stock'],
+    parameters: [['offerId', 'The id of an offer in town.offers, such as "offer_1_2".'], ['item', 'Optional: what to pay with (a key of town.accepts). Left out, it pays with the first item in town.payOrder order that covers the price.']],
+    example: 'for (const o of town.offers) {\n  if (!o.hired && o.canAfford && town.freeBeds > 0) {\n    town.recruit(o.id);\n    break;\n  }\n}',
+    reads: ['read.town'], outcomes: [],
+    notes: ['A refusal is reported in the command result with a code: TOWN_CLOSED, NO_SUCH_OFFER, ALREADY_HIRED, NO_FREE_BED, NOT_ACCEPTED or CANNOT_AFFORD.', 'Offers change every few days: anyone not hired when the board rotates leaves.', 'The town takes supplies only. There is no money in this game.'],
+  },
   equip: {
     group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat', 'suppressor', 'silencer'],
     effect: 'She takes the weapon in hand (a crafted one comes out of base stock, the one she held goes back). Her next attack or guard uses it.',
@@ -330,6 +340,8 @@ export const READS = [
     summary: 'A farm lists its plots: crop, stage (empty, growing or ready), percent grown, water left, whether it is dry, weather damage and units ready to harvest. It also says whether it is sheltered and how fast it grows.', example: 'for (const p of field_1.farm.plots) {\n  console.log(p.id, p.stage, p.percent);\n}' },
   { slug: 'events', group: 'world', covers: 'events', title: 'Risk events', path: 'events', keywords: ['risk', 'rats', 'fault', 'cache', 'warning', 'upcoming', 'history'],
     summary: 'Some days bring an event: rats eat part of the stored food, a machine breaks down, or a supply cache turns up. The schedule is public a couple of days ahead (upcoming), so you can prepare. history lists what has happened and what it cost or gave.', example: 'for (const e of events.upcoming) {\n  console.log(e.name, "in", e.inDays, "days");\n}' },
+  { slug: 'town', group: 'world', covers: 'town', title: 'Town offers', path: 'town', keywords: ['recruit', 'hire', 'offer', 'price', 'bed', 'survivor', 'accepts', 'board'],
+    summary: 'The town behind the wall sends survivors to hire, paid with supplies from base stock. offers lists who stands at the gate (stats, worth and the price in each item the town accepts), freeBeds says whether anyone can be housed, and nextBoardInDays says when the board changes. The offers are fixed for a seed and day, so you can plan: compare the price with what you have, then hire with town.recruit.', example: 'console.log(town.freeBeds, town.nextBoardInDays);\nfor (const o of town.offers) {\n  console.log(o.id, o.name, o.price.bread);\n}' },
   { slug: 'threats', group: 'world', covers: 'threats', title: 'Night raids', path: 'threats', keywords: ['zombie', 'raid', 'defense', 'fence', 'strength', 'dusk', 'walker', 'boomer', 'armor', 'boss', 'weapon', 'tower', 'noise', 'loot', 'sortie', 'pile'],
     summary: 'Some nights a raid of zombies comes. The schedule is public two days ahead: its strength and which zombies are in it. At dusk the wave starts: the gate closes, zombies walk in from one map edge, go for any survivor still OUTSIDE the wall first, and otherwise hit the fence or gate until dawn (walls have armor that grows with their level, so a stronger fence shrugs off weak zombies). If a wall is destroyed the raid is breached and part of the food and water is looted at dawn. Survivors cannot pass the closed gate either way, so bring everyone inside before dusk (threats.wave tells you when a wave is on). New zombie kinds appear on later days (threats.zombies lists role, armor and firstDay), a boss is a fixed milestone (threats.bosses), and threats.weapons, threats.towers and threats.noise describe the defence (every shot is noise: too much attention brings reinforcements, and zombies drift toward the loudest tower, so the rifle and minigun are bait as well as firepower) (towers hold ranged posts and mounted weapons). Survivors can fight (attack, guard). A zombie that dies leaves loot where it fell; threats.loot lists the piles ({ item, qty, x, y, daysLeft }) and whether a sortie may go out now (sortieOpen). The gate opens when a wave is cleared, collect() fetches the loot, and anything left lies there only until a day after the wave ended.', example: 'for (const r of threats.upcoming) {\n  console.log(r.inDays, r.strength);\n}\nif (threats.wave.active) {\n  console.log("wave on, gate closed:", threats.wave.gateClosed);\n}\nfor (const p of threats.loot.piles) {\n  console.log(p.item, p.qty, p.daysLeft);\n}' },
   { slug: 'nodes', group: 'world', covers: 'nodes', title: 'Resource nodes', path: 'nodes', keywords: ['tree', 'rock', 'wood', 'stone', 'amount'],

@@ -44,7 +44,7 @@ export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, acto
   };
   const withCommands = (sv) => {
     const o = structuredClone(sv);
-    for (const name of Object.keys(COMMANDS)) o[name] = (...args) => record(sv.id, name, args);
+    for (const name of Object.keys(COMMANDS)) if (!COMMANDS[name].global) o[name] = (...args) => record(sv.id, name, args);
     // survivor.on(event, fn): a function cannot cross the Worker boundary, so its SOURCE TEXT is what gets registered.
     o.on = (event, fn) => {
       if (!allowHooks) throw new AftermathError('HOOK_NOT_ALLOWED', 'survivor.on() cannot be used inside a hook. Register hooks at the top level of your code.');
@@ -55,13 +55,20 @@ export function runLearnerCode({ code, view, seed, budget = DEFAULT_BUDGET, acto
   };
 
   const survivors = view.survivors.map(withCommands);
+  // `town` is a read (offers, beds) plus the global commands (town.recruit). The command needs an actor to be attributed to: the chosen survivor, else the first.
+  const townWithCommands = (t) => {
+    const o = structuredClone(t ?? {});
+    const who = () => (survivors.find((s) => s.id === actorId) ?? survivors[0])?.id;
+    for (const [name, c] of Object.entries(COMMANDS)) if (c.global) o[name] = (...args) => record(who(), name, args);
+    return o;
+  };
   const env = {
     survivor: survivors.find((s) => s.id === actorId) ?? survivors[0] ?? null, survivors, base: structuredClone(view.base), fence: view.fence, hq: view.hq,
-    buildings: view.buildings, nodes: view.nodes, world: view.world, tick: view.tick, recipes: view.recipes, foods: view.foods, crops: view.crops, power: view.power, events: view.events, threats: view.threats,
+    buildings: view.buildings, nodes: view.nodes, world: view.world, tick: view.tick, recipes: view.recipes, foods: view.foods, crops: view.crops, power: view.power, events: view.events, town: townWithCommands(view.town), threats: view.threats,
     console: Object.freeze({ log: (...a) => { if (logs.length < budget.maxLogs) logs.push(a.map(fmt).join(' ')); } }),
     Math: seededMath(seed),
   };
-  for (const k of ['base', 'fence', 'hq', 'buildings', 'nodes', 'world', 'recipes', 'foods', 'crops', 'power', 'events', 'threats']) deepFreeze(env[k]);
+  for (const k of ['base', 'fence', 'hq', 'buildings', 'nodes', 'world', 'recipes', 'foods', 'crops', 'power', 'events', 'town', 'threats']) deepFreeze(env[k]);
   Object.freeze(survivors);
   // Every building and resource node is also readable by its id (tent_1, gate, storage_1, tree_1 …), so the hints the
   // UI shows — survivor.repair(tent_1), survivor.moveTo(tree_1) — are real code. Built-in names always win.

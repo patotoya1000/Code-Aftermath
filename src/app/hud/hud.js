@@ -6,7 +6,7 @@
 //   • tactical overlay: a transparent canvas over the map (compound wash, road, gate + tower readouts, zombie health bars)
 // The overlay uses the renderer's own viewport, so it stays aligned with the sprites under pan/zoom/resize.
 import { cellRect, cellCenter, gridToScreen } from '../../modules/viewport/index.js';
-import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
+import { buildingActionList, survivorActionList, townActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
@@ -173,7 +173,7 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
 
   // ---------- navigation panels: Task / Assign / Building / Survivors (read the real view; buttons only insert code) ----------
   const panel = $('nav-panel'); const panelBody = $('nav-panel-body'); const panelTitle = $('nav-panel-title');
-  const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors' };
+  const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors', town: 'Town' };
   let navMode = null; let navSig = ''; const assignPick = { survivor: null, command: 'command.gather' };
   const npBar = (v) => `<span class="np-bar"><i style="width:${Math.max(0, Math.min(100, v))}%" class="${v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good'}"></i></span>`;
   const first = (list, ids) => list.filter((a) => ids.includes(a.id));
@@ -200,7 +200,20 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
     if (navMode === 'survivors') {
       const rows = survivors.map((s) => `<div class="np-row"><div class="np-main">${pick('npc', s.id, s.name)}<span>${esc(s.status)}${s.task ? ` · ${esc(s.task.type)}` : ''}</span>
         <span class="np-needs">${['health', 'hunger', 'thirst', 'energy'].map((k) => `<label>${k.slice(0, 3)}${npBar(s.needs[k])}</label>`).join('')}</span></div></div>`).join('');
-      return `${rows}<div class="np-sub">Recruiting arrives with the town train (planned: docs/game/21). Nobody to recruit yet.</div>`;
+      return `${rows}<div class="np-sub">${view.town?.open ? `${view.town.survivors} survivors, ${view.town.freeBeds} free bed${view.town.freeBeds === 1 ? '' : 's'}. Open TOWN to recruit.` : 'The town opens soon.'}</div>`;
+    }
+    if (navMode === 'town') {
+      const t = view.town;
+      if (!t?.open) return `<div class="np-sub">The town sends nobody before day ${esc(t?.opensOnDay ?? '?')}.</div>`;
+      const list = townActionList(view);
+      const head = `<div class="np-sub">Day ${t.day} · ${t.survivors} survivors · ${t.freeBeds} free bed${t.freeBeds === 1 ? '' : 's'} · new board in ${t.nextBoardInDays} day${t.nextBoardInDays === 1 ? '' : 's'}. The town takes supplies only.</div>`;
+      const rows = list.map((a) => {
+        const o = a.offer;
+        const stats = [...Object.entries(o.skills).map(([k, v]) => `${k} ${v}`), ...o.traits].join(' · ') || 'no skills yet';
+        const cost = a.price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
+        return `<div class="np-row"><div class="np-main"><strong>${esc(o.name)}</strong><span>${esc(stats)}</span><span class="np-sub">STR ${o.attributes.strength} AGI ${o.attributes.agility} END ${o.attributes.endurance} · worth ${o.worth}</span><span class="np-sub">${cost}</span></div>${actionButtons([a], {})}</div>`;
+      }).join('');
+      return `${head}${rows}`;
     }
     if (navMode === 'assign') {
       const cmds = getCommands(); const cmd = cmds.find((c) => c.id === assignPick.command) ?? cmds[0];

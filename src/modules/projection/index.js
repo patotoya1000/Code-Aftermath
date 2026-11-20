@@ -7,6 +7,7 @@ import { waterInfoFor } from '../water/index.js';
 import { perishableView, coldInfoFor } from '../spoilage/index.js';
 import { farmInfoFor, cropBook } from '../farming/index.js';
 import { eventsView } from '../events/index.js';
+import { townView } from '../town/index.js';
 import { threatsView, zombieProjection, lootPiles, towerInfoFor } from '../threats/index.js';
 import { powerInfoFor, gridView } from '../power/index.js';
 
@@ -118,7 +119,7 @@ export function studentView(state, defs) {
     survivor: survivors[0] ?? null, survivors, base,
     buildings, fence: buildings.find((b) => b.type === 'fence') ?? null, hq: buildings.find((b) => b.type === 'hq') ?? null,
     power: gridView(state, defs), recipes: recipeBook(state, defs), foods: foodTable(state, defs), crops: cropBook(state, defs, (id) => available(state, stockKey(id))),
-    events: eventsView(state, defs), threats: threatsView(state, defs),
+    events: eventsView(state, defs), town: townView(state, defs), threats: threatsView(state, defs),
     nodes,
   });
 }

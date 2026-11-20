@@ -80,6 +80,21 @@ export function addressSurvivor(snippet, view, survivorId) {
   return i > 0 ? snippet.replace(/\bsurvivor\./g, `survivors[${i}].`) : snippet;
 }
 
+/**
+ * Town (W4): one entry per offer at the gate. `enabled` follows the real recruit rules (a free bed, not already hired, an accepted item in stock that
+ * covers the price), `reason` says why not. The snippet is the real call: it pays with the first item that covers the price, like town.recruit().
+ */
+export function townActionList(view = {}) {
+  const t = view.town;
+  if (!t?.open) return [];
+  return t.offers.map((o) => {
+    const price = Object.entries(o.price).filter(([i]) => t.accepts[i]).map(([i, n]) => ({ item: i, qty: n, ok: (t.accepts[i].inStock ?? 0) >= n }));
+    const payer = price.find((p) => p.ok);
+    const reason = o.hired ? 'Already working for you.' : t.freeBeds < 1 ? 'No free bed: repair or upgrade the hq or a tent.' : !payer ? `Not enough supplies: ${price.map((p) => `${p.qty} ${p.item}`).join(' or ')}.` : `Pays ${payer.qty} ${payer.item} from base stock.`;
+    return { id: `recruit:${o.id}`, offer: o, price, label: `Hire ${o.name}`, snippet: `town.recruit("${o.id}");`, enabled: !o.hired && t.freeBeds >= 1 && Boolean(payer), reason };
+  });
+}
+
 /** HTML for a list of actions. `view`+`survivorId` (optional) address the snippet to that survivor. */
 export function actionButtons(list, { view, survivorId } = {}) {
   return `<div class="act-grid">${list.map((a) => {

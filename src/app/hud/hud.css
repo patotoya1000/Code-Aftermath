@@ -88,7 +88,7 @@ body.hud #cmd-hints { height:auto; padding:5px 10px; border-top:1px solid var(--
 
 #nav-card { position:absolute; z-index:20; bottom:10px; left:calc(min(44%, 540px) + 22px); right:10px; margin:0 auto; max-width:660px; width:auto; }
 #nav-card .hud-body { padding:6px; }
-body.hud #cmd-bar { display:grid; grid-template-columns:repeat(9, minmax(0, 1fr)); gap:4px; }
+body.hud #cmd-bar { display:grid; grid-template-columns:repeat(10, minmax(0, 1fr)); gap:4px; }
 body.hud #cmd-bar .cmd-btn { padding:7px 4px; gap:3px; border-radius:8px; background:rgba(23,30,41,.9); font:600 10.5px var(--font-mono); letter-spacing:.04em; box-shadow:none; transition:transform .15s, box-shadow .15s, border-color .15s; }
 body.hud #cmd-bar .cmd-btn.code { background:rgba(34,211,238,.14); color:var(--accent); border-color:var(--accent-dark); }
 body.hud #cmd-bar .cmd-btn:not(:disabled):hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(56,189,248,.2); }

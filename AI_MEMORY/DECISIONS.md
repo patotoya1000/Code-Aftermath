@@ -174,3 +174,14 @@ Addendum (2026-11-18, second round): rifle is loud (noise is a real mechanic), a
 ## Z2: waves are entities; wall armor stands in for defence until combat exists (2026-11-18)
 
 A raid is a wave of zombie entities (spawn at dusk on one edge, walk with the same A* as survivors, retreat at dawn) instead of an abstract dusk comparison. Because nobody can kill a zombie before Z3, a wall's strength is expressed as flat ARMOR per level (`wallArmorPerLevel`): damage dealt is `zombie damage - armor`, so upgrading the fence is the way to survive early waves, mirroring the zombie-armor / weapon-pierce rule. The outcome is real: a wall at 0 health = breached = looting at dawn. The gate closes for BOTH sides during a wave (a survivor left outside is stranded and chased; "inside the wall" stays the learner's job, no auto-recall). The old `defense` number stays as an informational rating. Forbidden: restoring the abstract `raidDusk`, auto-recalling survivors, letting zombies pass a standing gate, damaging survivors before Z3.
+
+## W4: the town only sells survivors, and only for supplies (2026-11-20)
+
+Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while building it (all placeholders to tune in a playtest):
+- **Offers are a pure function of (seed, day)** (no stored randomness); the only state is `state.town.hired` (so a candidate cannot be hired twice) and a short history. A board lasts `rotateDays` (2) days; whoever is not hired leaves.
+- **Price = the candidate's worth in trade points** (24 + 6 per skill level + 3 per attribute point above 5 + 10 per trait, floor 20), shown in every accepted item (`payWith`, whole units rounded up). Pricing by NEEDS is left out (open question 3 in doc 21).
+- **No money anywhere**: `payWith` is validated to contain only real items. A refused hire spends nothing.
+- **API shape**: `town` is a global in learner code (read: offers, beds, prices; command: `town.recruit`). It is a normal API command with `global: true`, so it goes through the same validation, strategy points, timeline and replay; it is absent from `survivor.*`. Reads are properties (`town.offers`), like `events.upcoming`, not functions as the doc 21 sketch had them.
+- **Housing**: a hire needs a free bed; working hq and tent give 2 each (so the starting camp holds 4). Upkeep is simply the new survivor's own hunger and thirst.
+- The train (W5), town health, scavenging (W3) and the line wall (W2) are NOT part of this step.
+

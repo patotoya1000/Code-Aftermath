@@ -10,6 +10,7 @@ import { crops, farming } from './data/crops.js';
 import { events, eventSchedule } from './data/events.js';
 import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
 import { weapons, towers, noise } from './data/arsenal.js';
+import { town } from './data/town.js';
 
 const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure'];
 
@@ -179,6 +180,15 @@ export function validateDefinitions(d) {
     else if (ev.kind === 'gain_stock') need(ev.items && Object.keys(ev.items).length > 0 && Object.entries(ev.items).every(([i, q]) => d.items[i] && Number.isInteger(q) && q >= 1), `event ${id}: gain_stock needs known items with whole quantities`);
     else need(false, `event ${id}: unknown kind "${ev.kind}"`);
   }
+  const tw = d.town;
+  need(tw && ['startDay', 'rotateDays', 'offers', 'historyLimit'].every((k) => Number.isInteger(tw[k]) && tw[k] >= 1), 'town: startDay, rotateDays, offers and historyLimit must be whole numbers >= 1');
+  need(tw && Object.keys(tw.payWith ?? {}).length > 0 && Object.entries(tw.payWith).every(([i, v]) => d.items[i] && Number.isInteger(v) && v >= 1), 'town: payWith needs known items with a whole value >= 1 (no money, only items)');
+  need(tw && Array.isArray(tw.payOrder) && tw.payOrder.length > 0 && tw.payOrder.every((i) => tw.payWith?.[i]), 'town: payOrder must list only items in payWith');
+  need(tw && Object.entries(tw.beds ?? {}).every(([t, n]) => d.buildings[t] && Number.isInteger(n) && n >= 1), 'town: beds needs known building types with a whole bed count >= 1');
+  const tp = tw?.pricing;
+  need(tp && ['base', 'perSkillLevel', 'perAttributePoint', 'perTrait', 'minWorth'].every((k) => Number.isInteger(tp[k]) && tp[k] >= 0) && tp.minWorth >= 1, 'town: pricing numbers must be whole numbers >= 0 (minWorth >= 1)');
+  const tc = tw?.candidates;
+  need(tc && d.survivorTemplates[tc.template] && Number.isInteger(tc.attribute?.min) && Number.isInteger(tc.attribute?.max) && tc.attribute.min >= 1 && tc.attribute.min <= tc.attribute.max && Number.isInteger(tc.skills?.count) && tc.skills.count >= 0 && Number.isInteger(tc.skills?.maxLevel) && tc.skills.maxLevel >= 1 && tc.skills.maxLevel <= d.progression.thresholds.length - 1 && (tc.skills.pool ?? []).every((s) => d.skills[s]) && tc.skills.pool.length >= tc.skills.count && Number.isInteger(tc.traitPercent) && tc.traitPercent >= 0 && tc.traitPercent <= 100 && Array.isArray(tc.names) && tc.names.length > 0, 'town: candidates needs a known template, an attribute range, skills { count, maxLevel, pool of known skills }, traitPercent 0..100 and names');
   const fm = d.farming;
   need(fm?.nutrients && d.items[fm.nutrients.item] && Number.isInteger(fm.nutrients.ticksPerUnit) && fm.nutrients.ticksPerUnit >= 1 && Number.isInteger(fm.nutrients.cap) && fm.nutrients.cap >= fm.nutrients.ticksPerUnit, 'farming: nutrients needs a known item, whole ticksPerUnit >= 1 and cap >= ticksPerUnit');
   need(fm?.fertilizer && d.items[fm.fertilizer.item] && Number.isInteger(fm.fertilizer.yieldBonus) && fm.fertilizer.yieldBonus >= 1, 'farming: fertilizer needs a known item and a whole yieldBonus % >= 1');
@@ -324,7 +334,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

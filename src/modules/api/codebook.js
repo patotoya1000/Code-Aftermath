@@ -19,7 +19,7 @@ export function describeCodebook() {
     const m = COMMAND_BOOK[name] ?? {};
     const group = COMMAND_GROUPS.some((g) => g.id === m.group) ? m.group : 'tasks';
     const id = add({
-      id: `command.${name}`, kind: 'command', group, name, title: `survivor.${name}()`, signature: c.signature, summary: c.doc,
+      id: `command.${name}`, kind: 'command', group, name, title: c.global ? `town.${name}()` : `survivor.${name}()`, signature: c.signature, summary: c.doc,
       effect: m.effect ?? '', requires: m.requires ?? [], parameters: (m.parameters ?? []).map(([n, meaning]) => ({ name: n, meaning })),
       example: m.example ?? null, reads: (m.reads ?? []).map((r) => READ_ALIASES[r] ?? r), outcomes: m.outcomes ?? [], notes: m.notes ?? [],
       keywords: m.keywords ?? [], instant: c.instant === true, documented: Boolean(COMMAND_BOOK[name]),

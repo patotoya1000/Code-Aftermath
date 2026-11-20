@@ -201,6 +201,15 @@ export const COMMANDS = {
       return { targetId: args[0] };
     },
   },
+  recruit: {
+    type: 'recruit', instant: true, global: true, signature: 'town.recruit(offerId, item)',
+    doc: 'Hire a survivor the town offers (read town.offers for the ids, stats and prices) and pay for them from base stock. Name an item the town accepts (town.accepts) to pay with it, e.g. town.recruit("offer_1_2", "bread"); with no item it pays with the first of wheat, potato, carrot, bread, wood, stone, hot meal or MRE that covers the price. It works at once or says why not (no such offer, already hired, no free bed, cannot afford); a refusal costs nothing. The new survivor walks in at the gate with the stats you saw.',
+    params(args) {
+      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('recruit', 'use town.recruit("offer_1_1") or town.recruit("offer_1_1", "bread")');
+      if (args.length === 2 && (typeof args[1] !== 'string' || !args[1])) throw bad('recruit', 'the payment must be an item name like "bread"');
+      return { offerId: args[0], ...(args.length === 2 ? { item: args[1] } : {}) };
+    },
+  },
   attack: {
     type: 'attack', signature: 'survivor.attack(zombie)',
     doc: 'Attack a zombie during an active wave. The survivor moves to weapon range and fires or strikes by the weapon reload speed. Melee weapons never gain tower range bonuses. Running out of ammunition stops with NO_AMMO.',
@@ -244,6 +253,7 @@ export const READ_SURFACE = [
   'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
   'events   (risk events: { upcoming: [{ day, inDays, id, name, kind, harm }] scheduled soon - the schedule is public, prepare for it; history: [{ day, id, name, outcome, detail }] what has happened })',
+  'town   (the town behind the wall: { open, day, opensOnDay, nextBoardInDays, survivors, beds, freeBeds, accepts: item -> { value, inStock }, offers: [{ id, name, attributes, skills, traits, worth, price: item -> units, hired, canAfford }], history } - offers are public and fixed per seed and day; hire with town.recruit(offerId, item?))',
   'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, reinforceEvery, reinforceCap, decayPerTick, attention (the noise of the wave now), loudest (tower id or null), reinforced (extra zombies it has drawn) }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, loot: { sortieOpen, piles: [{ id, item, qty, x, y, daysLeft }] } zombie loot on the ground (daysLeft = dawns until it is gone, null while its wave is on), upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',
   'every building and node is also available by its id: gate, tent_1, storage_1, tree_1 …',
