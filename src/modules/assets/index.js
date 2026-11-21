@@ -3,6 +3,7 @@ import { GROUND_VARIANTS, terrainKey, paintTerrainTile, PATH_KEYS, paintPathTile
 
 import { paintFencePiece, fencePieceKey } from './objects.js';
 export { NODE_ART_DIR, REF_W, WORN_BELOW, NODE_FAMILIES, nodeStage, nodeSpriteKey, createNodeArt } from './nodeart.js';
+export { BUILDING_ART_DIR, BUILDING_ART, ART_CONDITIONS, createBuildingArt } from './buildingart.js';
 export { BACKDROP_DIR, BACKDROP_FILES, createBackdropArt } from './backdrops.js';
 export { OBJECT_SPECS, objectSpec, footprintCells, fenceCells, fencePieceKey, buildingRect, buildingCells, buildingPlacement } from './objects.js';
 export { GROUND_KINDS, GROUND_VARIANTS, terrainKey, tileVariant, groundGrid, tileKeyAt, pathKeyForMask, pathCells, PATH_KEYS } from './terrain.js';

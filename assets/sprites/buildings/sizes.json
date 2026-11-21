@@ -1,0 +1,170 @@
+{
+ "hq_repaired": {
+  "w": 331,
+  "h": 328
+ },
+ "hq_damaged": {
+  "w": 331,
+  "h": 301
+ },
+ "hq_ruined": {
+  "w": 331,
+  "h": 187
+ },
+ "tent_repaired": {
+  "w": 206,
+  "h": 222
+ },
+ "tent_damaged": {
+  "w": 206,
+  "h": 221
+ },
+ "tent_ruined": {
+  "w": 206,
+  "h": 131
+ },
+ "storage_repaired": {
+  "w": 240,
+  "h": 182
+ },
+ "storage_damaged": {
+  "w": 240,
+  "h": 183
+ },
+ "storage_ruined": {
+  "w": 238,
+  "h": 129
+ },
+ "kitchen_repaired": {
+  "w": 224,
+  "h": 219
+ },
+ "kitchen_damaged": {
+  "w": 223,
+  "h": 213
+ },
+ "kitchen_ruined": {
+  "w": 218,
+  "h": 125
+ },
+ "workshop_repaired": {
+  "w": 242,
+  "h": 209
+ },
+ "workshop_damaged": {
+  "w": 241,
+  "h": 210
+ },
+ "workshop_ruined": {
+  "w": 240,
+  "h": 129
+ },
+ "generator_repaired": {
+  "w": 190,
+  "h": 207
+ },
+ "generator_damaged": {
+  "w": 190,
+  "h": 221
+ },
+ "generator_ruined": {
+  "w": 190,
+  "h": 113
+ },
+ "battery_repaired": {
+  "w": 173,
+  "h": 148
+ },
+ "battery_damaged": {
+  "w": 173,
+  "h": 151
+ },
+ "battery_ruined": {
+  "w": 177,
+  "h": 82
+ },
+ "solar_panel_repaired": {
+  "w": 206,
+  "h": 167
+ },
+ "solar_panel_damaged": {
+  "w": 206,
+  "h": 170
+ },
+ "solar_panel_ruined": {
+  "w": 206,
+  "h": 91
+ },
+ "water_tank_repaired": {
+  "w": 154,
+  "h": 202
+ },
+ "water_tank_damaged": {
+  "w": 154,
+  "h": 202
+ },
+ "water_tank_ruined": {
+  "w": 160,
+  "h": 111
+ },
+ "well_repaired": {
+  "w": 166,
+  "h": 216
+ },
+ "well_damaged": {
+  "w": 166,
+  "h": 216
+ },
+ "well_ruined": {
+  "w": 168,
+  "h": 134
+ },
+ "tower_repaired": {
+  "w": 168,
+  "h": 346
+ },
+ "tower_damaged": {
+  "w": 174,
+  "h": 347
+ },
+ "tower_ruined": {
+  "w": 179,
+  "h": 155
+ },
+ "field_repaired": {
+  "w": 248,
+  "h": 103
+ },
+ "field_damaged": {
+  "w": 248,
+  "h": 103
+ },
+ "field_ruined": {
+  "w": 248,
+  "h": 103
+ },
+ "gate_repaired": {
+  "w": 192,
+  "h": 211
+ },
+ "gate_damaged": {
+  "w": 192,
+  "h": 212
+ },
+ "gate_ruined": {
+  "w": 186,
+  "h": 155
+ },
+ "wall_repaired": {
+  "w": 121,
+  "h": 122
+ },
+ "wall_damaged": {
+  "w": 126,
+  "h": 118
+ },
+ "wall_ruined": {
+  "w": 122,
+  "h": 77
+ }
+}

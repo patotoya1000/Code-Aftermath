@@ -7,11 +7,11 @@
 // decide how fast wall-clock time becomes simulation ticks; they never change a gameplay rule.
 
 import { mountRenderer } from '../modules/render/index.js';
-import { placeholderManifestFor, createNodeArt, createBackdropArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
+import { placeholderManifestFor, createNodeArt, createBackdropArt, createBuildingArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
-import { buildingActionList, survivorActionList, actionButtons } from './ui/actions.js'; // buttons that mirror the real command rules
+import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from './ui/actions.js'; // buttons that mirror the real command rules
 import { SCREENS, screenOf, arrowState, alertLevel } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
 import { townSceneSvg, frontSceneSvg } from './ui/scenes.js';
 import { recruitHtml, trainHtml, housingHtml, scavengeHeadHtml, scavengeRowsHtml, scavengeLostHtml, raidHtml } from './ui/panels.js';
@@ -24,6 +24,7 @@ const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
 let app; let renderer; let hooks = null; let hud = null;
 let freeSim; let clock;
+let lastActorId = null; // the survivor commands go to while a tree / rock (not a survivor) is picked
 let selected = null; // { kind: 'npc' | 'building' | 'node', id }
 let cardOpen = false; // the selection card is only on screen after the learner picks something (or opens it from a list)
 let isCodePanelOpen = false;
@@ -45,7 +46,7 @@ async function init() {
   // IndexedDB can be missing or blocked (some private-browsing modes); then saves live in memory for this page only.
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
-  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), backdropArt: createBackdropArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), backdropArt: createBackdropArt(), buildingArt: createBuildingArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
   hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected, getCommands: () => app.codebook.entries.filter((e) => e.kind === 'command' && e.example) });
   await startScenario();
   renderHints();
@@ -287,14 +288,20 @@ function renderInspector() {
 
 function selectEntity(kind, id) {
   selected = { kind, id };
+  if (kind === 'npc') lastActorId = id;
   renderer.select(kind, id);
   cardOpen = kind !== 'node'; paintCard(); // a picked tree / rock shows its name + resource bar on the map (glowing green); it opens no card
   refreshUI();
 }
+/** The GATHER button on a picked tree / rock: like every action button it only puts the command in the editor (addressed to the last survivor you picked). */
+function gatherFromTag(resource) {
+  const view = freeSim?.studentView(); if (!view || !resource) return;
+  insertSnippet(addressSurvivor(`survivor.gather("${resource}", 20);`, view, selectedActor(view)));
+}
 /** Drop a tree / rock pick (empty click, Esc) and go back to the default survivor, who commands go to. Returns true if there was one. */
 function clearNodePick() {
   if (selected?.kind !== 'node') return false;
-  const first = freeSim?.studentView().survivors[0];
+  const crew = freeSim?.studentView().survivors ?? []; const first = crew.find((x) => x.id === lastActorId) ?? crew[0];
   selected = first ? { kind: 'npc', id: first.id } : null;
   if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
   refreshUI(); return true;
@@ -400,7 +407,7 @@ function insertSnippet(text) {
   if (!isCodePanelOpen) toggleCodePanel(); else ed.focus?.();
 }
 /** Which survivor a building button's command should address: the selected one if a survivor is selected, else the first. */
-function selectedActor(view) { return selected?.kind === 'npc' ? selected.id : view?.survivors?.[0]?.id; }
+function selectedActor(view) { const alive = (id) => view?.survivors?.some((x) => x.id === id); return selected?.kind === 'npc' ? selected.id : alive(lastActorId) ? lastActorId : view?.survivors?.[0]?.id; }
 
 function renderHints() {
   $('cmd-hints').innerHTML = app.apiDocs.commands.map((c) => `<div class="hint-chip"><span class="api-glyph">${esc(c.signature.split('  or')[0])}</span></div>`).join('');
@@ -791,7 +798,18 @@ function bindScreens() {
 
 function bindEvents() {
   bindScreens();
-  bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pick(x, y, currentProjection()), onHit: (hit) => selectEntity(hit.kind, hit.id), onEmpty: () => { setCardOpen(false); clearNodePick(); } });
+  bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pickTag(x, y) ?? renderer.pick(x, y, currentProjection()), onHit: (hit) => (hit.kind === 'node-gather' ? gatherFromTag(hit.resource) : selectEntity(hit.kind, hit.id)), onEmpty: () => { setCardOpen(false); clearNodePick(); } });
+  // hover tag: name + state of whatever is under the pointer (presentation only; it never selects anything)
+  const mapEl = $('map-canvas');
+  mapEl?.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' || e.buttons) return;
+    const r = mapEl.getBoundingClientRect(); const x = e.clientX - r.left; const y = e.clientY - r.top;
+    if (renderer.pickTag(x, y)) { mapEl.style.cursor = 'pointer'; return; }
+    const hit = renderer.pick(x, y, currentProjection());
+    if (hit && hit.kind !== 'node-gather') renderer.setHover(hit.kind, hit.id); else renderer.clearHover();
+    mapEl.style.cursor = hit ? 'pointer' : '';
+  });
+  mapEl?.addEventListener('pointerleave', () => { renderer.clearHover(); mapEl.style.cursor = ''; });
   $('inspector-toggle')?.addEventListener('click', () => setCardOpen(false));
   const zoomBy = (f) => { const r = $('map-canvas').getBoundingClientRect(); renderer.zoomAt(f, r.width / 2, r.height / 2); };
   $('btn-zoom-in')?.addEventListener('click', () => zoomBy(1.25));

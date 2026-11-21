@@ -237,3 +237,8 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - The owner wants a click on a tree or rock to glow green and show its name and a resource bar, and no info card for them. Buildings and survivors keep their card (they have actions to show).
 - The bar needs a full mark but the state does not store a node's starting amount (adding it would change saves and replays), so the renderer remembers the highest amount it has seen per node and never uses less than the type's typical amount. A save loaded half-gathered shows a slightly short full mark until the node is seen fuller.
 
+## 2026-11-21 — painted building sprites; hover tags, worker line, green glow
+- Building art is optional, lazily loaded and presentation-only: the renderer draws placeholders until an image is ready, so tests and headless runs need no files.
+- "Who is working this node" is derived in the projection from ledger reservations (`node.<id>` accounts), not stored on nodes, so state shape and SIM_VERSION are unchanged.
+- Hover never selects and never opens a card; the only clickable thing on a tag is the GATHER button, which only inserts code.
+

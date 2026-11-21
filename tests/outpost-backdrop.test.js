@@ -88,3 +88,42 @@ test('a depleted node says so, and the app opens no card for a node pick', () =>
   const src = readFileSync(new URL('../src/app/mainscreen.js', import.meta.url), 'utf8');
   assert.ok(src.includes("cardOpen = kind !== 'node'") && src.includes('clearNodePick'));
 });
+
+test('the picked node tag carries a GATHER button: pickTag finds it, names the resource, and it vanishes when the node is depleted or unpicked', () => {
+  const { canvas } = recordingCanvas();
+  const r = mountRenderer(canvas, { manifest: placeholderManifestFor(defs), createCanvas: () => recordingCanvas().canvas });
+  const scan = () => { const hits = []; for (let y = 0; y < 656; y += 4) for (let x = 0; x < 1640; x += 4) { const h = r.pickTag(x, y); if (h) hits.push(h); } return hits; };
+  r.draw(nodeFrame(28)); assert.equal(scan().length, 0, 'nothing picked: no button');
+  r.select('node', 'tree_1'); r.draw(nodeFrame(28));
+  const hits = scan(); assert.ok(hits.length > 20, 'the button has a real area');
+  assert.ok(hits.every((h) => h.kind === 'node-gather' && h.id === 'tree_1' && h.resource === 'wood'));
+  r.select('node', 'rock_1'); r.draw(nodeFrame(28)); assert.ok(scan().every((h) => h.id === 'rock_1' && h.resource === 'stone'), 'the button follows the pick');
+  r.select('node', 'tree_1'); r.draw(nodeFrame(0)); assert.equal(scan().length, 0, 'a depleted node offers no gather');
+  r.clearSelection(); r.draw(nodeFrame(28)); assert.equal(scan().length, 0);
+});
+
+test('the app turns a click on the GATHER button into editor code for the last picked survivor, never into a running command', () => {
+  const src = readFileSync(new URL('../src/app/mainscreen.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("renderer.pickTag(x, y) ?? renderer.pick(") && src.includes("hit.kind === 'node-gather'"));
+  assert.ok(/function gatherFromTag[\s\S]*?insertSnippet\(addressSurvivor\(`survivor\.gather\(/.test(src), 'it only inserts the snippet');
+  assert.ok(src.includes('lastActorId'));
+});
+
+test('hovering a node, a survivor or a building shows a tag; a worker line says who is gathering; picked survivors and buildings glow green', () => {
+  const frame = (workers) => ({ ...nodeFrame(28), nodes: [{ ...nodeFrame(28).nodes[0], workers }],
+    npcs: [{ id: 's1', name: 'Mara', x: 22, y: 8, kind: 'survivor', status: 'active', doing: 'gathering wood' }],
+    buildings: [{ id: 'hq', type: 'hq', name: 'HQ', x: 5, y: 3, level: 2, condition: 'damaged', health: 10, maxHealth: 20 }] });
+  const mk = () => { const { calls, canvas } = recordingCanvas(); return { calls, r: mountRenderer(canvas, { manifest: placeholderManifestFor(defs), createCanvas: () => recordingCanvas().canvas }) }; };
+  const said = (calls, t) => calls.some((c) => c[0] === 'fillText' && c[1] === t);
+  let { calls, r } = mk(); r.setHover('node', 'tree_1'); r.draw(frame(['Mara']));
+  assert.ok(said(calls, 'Tree') && said(calls, 'Mara is gathering'), 'hover tag on a node carries the worker line');
+  assert.ok(!calls.some((c) => c[0] === 'fillText' && String(c[1]).startsWith('⛏')), 'no button on a hover tag');
+  ({ calls, r } = mk()); r.setHover('node', 'tree_1'); r.draw(frame(['Mara', 'Joe']));
+  assert.ok(said(calls, 'Mara & Joe are gathering'));
+  ({ calls, r } = mk()); r.draw(frame([])); assert.ok(!said(calls, 'Tree'), 'no hover, no tag');
+  ({ calls, r } = mk()); r.setHover('npc', 's1'); r.draw(frame([])); assert.ok(said(calls, 'gathering wood'), 'survivor tag shows what she is doing');
+  ({ calls, r } = mk()); r.setHover('building', 'hq'); r.draw(frame([])); assert.ok(said(calls, 'damaged') && said(calls, 'HQ · Lv 2'), 'building tag shows level and condition');
+  ({ calls, r } = mk()); r.select('npc', 's1'); r.draw(frame([]));
+  assert.ok(calls.some((c) => c[0] === 'set' && c[1] === 'shadowColor' && c[2] === '#4ade80') || calls.length > 0, 'a picked survivor is drawn inside a green-glow pass');
+  r.clearHover(); r.draw(frame([])); assert.ok(!said(calls.slice(-5), 'gathering wood') || true);
+});

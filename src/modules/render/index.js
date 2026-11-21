@@ -24,7 +24,7 @@ export function perimeterCells(bounds) {
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };
 
 export function mountRenderer(canvas, {
-  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, backdropArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
+  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, backdropArt = null, buildingArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
@@ -38,7 +38,7 @@ export function mountRenderer(canvas, {
   let vp = createViewport({ map: { width: 1, height: 1 }, view: { width: 1, height: 1 }, integer: integerScale }); // camera state lives here
   let selected = { kind: null, id: null };
   let hover = { kind: null, id: null };
-  const nodePeak = new Map(); let lastTick = -1; let selNode = null; // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
+  const nodePeak = new Map(); let lastTick = -1; let selNode = null; let tagBtn = null; let worldW = 0; const nodeGeo = new Map(); const npcGeo = new Map(); const bldGeo = new Map(); // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
   let debugOn = debug;
   let drawList = [];
   let pathList = []; // PA-3: road pieces drawn
@@ -98,9 +98,9 @@ export function mountRenderer(canvas, {
     if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = false;
     vp = withView(vp, { map: frame.map, view: { width: rect.width, height: rect.height } });
     const t = vp.cell;
-    const world = cellRect(vp, 0, 0, mw, mh);
+    const world = cellRect(vp, 0, 0, mw, mh); worldW = world.w;
     const time = now();
-    if ((frame.tick ?? 0) < lastTick) nodePeak.clear(); lastTick = frame.tick ?? 0; selNode = null; // a restart / load rewinds the clock: forget old peaks
+    if ((frame.tick ?? 0) < lastTick) nodePeak.clear(); lastTick = frame.tick ?? 0; selNode = null; nodeGeo.clear(); npcGeo.clear(); bldGeo.clear(); // a restart / load rewinds the clock: forget old peaks
     for (const n of frame.nodes || []) if ((n.amount ?? 0) > (nodePeak.get(n.id) ?? 0)) nodePeak.set(n.id, n.amount);
 
     // 1 terrain
@@ -138,14 +138,29 @@ export function mountRenderer(canvas, {
     if (!backdrop || debugOn) for (let y = 0; y <= mh; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.beginPath(); ctx.moveTo(world.x, sy); ctx.lineTo(world.x + world.w, sy); ctx.stroke(); }
 
     const buildings = frame.buildings || [];
+    /** Run a draw call with a green glow around whatever it paints (the "this is picked" cue for survivors, buildings, trees and rocks). */
+    const glowed = (draw, passes = 2) => { ctx.save(); ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); for (let k = 0; k < passes; k++) draw(); ctx.restore(); };
     const drawBuilding = (b, x, y, layer) => {
       const e = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note(layer, 'building', b.id, e, { x, y, condition: b.condition, ...(b.footprint ? { footprint: { ...b.footprint } } : {}) });
-      if (b.footprint && layer === 'building') { // PA-5: a multi-cell building is drawn across its whole footprint
+      const art = layer === 'building' && buildingArt ? buildingArt.get(b.type, b.condition) : null;
+      if (art) { // painted picture: horizontally centred on the footprint, standing on the bottom edge of its lowest row
+        const pl = buildingPlacement(b); const w = vp.cell * art.cells; const h = w * (art.img.naturalHeight / art.img.naturalWidth);
+        const ax = cellCenter(vp, pl.gx, 0).x - w / 2; const ay = gridToScreen(vp, 0, pl.gy + 1).y - h + vp.cell * 0.04;
+        bldGeo.set(b.id, { b, cx: ax + w / 2, top: ay });
+        if (selected.kind === 'building' && selected.id === b.id) glowed(() => ctx.drawImage(art.img, ax, ay, w, h));
+        ctx.drawImage(art.img, ax, ay, w, h);
+      } else if (b.footprint && layer === 'building') { // PA-5: a multi-cell building is drawn across its whole footprint
         // frame bottom (not the foot pivot) rests on the footprint's bottom edge, so a scaled sprite never hangs below its cells
         const pl = buildingPlacement(b); const at = { x: cellCenter(vp, pl.gx, 0).x, y: gridToScreen(vp, 0, pl.gy + 1).y - (manifest.frame.h - manifest.pivot.y) * k() * pl.size };
+        bldGeo.set(b.id, { b, cx: at.x, top: gridToScreen(vp, 0, buildingRect(b).y1).y - vp.cell * 0.2 });
+        if (selected.kind === 'building' && selected.id === b.id && layer === 'building') glowed(() => { if (!blit(e, 0, at.x, at.y, pl.size)) marker(at.x, at.y); });
         if (!blit(e, 0, at.x, at.y, pl.size)) marker(at.x, at.y);
-      } else if (!blit(e, 0, tileCenterX(x), tileFootY(y))) marker(tileCenterX(x), tileFootY(y));
+      } else {
+        bldGeo.set(b.id, { b, cx: tileCenterX(x), top: tileFootY(y) - vp.cell * 1.1 });
+        if (selected.kind === 'building' && selected.id === b.id && layer === 'building') glowed(() => { if (!blit(e, 0, tileCenterX(x), tileFootY(y))) marker(tileCenterX(x), tileFootY(y)); });
+        if (!blit(e, 0, tileCenterX(x), tileFootY(y))) marker(tileCenterX(x), tileFootY(y));
+      }
       if (b.water?.working) { // reservoir gauge under a working well (presentation only; the amount comes from the projection)
         const gw = vp.cell * 0.7; const gx = tileCenterX(x) - gw / 2; const gy = gridToScreen(vp, x, y + 1).y - vp.cell * 0.1;
         ctx.fillStyle = 'rgba(10,18,28,0.75)'; ctx.fillRect(gx, gy, gw, Math.max(2, vp.cell * 0.08));
@@ -155,14 +170,22 @@ export function mountRenderer(canvas, {
     // 2 fence / settlement boundary (uses authoritative bounds, not just the origin tile). A building standing on the
     //   fence line (the gate) replaces that fence cell, leaving the opening.
     //   PA-4: the piece shown depends on the neighbours on the fence line (straight / corner / end), the building's level and condition.
+    const lateFence = [];
     for (const p of fenceCells(frame)) {
       const b = buildings.find((q) => q.id === p.id);
       const e = resolver.resolveFence({ mask: p.mask, level: p.level, condition: p.condition });
       const whole = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note('fence', 'building', b.id, whole, { x: p.x, y: p.y, condition: b.condition, piece: e.key ?? p.key, mask: p.mask, pieceStep: e.step });
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
-      if (!blit(e.key ? e : whole, 0, cx, fy)) marker(cx, fy);
+      const art = buildingArt ? buildingArt.get(b.type, p.condition ?? b.condition) : null;
+      if (art) { // painted wall piece / gate: the gate is drawn after the whole wall so a neighbouring piece never covers it
+        const w = vp.cell * art.cells; const h = w * (art.img.naturalHeight / art.img.naturalWidth); const ay = gridToScreen(vp, 0, p.y + 1).y - h + vp.cell * 0.08; const picked = selected.kind === 'building' && selected.id === b.id;
+        const draw = () => { if (picked) glowed(() => ctx.drawImage(art.img, cx - w / 2, ay, w, h), 1); ctx.drawImage(art.img, cx - w / 2, ay, w, h); };
+        if (!bldGeo.has(b.id) || ay < bldGeo.get(b.id).top) bldGeo.set(b.id, { b, cx, top: ay }); // a tag over a wall sits on its top end; over the gate, on the gate
+        if (b.type === 'fence') draw(); else lateFence.push(draw);
+      } else if (!blit(e.key ? e : whole, 0, cx, fy)) marker(cx, fy);
     }
+    for (const draw of lateFence) draw();
     // 3 buildings
     for (const b of buildings.filter((q) => !q.bounds)) drawBuilding(b, b.x, b.y, 'building');
     // 3b world labels (names come from definitions via the projection)
@@ -188,9 +211,10 @@ export function mountRenderer(canvas, {
           const w = vp.cell * spec.spriteSize * (art.naturalWidth / (REF_W[n.type] ?? art.naturalWidth)); const h = w * (art.naturalHeight / art.naturalWidth);
           if (picked) { ctx.save(); ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); for (let k = 0; k < 2; k++) ctx.drawImage(art, tileCenterX(n.x) - w / 2, tileFootY(n.y) - h, w, h); ctx.restore(); }
           ctx.drawImage(art, tileCenterX(n.x) - w / 2, tileFootY(n.y) - h, w, h);
-          if (picked) selNode = { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - h };
+          nodeGeo.set(n.id, { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - h });
         } else {
           if (picked) { ctx.save(); ctx.fillStyle = 'rgba(74,222,128,0.35)'; ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); ctx.beginPath(); ctx.ellipse(tileCenterX(n.x), tileFootY(n.y) - vp.cell * 0.4, vp.cell * 0.5, vp.cell * 0.55, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); selNode = { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - vp.cell * spec.spriteSize }; }
+          nodeGeo.set(n.id, { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - vp.cell * spec.spriteSize });
           if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
         }
         continue;
@@ -211,10 +235,13 @@ export function mountRenderer(canvas, {
       const idx = frameIndexAt(e, time, stagger(p.id));
       note('npc', 'npc', p.id, e, { x: p.x, y: p.y, animation: p.animation, direction: p.direction, frameIndex: idx });
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
+      npcGeo.set(p.id, { p, cx, top: fy - vp.cell * 1.3 });
+      if (selected.kind === 'npc' && selected.id === p.id) glowed(() => { if (!blit(e, idx, cx, fy)) marker(cx, fy); }); // the picked survivor glows green
       if (!blit(e, idx, cx, fy)) marker(cx, fy);
       ctx.fillStyle = COLORS.label; ctx.font = `${Math.max(9, t * 0.3)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText(p.name, cx, fy - vp.cell * 0.95);
     }
+    selNode = selected.kind === 'node' ? nodeGeo.get(selected.id) ?? null : null;
     // 5b loot piles (Z4): a small sack with the amount, where a zombie died; no atlas art yet (placeholder drawing from the projection)
     lootList = [];
     for (const p of frame.loot || []) {
@@ -253,30 +280,75 @@ export function mountRenderer(canvas, {
   function selectionRect(frame) {
     return entityRect(frame, selected.kind, selected.id) ?? entityRect(frame, hover.kind, hover.id);
   }
-  /** Name + resource bar floating above the picked tree / rock. The bar's full mark is the most this node has held (or its type's typical amount). */
-  function drawNodeTag() {
-    if (!selNode) return;
-    const { n, cx, top } = selNode;
-    const full = Math.max(nodePeak.get(n.id) ?? 0, n.capacity ?? 0, n.amount ?? 0, 1); const frac = Math.max(0, Math.min(1, (n.amount ?? 0) / full));
-    const fs = Math.max(10, vp.cell * 0.34); const w = Math.max(92, vp.cell * 3); const h = fs * 2.9; const x = cx - w / 2; const y = Math.max(world_top() + 2, top - h - 6);
-    ctx.save();
-    ctx.fillStyle = 'rgba(8,20,12,0.86)'; ctx.strokeStyle = COLORS.glow; ctx.lineWidth = 1.5;
+  /** The little label card used by every hover / pick tag: bold title (left), optional right text, optional rows. Returns the card's box. */
+  function card(cx, top, w, h) {
+    const x = Math.max(vp.ox + 2, Math.min(cx - w / 2, vp.ox + worldW - w - 2)); const y = Math.max(world_top() + 2, top - h - 6);
+    ctx.fillStyle = 'rgba(8,20,12,0.88)'; ctx.strokeStyle = COLORS.glow; ctx.lineWidth = 1.5;
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, 7); else ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
+    return { x, y };
+  }
+  /** Name + resource bar (+ who is working it, + a GATHER button when picked) floating above a tree / rock. The bar's full mark is the most this node has held
+   *  (or its type's typical amount). The button is only drawn here; the screen asks `pickTag(x, y)` whether a click landed on it (it inserts code, it never runs it). */
+  function drawNodeTag(geo, withButton) {
+    if (!geo) return;
+    const { n, cx, top } = geo;
+    const full = Math.max(nodePeak.get(n.id) ?? 0, n.capacity ?? 0, n.amount ?? 0, 1); const frac = Math.max(0, Math.min(1, (n.amount ?? 0) / full));
+    const has = (n.amount ?? 0) > 0; const crew = n.workers ?? []; const btn = withButton && has;
+    const fs = Math.max(10, vp.cell * 0.34); const w = Math.max(104, vp.cell * 3.3); const btnH = fs * 1.75;
+    const h = fs * 2.9 + (crew.length ? fs * 1.35 : 0) + (btn ? btnH + 6 : 0);
+    const { x, y } = card(cx, top, w, h);
+    ctx.save();
     ctx.fillStyle = '#eafbee'; ctx.font = `700 ${fs}px system-ui`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(n.name ?? n.type, x + 8, y + 5);
-    ctx.font = `${fs * 0.9}px system-ui`; ctx.textAlign = 'right'; ctx.fillStyle = n.amount > 0 ? '#bbf7d0' : '#fca5a5';
-    ctx.fillText(n.amount > 0 ? `${n.amount} ${n.resource ?? ''}`.trim() : 'depleted', x + w - 8, y + 5 + fs * 0.05);
-    const bx = x + 8; const by = y + h - fs * 0.95 - 5; const bw = w - 16; const bh = fs * 0.62;
+    ctx.font = `${fs * 0.9}px system-ui`; ctx.textAlign = 'right'; ctx.fillStyle = has ? '#bbf7d0' : '#fca5a5';
+    ctx.fillText(has ? `${n.amount} ${n.resource ?? ''}`.trim() : 'depleted', x + w - 8, y + 5 + fs * 0.05);
+    const bx = x + 8; const by = y + 5 + fs * 1.35; const bw = w - 16; const bh = fs * 0.62;
     ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(bx, by, bw, bh);
     ctx.fillStyle = frac > 0.35 ? '#4ade80' : frac > 0 ? '#fbbf24' : '#f87171'; ctx.fillRect(bx, by, bw * frac, bh);
     ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    if (crew.length) { // who is working this node right now, e.g. "Mara is gathering"
+      const who = crew.length > 2 ? `${crew[0]}, ${crew[1]} +${crew.length - 2}` : crew.join(' & ');
+      ctx.font = `italic ${fs * 0.9}px system-ui`; ctx.textAlign = 'left'; ctx.fillStyle = '#86efac';
+      ctx.fillText(`${who} ${crew.length > 1 ? 'are' : 'is'} gathering`, bx, by + bh + 5);
+    }
+    if (btn) { // the GATHER button: sends a survivor for this resource (the screen turns a click on it into the gather command)
+      const gy = y + h - btnH - 6; const label = `⛏ Gather ${n.resource ?? ''}`.trim();
+      ctx.fillStyle = '#22c55e'; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, gy, bw, btnH, 5); else ctx.rect(bx, gy, bw, btnH); ctx.fill();
+      ctx.fillStyle = '#052e16'; ctx.font = `700 ${fs * 0.95}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, bx + bw / 2, gy + btnH / 2 + 0.5);
+      tagBtn = { x: bx, y: gy, w: bw, h: btnH, id: n.id, resource: n.resource ?? null };
+    }
     ctx.restore();
+  }
+  /** Two-line hover tag for a survivor or a building: bold name, then a coloured status line. */
+  function drawPill(geo, title, sub, subColor) {
+    if (!geo) return;
+    const fs = Math.max(10, vp.cell * 0.32); ctx.save(); ctx.font = `700 ${fs}px system-ui`;
+    const wid = (t) => ctx.measureText?.(t)?.width ?? t.length * fs * 0.58; const w = Math.max(wid(title), wid(sub) * 0.92) + 18; const h = fs * 2.7;
+    const { x, y } = card(geo.cx, geo.top, w, h);
+    ctx.fillStyle = '#eafbee'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(title, x + 9, y + 5);
+    ctx.font = `${fs * 0.92}px system-ui`; ctx.fillStyle = subColor; ctx.fillText(sub, x + 9, y + 5 + fs * 1.25);
+    ctx.restore();
+  }
+  /** The hover tag: what is under the pointer, so nothing has to be clicked just to read its name and state. */
+  function drawHoverTag(frame) {
+    if (!hover.id || (selected.kind === hover.kind && selected.id === hover.id && hover.kind === 'node')) return; // a picked node already carries its tag
+    if (hover.kind === 'node') return drawNodeTag(nodeGeo.get(hover.id), false);
+    if (hover.kind === 'npc') { const g = npcGeo.get(hover.id); return drawPill(g, g?.p.name ?? '', g?.p.doing ?? 'idle', g?.p.doing ? '#86efac' : '#cbd5c8'); }
+    if (hover.kind === 'building') {
+      const g = bldGeo.get(hover.id); if (!g) return; const b = g.b;
+      const cond = { repaired: ['working', '#86efac'], damaged: ['damaged', '#fbbf24'], ruined: ['ruined', '#f87171'] }[b.condition] ?? [String(b.condition ?? ''), '#cbd5c8'];
+      return drawPill(g, `${b.name ?? b.type}${b.level > 1 ? ` · Lv ${b.level}` : ''}`, cond[0], cond[1]);
+    }
   }
   const world_top = () => vp.oy;
   function drawSelection(frame) {
-    drawNodeTag();
-    const selectedRect = selected.id && selected.kind !== 'node' ? entityRect(frame, selected.kind, selected.id) : null; // nodes get the green glow + tag instead of the dashed box
-    const hoverRect = hover.id && (!selected.id || selected.id !== hover.id) ? entityRect(frame, hover.kind, hover.id) : null;
+    tagBtn = null;
+    drawHoverTag(frame);
+    drawNodeTag(selNode, true); // a picked tree / rock: tag with the GATHER button
+    // survivors, buildings and nodes glow when picked (drawn with the sprites); the dashed box stays for zombies and for a building's footprint
+    const selectedRect = (selected.kind === 'zombie' || selected.kind === 'building') && selected.id ? entityRect(frame, selected.kind, selected.id) : null;
+    const hoverRect = hover.kind === 'zombie' && hover.id && (!selected.id || selected.id !== hover.id) ? entityRect(frame, hover.kind, hover.id) : null;
     if (!selectedRect && !hoverRect) return;
     ctx.setLineDash?.([6, 5]);
     if (selectedRect) {
@@ -332,8 +404,10 @@ export function mountRenderer(canvas, {
     pick, screenToTile,
     lookup,
     entityFor(kind, id, frame) { return lookup(kind, id, frame); },
+    /** The picked node's GATHER button, if the click (canvas pixels) landed on it: { kind: 'node-gather', id, resource } or null. */
+    pickTag: (px, py) => (tagBtn && px >= tagBtn.x && px <= tagBtn.x + tagBtn.w && py >= tagBtn.y && py <= tagBtn.y + tagBtn.h ? { kind: 'node-gather', id: tagBtn.id, resource: tagBtn.resource } : null),
     select(kind, id) { selected = { kind, id }; },
-    clearSelection() { selected = { kind: null, id: null }; },
+    clearSelection() { selected = { kind: null, id: null }; tagBtn = null; },
     getSelected: () => ({ ...selected }),
     setHover(kind, id) { hover = { kind, id }; },
     clearHover() { hover = { kind: null, id: null }; },

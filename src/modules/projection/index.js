@@ -147,13 +147,33 @@ function terrainOf(state, defs) {
 }
 
 /** What the renderer may read: positions, directions, semantic animation states, building asset keys. */
+/** Short present-tense line for what a survivor is doing now, or null when idle. Read from the action record only. */
+function doingFor(state, s) {
+  const a = currentAction(state, s.id); if (!a) return null;
+  const r = a.params?.resource;
+  const t = { gather: r ? `gathering ${r}` : 'gathering', deposit: 'depositing', repair: 'repairing', upgrade: 'upgrading', rest: 'resting', eat: 'eating', drink: 'drinking', move: 'walking', moveTo: 'walking', farm: 'farming', cook: 'cooking', craft: 'crafting', scavenge: 'scavenging' }[a.actionType];
+  return t ?? String(a.actionType ?? '').toLowerCase() ?? null;
+}
+/** node id -> names of the survivors whose running gather job has reserved from it (the ledger records the account the job draws on). */
+function workersByNode(state) {
+  const by = new Map();
+  for (const r of Object.values(state.reservations ?? {})) {
+    if (!r.account?.startsWith('node.')) continue;
+    const act = state.actions[r.owner] ?? Object.values(state.actions).find((q) => q.reservationIds?.includes(r.id));
+    const surv = state.survivors[act?.actorId] ?? state.survivors[r.owner]; if (!surv) continue;
+    const id = r.account.slice(5); const list = by.get(id) ?? []; if (!list.includes(surv.identity.name)) list.push(surv.identity.name); by.set(id, list);
+  }
+  return by;
+}
 export function renderProjection(state, defs) {
+  const workers = workersByNode(state);
   return deepFreeze({
     tick: state.tick, map: { ...state.map },
     environment: (({ time, weather }) => ({ isNight: time.isNight, hour: time.hour, weather }))(environmentView(defs, state.tick)),
     npcs: Object.values(state.survivors).filter((s) => s.status !== 'away').map((s) => ({
       id: s.id, name: s.identity.name, x: s.position.x, y: s.position.y, direction: s.direction,
       animation: animationFor(s, currentAction(state, s.id)), status: s.status,
+      doing: doingFor(state, s), // one short line for the map tag ("gathering wood", "resting", ...); presentation only
     })),
     buildings: Object.values(state.buildings).map((b) => {
       const w = waterInfoFor(state, defs, b);
@@ -168,7 +188,7 @@ export function renderProjection(state, defs) {
     terrain: terrainOf(state, defs),
     nodes: Object.values(state.nodes).map((n) => {
       const left = total(state, nodeKey(n.id));
-      return { id: n.id, type: n.type, name: defs.nodeTypes?.[n.type]?.name ?? n.type, resource: n.resource ?? defs.nodeTypes?.[n.type]?.yields ?? null, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left, capacity: defs.nodeTypes?.[n.type]?.amount ?? 0 }; // capacity = the type's typical amount; the renderer shows a worn look from it
+      return { id: n.id, type: n.type, workers: workers.get(n.id) ?? [], name: defs.nodeTypes?.[n.type]?.name ?? n.type, resource: n.resource ?? defs.nodeTypes?.[n.type]?.yields ?? null, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left, capacity: defs.nodeTypes?.[n.type]?.amount ?? 0 }; // capacity = the type's typical amount; the renderer shows a worn look from it
     }),
     stock: Object.fromEntries(Object.keys(defs.items).map((i) => [i, total(state, stockKey(i))])),
     zombies: zombieProjection(state, defs),
