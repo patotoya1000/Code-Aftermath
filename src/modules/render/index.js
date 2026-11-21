@@ -24,7 +24,7 @@ export function perimeterCells(bounds) {
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };
 
 export function mountRenderer(canvas, {
-  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
+  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, backdropArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
@@ -105,23 +105,24 @@ export function mountRenderer(canvas, {
     ctx.fillStyle = COLORS.terrain; ctx.fillRect(0, 0, rect.width, rect.height);
     const terrain = frame.terrain || { zones: [], paths: [] };
     // 1a ground tiles (PA-2): the ground grid is derived from the projection; only visible cells are drawn, edges cover whole pixels
-    terrainList = [];
-    const ground = groundGrid(frame); const vis = visibleCells(vp);
-    for (let y = vis.y1; y <= vis.y2; y++) for (let x = vis.x1; x <= vis.x2; x++) {
+    terrainList = []; pathList = [];
+    const backdrop = terrain.backdrop && backdropArt ? backdropArt.get(terrain.backdrop) : null; // a painted picture replaces the tiles, zones, road pieces and grid
+    const ground = backdrop ? [] : groundGrid(frame); const vis = visibleCells(vp);
+    if (backdrop) ctx.drawImage(backdrop, world.x, world.y, world.w, world.h);
+    else for (let y = vis.y1; y <= vis.y2; y++) for (let x = vis.x1; x <= vis.x2; x++) {
       const e = resolver.resolveTerrain(tileKeyAt(ground, x, y)); const f = e.frames[0];
       terrainList.push({ x, y, ground: ground[y][x], key: e.key, step: e.step });
       if (!f) continue; // nothing resolved: the flat terrain colour underneath stays
       const r = cellRectCovering(vp, x, y);
       ctx.drawImage(atlas, f.x, f.y, f.w, f.h, r.x, r.y, r.w, r.h);
     }
-    for (const z of terrain.zones) { // presentation-only ground areas (the forest)
+    for (const z of backdrop ? [] : terrain.zones) { // presentation-only ground areas (the forest)
       const r = cellRect(vp, z.x1, z.y1, z.x2 - z.x1 + 1, z.y2 - z.y1 + 1);
       ctx.fillStyle = COLORS.zone; ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.strokeStyle = COLORS.zoneEdge; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     }
     // 1b road pieces (PA-3): shape chosen from neighbouring road cells / the gate
-    pathList = [];
-    for (const p of pathCells(frame)) {
+    for (const p of backdrop ? [] : pathCells(frame)) {
       if (p.x < vis.x1 || p.x > vis.x2 || p.y < vis.y1 || p.y > vis.y2) continue;
       const e = resolver.resolvePath(p.key); const f = e.frames[0];
       pathList.push({ x: p.x, y: p.y, mask: p.mask, key: e.key, requested: p.key, step: e.step });
@@ -130,8 +131,8 @@ export function mountRenderer(canvas, {
       else { ctx.fillStyle = COLORS.path; ctx.fillRect(r.x + r.w * 0.08, r.y + r.h * 0.2, r.w * 0.84, r.h * 0.6); }
     }
     ctx.strokeStyle = COLORS.grid; ctx.lineWidth = 1;
-    for (let x = 0; x <= mw; x++) { const sx = gridToScreen(vp, x, 0).x; ctx.beginPath(); ctx.moveTo(sx, world.y); ctx.lineTo(sx, world.y + world.h); ctx.stroke(); }
-    for (let y = 0; y <= mh; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.beginPath(); ctx.moveTo(world.x, sy); ctx.lineTo(world.x + world.w, sy); ctx.stroke(); }
+    if (!backdrop || debugOn) for (let x = 0; x <= mw; x++) { const sx = gridToScreen(vp, x, 0).x; ctx.beginPath(); ctx.moveTo(sx, world.y); ctx.lineTo(sx, world.y + world.h); ctx.stroke(); }
+    if (!backdrop || debugOn) for (let y = 0; y <= mh; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.beginPath(); ctx.moveTo(world.x, sy); ctx.lineTo(world.x + world.w, sy); ctx.stroke(); }
 
     const buildings = frame.buildings || [];
     const drawBuilding = (b, x, y, layer) => {

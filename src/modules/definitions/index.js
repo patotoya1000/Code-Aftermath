@@ -65,6 +65,8 @@ function validateWorldLayout(id, s, d, need) {
   const t = s.terrain ?? {};
   for (const z of t.zones ?? []) need(isTile(s, z.x1, z.y1) && isTile(s, z.x2, z.y2) && z.x1 <= z.x2 && z.y1 <= z.y2 && typeof z.label === 'string', `scenario ${id}: zone ${z.id} needs a label and a rectangle inside the map`);
   for (const p of t.paths ?? []) need(p.cells?.length > 0 && p.cells.every(([x, y]) => isTile(s, x, y)), `scenario ${id}: path ${p.id} needs cells inside the map`);
+  if (t.backdrop !== undefined) need(typeof t.backdrop === 'string' && t.backdrop.length > 0, `scenario ${id}: terrain.backdrop must be a picture id`);
+  if (t.roadY !== undefined) need(Number.isFinite(t.roadY) && t.roadY >= 0 && t.roadY <= s.map.height, `scenario ${id}: terrain.roadY must be a row position inside the map`);
 }
 
 export function validateDefinitions(d) {

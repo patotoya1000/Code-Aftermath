@@ -16,7 +16,7 @@ const html = read('../index.html'); const css = read('../src/app/hud/hud.css'); 
 const DAY = 240;
 // the real default schedules (raids ON): seed 1 has its first raid on day 6 (dusk is at tick 1320)
 const live = createDefinitions();
-const liveSim = (seed = 1) => createSimulation({ defs: live, state: createInitialState({ defs: live, scenarioId: 'stage1_long', seed }) });
+const liveSim = (seed = 1) => createSimulation({ defs: live, state: createInitialState({ defs: live, scenarioId: 'stage1_outpost', seed }) });
 const at = (sim, tick) => { sim.step(tick - sim.tick); return sim.studentView(); };
 
 test('three screens in west-to-east order, numbered MAP 1..3', () => {
@@ -118,7 +118,7 @@ test('styles: arrows hug the left and right screen edges, panes slide, the east 
 });
 
 test('wiring: the live game starts on the 40x16 line-wall map, arrows and keys switch screens, no zone code is left', () => {
-  assert.ok(main.includes("scenarioId: 'stage1_long'"));
+  assert.ok(main.includes("scenarioId: 'stage1_outpost'"));
   assert.ok(main.includes("'ArrowLeft'") && main.includes('stepScreen') && main.includes('bindScreens();'));
   assert.ok(!/zonesFor|goZone|stepZone|paintZones/.test(main));
 });

@@ -224,3 +224,11 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - A click on a map object only opens a card and its buttons insert code (same rule as every UI button). There is NO "start a raid" command: waves are scheduled and start by themselves at dusk, so the raid road is a read-only forecast. Adding a player-triggered raid would be a new simulation rule and needs its own design decision.
 - The red pulse on the east arrow is derived from the view (`alertLevel`: wave active = red, raid or boss due tonight within 60 ticks of dusk = amber).
 - `stage1_line` (24x16) stays for its tests; `stage1_long` is the live default. Lessons keep `stage1` / `stage1_tired` / `stage1_weary`.
+
+## Painted outpost backdrop (2026-11-21)
+
+- The owner supplied a painted 2.5:1 picture and a guideline sketch: blue = the wall line, red = the gate, green A = the main building, green dot = the tower beside the wall (more towers later), yellow = four bands of trees and rocks, white arrows = left/right navigation at the road ends.
+- The picture is exactly the 40x16 grid's aspect, so it is stretched over the map rectangle and one cell is the same share of the picture everywhere. It replaces the tiles, zones, road pieces and grid (the grid returns with `?debug`). Until it loads, the tiles are drawn.
+- New scenario `stage1_outpost` instead of editing `stage1_long`, so the existing tests and saves keep their layout. Wall x = 9, gate (9,6) (the road's centre line is y = 6.7). Buildings stay off the road rows 6-7; every building keeps its stage-1 distance to the wall. Free tower spots for later: (8,9), (8,11), (8,0).
+- Node count (about 33 trees/rocks) is data in `BANDS` in `data/world.js`; thin them for a scarcer game.
+

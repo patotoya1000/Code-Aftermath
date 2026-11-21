@@ -49,8 +49,8 @@ test('the camera can look at every zone centre, and moving it never changes the 
   assert.equal(sim.stateHash(), hash);
 });
 
-test('markup: the zone bar and its buttons exist, nothing is disabled, and the styles are defined', () => {
-  for (const id of ['zone-bar', 'zone-west', 'zone-town', 'zone-outpost', 'zone-front', 'zone-east']) assert.ok(html.includes(`id="${id}"`), id);
-  assert.ok(!/id="zone-[a-z]+"[^>]*disabled/.test(html));
-  assert.ok(css.includes('.zone-bar'));
+// the old zone bar was replaced by the screen-edge arrows + badge (2026-11-20); this guards the replacement markup
+test('markup: the screen-edge arrows and the map badge exist and the styles are defined', () => {
+  for (const id of ['screen-west', 'screen-east', 'screen-badge']) assert.ok(html.includes(`id="${id}"`), id);
+  assert.ok(css.includes('.screen-arrow'));
 });

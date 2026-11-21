@@ -1,2 +1,0 @@
-Delete from your project:
-docs/game/18-grid-pixel-art-asset-integration.md

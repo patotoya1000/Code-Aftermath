@@ -7,7 +7,7 @@
 // decide how fast wall-clock time becomes simulation ticks; they never change a gameplay rule.
 
 import { mountRenderer } from '../modules/render/index.js';
-import { placeholderManifestFor, createNodeArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
+import { placeholderManifestFor, createNodeArt, createBackdropArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
@@ -45,7 +45,7 @@ async function init() {
   // IndexedDB can be missing or blocked (some private-browsing modes); then saves live in memory for this page only.
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
-  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), backdropArt: createBackdropArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
   hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected, getCommands: () => app.codebook.entries.filter((e) => e.kind === 'command' && e.example) });
   await startScenario();
   renderHints();
@@ -56,7 +56,7 @@ async function init() {
 }
 
 async function startScenario() {
-  const { sim } = await app.createFreeSim({ scenarioId: 'stage1_long', seed: 1 }); // the 40x16 line-wall map (docs/game/21): town behind the wall, the front beyond it
+  const { sim } = await app.createFreeSim({ scenarioId: 'stage1_outpost', seed: 1 }); // the 40x16 painted outpost: wall + gate near the left, the outside (trees, rocks, wave walk-in) to the right
   freeSim = sim;
   clock = app.createClock(sim);
   hooks = app.createHooks(sim);
@@ -76,10 +76,23 @@ function loop(now) {
     const ran = clock.update(dt);
     hooks?.pump().catch(() => {}); // learner event hooks run in the sandbox Worker; commands arrive a moment later
     renderer.draw(currentProjection());
+    placeEdgeArrows(currentProjection());
     hud?.frame(currentProjection(), now);
     if (ran > 0 && now - lastPanelRefresh >= 250) { lastPanelRefresh = now; refreshUI(); }
   }
   requestAnimationFrame(loop);
+}
+
+// The screen-edge arrows sit on the road line of the painted map (terrain.roadY, in cell rows), so they read as the road leaving the screen.
+// Presentation only: it reads the renderer's viewport and moves two buttons; scenarios without a roadY keep the centred arrows from the CSS.
+let arrowTop = null;
+function placeEdgeArrows(proj) {
+  const roadY = proj.terrain?.roadY; const vp = renderer.viewport; const canvas = $('map-canvas'); const region = $('world-region');
+  let top = null;
+  if (Number.isFinite(roadY) && vp?.cell > 0 && canvas && region) top = Math.round(canvas.getBoundingClientRect().top - region.getBoundingClientRect().top + vp.oy + roadY * vp.cell);
+  if (top === arrowTop) return;
+  arrowTop = top;
+  for (const id of ['screen-west', 'screen-east']) { const el = $(id); if (el) el.style.top = top === null ? '' : `${top}px`; }
 }
 
 // The render projection is deep-frozen on every call; rebuild it only when the world actually changed.

@@ -50,9 +50,9 @@ check(shell.y >= bar.y + bar.height - 1, 'game shell starts below the header (no
 check(box.width > 400, 'map uses the full world column, not a narrow strip');
 
 // I2: the gate is a real, selectable world object, and the code hint the UI shows for it actually runs
-const t = Math.min(box.width / 40, box.height / 16); // the live map is the 40x16 line-wall map (stage1_long)
+const t = Math.min(box.width / 40, box.height / 16); // the live map is the 40x16 painted outpost (stage1_outpost)
 const ox = box.x + (box.width - 40 * t) / 2; const oy = box.y + (box.height - 16 * t) / 2;
-await page.mouse.click(ox + 22.5 * t, oy + 7.5 * t); // gate tile (22, 7), in the line wall
+await page.mouse.click(ox + 9.5 * t, oy + 6.5 * t); // gate tile (9, 6), in the line wall
 check((await text('#inspector-card')).includes('Gate'), 'clicking the gate selects it');
 check((await text('#inspector-card')).includes('survivor.repair(gate)'), 'inspector hint names the gate by id');
 await page.click('#btn-code');

@@ -237,4 +237,36 @@ stage1Long.terrain = {
 };
 stage1Long.nodes.push({ id: 'tree_4', type: 'tree', x: 31, y: 3 }, { id: 'tree_5', type: 'tree', x: 33, y: 9 });
 
-export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary, stage1_line: stage1Line, stage1_long: stage1Long };
+// The OUTPOST map (painted backdrop assets/backdrops/outpost.jpg, laid out from the author's guideline sketch): the same 40x16 grid, but the wall is the
+// line at x = 9 (about a quarter of the way across) with the gate at (9,6) on the road, so the settlement is the narrow strip behind it and the rest of the
+// map is the outside. Inside (x 0-8, the road rows 6-7 stay clear): hq top-left, tower_1 beside the wall, the other buildings north and south of the road.
+// Outside: four bands of trees and rocks that follow the sketch's yellow lines. The road itself is part of the picture (no `paths`); the screen-edge
+// arrows sit on its centre line (`roadY`). Every building keeps its stage-1 distance to the wall (tower 1, storage 2, tank 1); only the room changes.
+const outpost = structuredClone(stage1);
+outpost.name = 'Stage 1 — The Outpost (painted map)';
+outpost.map = { width: 40, height: 16 };
+const place = (id, x, y) => { const b = outpost.buildings.find((q) => q.id === id); b.x = x; b.y = y; };
+const WALL_X = 9;
+const outFence = outpost.buildings.find((b) => b.id === 'fence');
+outFence.bounds = { x1: WALL_X, y1: 0, x2: WALL_X, y2: 15, shape: 'line' };
+outFence.x = WALL_X; outFence.y = 12;
+for (const [id, x, y] of [
+  ['hq', 5, 3], ['tower_1', 8, 3], ['storage_1', 7, 4], ['gate', WALL_X, 6],      // north of the road: hq (3x3 above its door), tower and storage by the wall
+  ['kitchen', 1, 1], ['field_1', 1, 4], ['tent_1', 3, 4],
+  ['workshop_1', 1, 10], ['generator_1', 4, 10], ['battery_1', 1, 13], ['solar_1', 4, 13], // south of the road
+  ['well', 6, 14], ['tank', 8, 13],                                               // tank stays 2 east / 1 north of the well (siphon reach)
+]) place(id, x, y);
+outpost.survivors[0].x = 5; outpost.survivors[0].y = 5;
+outpost.terrain = { zones: [], paths: [], backdrop: 'outpost', roadY: 6.7 };
+// Trees and rocks along the sketch's four yellow bands, right of the wall (every third node is a rock). Edit these rows to grow, thin or move a band.
+const BANDS = [
+  [[14, 1], [17, 1], [20, 1], [23, 1], [25, 2], [29, 1], [33, 1], [36, 1]],
+  [[14, 3], [17, 3], [20, 4], [22, 4], [25, 4], [28, 3], [31, 3], [34, 3], [37, 4]],
+  [[15, 9], [18, 8], [21, 8], [24, 8], [27, 8], [30, 8], [33, 8], [36, 8]],
+  [[14, 12], [17, 12], [20, 11], [23, 11], [26, 12], [29, 12], [32, 12], [35, 11]],
+];
+outpost.nodes = [];
+{ let t = 0; let r = 0; let i = 0;
+  for (const [x, y] of BANDS.flat()) outpost.nodes.push(i++ % 3 === 2 ? { id: `rock_${++r}`, type: 'rock', x, y } : { id: `tree_${++t}`, type: 'tree', x, y }); }
+
+export const scenarios = { stage1, stage1_tired: stage1Tired, stage1_weary: stage1Weary, stage1_line: stage1Line, stage1_long: stage1Long, stage1_outpost: outpost };

@@ -140,6 +140,9 @@ function terrainOf(state, defs) {
   return {
     zones: (t.zones ?? []).map((z) => ({ id: z.id, label: z.label, x1: z.x1, y1: z.y1, x2: z.x2, y2: z.y2 })),
     paths: (t.paths ?? []).map((p) => ({ id: p.id, cells: p.cells.map(([x, y]) => [x, y]) })),
+    // A painted backdrop replaces the tiled ground (assets/backdrops); `roadY` = the road's centre line in cell units, where the screen-edge arrows sit.
+    backdrop: t.backdrop ?? null,
+    roadY: Number.isFinite(t.roadY) ? t.roadY : null,
   };
 }
 
