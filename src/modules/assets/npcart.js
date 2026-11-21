@@ -59,22 +59,40 @@ export const walkFrameAt = (timeMs, offsetMs = 0) => Math.floor(((timeMs + offse
 
 /**
  * Lazy image cache, same shape as createNodeArt. `get(key)` returns { img, ax } (ax = foot anchor in picture pixels) once the picture has
- * loaded, else null (not loaded yet, missing file, no DOM) so the renderer keeps its placeholder instead of drawing nothing.
- * `sizes` = { key: { ax } } (default NPC_ANCHORS); a key without an entry is anchored at the picture's centre.
+ * loaded, else null (not loaded yet, missing file, no DOM). `sizes` = { key: { ax } } (default NPC_ANCHORS); a key without an entry is anchored at the picture's centre.
+ *
+ * The renderer must never show the placeholder (mock) survivor while the painted one is only loading, so:
+ *  - `preload()` starts loading every pose at once (the renderer calls it on mount), instead of each pose waiting for its first use;
+ *  - `pending()` says "some picture is still on its way" (true for at most `loadTimeoutMs` after the first request): the renderer then draws nothing
+ *    rather than the mock; once everything has loaded or failed (or the time is up) a survivor with no picture at all gets the placeholder again.
  */
-export function createNpcArt({ baseUrl = NPC_ART_DIR, loadImage = null, sizes = null } = {}) {
+export function createNpcArt({ baseUrl = NPC_ART_DIR, loadImage = null, sizes = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), loadTimeoutMs = 4000 } = {}) {
   const cache = new Map();
   const make = loadImage ?? (typeof Image === 'undefined' ? null : (url) => { const img = new Image(); img.src = url; return img; });
   const isReady = (img) => Boolean(img && img.complete !== false && (img.naturalWidth ?? img.width) > 0);
   const table = sizes ?? NPC_ANCHORS;
+  let firstAt = null;
+  const entry = (key) => {
+    let e = cache.get(key);
+    if (!e) {
+      if (firstAt === null) firstAt = now();
+      e = { img: make(`${baseUrl}${key}.png`), failed: false };
+      try { e.img.onerror = () => { e.failed = true; }; } catch { /* non-DOM image stand-in */ }
+      cache.set(key, e);
+    }
+    return e;
+  };
   return {
     get(key) {
       if (!key || !make) return null;
-      let e = cache.get(key);
-      if (!e) { e = { img: make(`${baseUrl}${key}.png`), failed: false }; try { e.img.onerror = () => { e.failed = true; }; } catch { /* non-DOM image stand-in */ } cache.set(key, e); }
+      const e = entry(key);
       if (e.failed || !isReady(e.img)) return null;
       const w = e.img.naturalWidth ?? e.img.width;
       return { img: e.img, ax: table?.[key]?.ax ?? w / 2 };
     },
+    /** Start loading every pose now (default: all of NPC_POSES, idle pictures first), so a pose is ready before its first use. */
+    preload(keys = NPC_POSES) { if (!make) return 0; const order = [...keys].sort((a, b) => Number(b.startsWith('idle')) - Number(a.startsWith('idle'))); for (const k of order) entry(k); return order.length; },
+    /** True while some requested picture is still loading (and the timeout has not run out). */
+    pending() { if (!make || firstAt === null || now() - firstAt >= loadTimeoutMs) return false; for (const e of cache.values()) if (!e.failed && !isReady(e.img)) return true; return false; },
   };
 }

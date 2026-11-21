@@ -231,6 +231,8 @@ body::before {
 }
 .equip-slot .slot-label { font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); display:block; margin-bottom:4px; font-weight:700; }
 .equip-slot .slot-val { font-size:12px; font-weight:600; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.item-icon { width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:6px; image-rendering:auto; }
+.equip-slot .item-icon { width:28px; height:28px; display:block; margin:0 0 4px 0; }
 .equip-slot.empty .slot-val { color:var(--muted); font-style:italic; }
 
 /* CARRY LOAD */

@@ -7,7 +7,7 @@ import { N, E, S, W, pathKeyForMask } from './terrain.js';
 
 /** `footprint` = cells the object owns (w×h from its anchor cell, top-left). `spriteSize` = sprite size as a multiple of the cell. */
 export const OBJECT_SPECS = Object.freeze({
-  tree: Object.freeze({ footprint: Object.freeze({ w: 1, h: 1 }), spriteSize: 1.5 }),
+  tree: Object.freeze({ footprint: Object.freeze({ w: 1, h: 1 }), spriteSize: 1.8 }),
   rock: Object.freeze({ footprint: Object.freeze({ w: 1, h: 1 }), spriteSize: 1 }),
 });
 const DEFAULT_OBJECT = OBJECT_SPECS.rock;

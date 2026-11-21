@@ -2,10 +2,11 @@ import { DIRECTIONS } from '../../kernel/index.js';
 import { GROUND_VARIANTS, terrainKey, paintTerrainTile, PATH_KEYS, paintPathTile } from './terrain.js';
 
 import { paintFencePiece, fencePieceKey } from './objects.js';
-export { NODE_ART_DIR, REF_W, WORN_BELOW, NODE_FAMILIES, nodeStage, nodeSpriteKey, createNodeArt } from './nodeart.js';
+export { NODE_ART_DIR, REF_W, WORN_BELOW, NODE_FAMILIES, TREE_FAMILIES, NODE_VARIANTS, nodeStage, nodeSpriteKey, createNodeArt } from './nodeart.js';
 export { NPC_ART_DIR, NPC_REF_H, NPC_CELLS, NPC_POSES, NPC_ANCHORS, VIEW_OF, npcPose, toolPoseFor, walkFrameAt, createNpcArt } from './npcart.js';
 export { BUILDING_ART_DIR, BUILDING_ART, ART_CONDITIONS, createBuildingArt } from './buildingart.js';
 export { BACKDROP_DIR, BACKDROP_FILES, createBackdropArt } from './backdrops.js';
+export { ICON_DIR, ITEM_ICONS, ICON_FILES, hasIcon, iconUrl } from './icons.js';
 export { OBJECT_SPECS, objectSpec, footprintCells, fenceCells, fencePieceKey, buildingRect, buildingCells, buildingPlacement } from './objects.js';
 export { GROUND_KINDS, GROUND_VARIANTS, terrainKey, tileVariant, groundGrid, tileKeyAt, pathKeyForMask, pathCells, PATH_KEYS } from './terrain.js';
 
@@ -60,7 +61,7 @@ export function buildPlaceholderManifest({ buildings = {}, nodes = {} } = {}) {
     for (const action of ZOMBIE_ACTIONS) {
       const n = ZOMBIE_FRAME_COUNT[action];
       const list = [];
-      for (let i = 0; i < n; i++) { const k = `${zombieKey(action, dir)}_${i}`; add(k, { kind: 'npc', action, dir, i }); list.push(k); }
+      for (let i = 0; i < n; i++) { const k = `${zombieKey(action, dir)}_${i}`; add(k, { kind: 'npc', action, dir, i, zombie: true }); list.push(k); }
       animations[zombieKey(action, dir)] = { frames: list, fps: ZOMBIE_FPS[action] ?? 0 };
     }
   }
@@ -211,7 +212,7 @@ export function frameIndexAt(resolved, timeMs, offsetMs = 0) {
 const DIR_VEC = { UP: [0, -1], UP_RIGHT: [1, -1], RIGHT: [1, 0], DOWN_RIGHT: [1, 1], DOWN: [0, 1], DOWN_LEFT: [-1, 1], LEFT: [-1, 0], UP_LEFT: [-1, -1] };
 const COND_TINT = { ruined: '#8a3b36', damaged: '#b8893a', repaired: '#5f8a5a' };
 
-function paintNpc(c, ox, oy, { action, dir, i }) {
+function paintNpc(c, ox, oy, { action, dir, i, zombie = false }) {
   const [dx, dy] = DIR_VEC[dir.toUpperCase?.() ?? dir] ?? [0, 1];
   const cx = ox + PIVOT.x; const foot = oy + PIVOT.y;
   c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(cx, foot, 8, 3, 0, 0, Math.PI * 2); c.fill();
@@ -226,8 +227,8 @@ function paintNpc(c, ox, oy, { action, dir, i }) {
   const bob = action === 'walk' ? (i === 0 ? -1 : 1) : 0;
   const lower = action === 'rest' ? 4 : 0;
   const hurt = action === 'hurt';
-  const bodyTint = hurt ? '#d77a64' : '#d99a4e';
-  const skinTint = hurt ? '#f5b5a7' : '#f0c48a';
+  const bodyTint = zombie ? (hurt ? '#a35f4e' : '#5f7a4e') : hurt ? '#d77a64' : '#d99a4e'; // a placeholder zombie is grey-green, so it is never mistaken for a survivor
+  const skinTint = zombie ? (hurt ? '#c79a8c' : '#9db586') : hurt ? '#f5b5a7' : '#f0c48a';
   const stance = action === 'attack' ? 2 : 0;
 
   c.fillStyle = bodyTint; c.beginPath(); c.ellipse(cx, foot - 10 + lower + bob, 7, 9 - lower / 2, 0, 0, Math.PI * 2); c.fill();

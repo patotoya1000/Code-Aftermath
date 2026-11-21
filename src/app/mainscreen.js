@@ -7,7 +7,7 @@
 // decide how fast wall-clock time becomes simulation ticks; they never change a gameplay rule.
 
 import { mountRenderer } from '../modules/render/index.js';
-import { placeholderManifestFor, createNodeArt, createBackdropArt, createBuildingArt, createNpcArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
+import { placeholderManifestFor, createNodeArt, createBackdropArt, createBuildingArt, createNpcArt, iconUrl } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
@@ -164,6 +164,7 @@ function bar(label, val, max = 100, cls = '') {
   const pct = Math.max(0, Math.min(100, (val / max) * 100));
   return `<div class="need-row"><div class="label">${esc(cap(label))}</div><div class="bar-flex"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div><div class="value">${Math.round(val)}</div></div>`;
 }
+const itemIcon = (id) => { const u = iconUrl(id); return u ? `<img class="item-icon" src="${u}" alt="">` : ''; }; // equipment picture (assets/equipments) when the item has one, else nothing: the text row stays
 const section = (icon, title, body) => `<div class="section"><h3><span class="icon">${icon}</span>${esc(title)}</h3>${body}</div>`;
 const muted = (t) => `<span style="color:var(--muted);font-size:11px;">${esc(t)}</span>`;
 
@@ -172,14 +173,14 @@ function survivorSections(card, view) {
   const attrs = Object.entries(card.attributes).map(([k, v]) => `<div class="attr-cell"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span></div>`).join('');
   const skills = Object.entries(card.skills);
   const equip = Object.entries(card.equipment);
-  const inv = card.inventoryDetail.map((i) => `<div class="inv-item"><span class="name">${esc(i.name)} × ${i.quantity}</span><span class="qty">${i.weight} wt</span></div>`).join('');
+  const inv = card.inventoryDetail.map((i) => `<div class="inv-item"><span class="name">${itemIcon(i.id)}${esc(i.name)} × ${i.quantity}</span><span class="qty">${i.weight} wt</span></div>`).join('');
   return [
     section('❤', 'Needs', `<div class="needs-grid">${needs}</div>`),
     card.conditions.length ? section('⚠', 'Conditions', card.conditions.map((c) => `<span class="status-pill" style="margin-right:6px;">${esc(c)}</span>`).join('')) : '',
     section('⚡', 'Attributes', `<div class="attrs-grid">${attrs}</div>`),
     section('🎓', 'Skills', skills.length ? `<div class="attrs-grid">${skills.map(([k, v]) => { const pr = card.skillProgress?.[k]; const pct = pr && pr.next ? Math.min(100, Math.round((pr.xp / pr.next) * 100)) : 100; return `<div class="attr-cell" title="${pr ? `${pr.xp} XP${pr.next ? ` / ${pr.next} for level ${v + 1}` : ' (max level)'}` : ''}"><span class="attr-name">${esc(cap(k))}</span><span class="attr-val">${v}</span><span class="skill-xp"><i style="width:${pct}%"></i></span></div>`; }).join('')}</div>` : muted('No skills tracked.')),
     card.traits.length ? section('🏷', 'Traits', card.traits.map((t) => `<span class="status-pill">${esc(t)}</span>`).join(' ')) : '',
-    section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
+    section('🎒', 'Equipment', equip.length ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${itemIcon(item)}${esc(item)}</span></div>`).join('')}</div>` : muted('Nothing equipped.')),
     section('📦', 'Inventory', `<div class="inv-list">${inv || muted('Empty')}</div><div style="margin-top:6px;">${muted(`Carrying ${card.carry.load} / ${card.carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>`),
     taskSection(card.task, card.queued, card.lastTask),
     section('⌨', 'Commands', `${actionButtons(survivorActionList(card, view), { view, survivorId: card.id })}${muted('Buttons add a command to the editor; nothing runs until you press Run.')}`),

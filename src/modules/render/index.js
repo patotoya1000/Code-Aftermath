@@ -28,6 +28,7 @@ export function mountRenderer(canvas, {
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
+  npcArt?.preload?.(); // load every painted survivor pose now, so no pose waits for its first use (the placeholder survivor must not flash)
   let atlas = atlasImage;
   if (!atlas) {
     const make = createCanvas ?? ((w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; });
@@ -41,6 +42,7 @@ export function mountRenderer(canvas, {
   const nodePeak = new Map(); let lastTick = -1; let selNode = null; let tagBtn = null; let worldW = 0; const nodeGeo = new Map(); const npcGeo = new Map(); const bldGeo = new Map(); // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
   let debugOn = debug;
   let drawList = [];
+  const lastPose = new Map(); // survivor id -> the last painted pose that was actually drawn for her (the stand-in while a new pose is still loading)
   let pathList = []; // PA-3: road pieces drawn
   let lootList = []; // Z4: loot piles drawn (presentation only)
   let terrainList = []; // PA-2: one entry per ground tile drawn (kept apart from drawList, which lists entities)
@@ -236,8 +238,15 @@ export function mountRenderer(canvas, {
       note('npc', 'npc', p.id, e, { x: p.x, y: p.y, animation: p.animation, direction: p.direction, frameIndex: idx });
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
       // painted survivor (assets/sprites/npc): drawn feet-on-the-cell, mirrored for left-facing work poses; until it has loaded the placeholder atlas draws
-      const pose = npcArt ? npcPose({ animation: p.animation, direction: p.direction, resource: p.resource, frame: walkFrameAt(time, stagger(p.id)) }) : null;
-      const art = pose ? npcArt.get(pose.key) : null;
+      const wanted = npcArt ? npcPose({ animation: p.animation, direction: p.direction, resource: p.resource, frame: walkFrameAt(time, stagger(p.id)) }) : null;
+      let pose = wanted; let art = wanted ? npcArt.get(wanted.key) : null;
+      if (art) lastPose.set(p.id, wanted);
+      else if (wanted) { // the wanted picture is not ready: a painted stand-in (her last drawn pose, else the standing picture of this view) beats the mock model
+        for (const cand of [lastPose.get(p.id), npcPose({ animation: 'IDLE', direction: p.direction }), { key: 'idle_down', mirror: false }]) {
+          const a = cand ? npcArt.get(cand.key) : null; if (a) { art = a; pose = cand; break; }
+        }
+      }
+      const loading = !art && Boolean(npcArt?.pending?.()); // nothing painted is ready yet but pictures are on the way: draw no body (never the mock) until they arrive
       const sc = vp.cell * NPC_CELLS / NPC_REF_H; // one size factor for every pose, so a tool pose is as big as the idle one
       const drawArt = () => {
         const w = art.img.naturalWidth * sc; const h = art.img.naturalHeight * sc;
@@ -249,7 +258,7 @@ export function mountRenderer(canvas, {
         ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx, fy - vp.cell * 0.03, vp.cell * 0.3, vp.cell * 0.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); // ground shadow
         if (selected.kind === 'npc' && selected.id === p.id) glowed(drawArt); // the picked survivor glows green
         drawArt();
-      } else {
+      } else if (!loading) { // no painted picture exists at all (files missing / failed): the placeholder keeps her visible
         if (selected.kind === 'npc' && selected.id === p.id) glowed(() => { if (!blit(e, idx, cx, fy)) marker(cx, fy); }); // the picked survivor glows green
         if (!blit(e, idx, cx, fy)) marker(cx, fy);
       }

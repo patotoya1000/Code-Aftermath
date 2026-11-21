@@ -229,7 +229,7 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 
 - The owner supplied a painted 2.5:1 picture and a guideline sketch: blue = the wall line, red = the gate, green A = the main building, green dot = the tower beside the wall (more towers later), yellow = four bands of trees and rocks, white arrows = left/right navigation at the road ends.
 - The picture is exactly the 40x16 grid's aspect, so it is stretched over the map rectangle and one cell is the same share of the picture everywhere. It replaces the tiles, zones, road pieces and grid (the grid returns with `?debug`). Until it loads, the tiles are drawn.
-- New scenario `stage1_outpost` instead of editing `stage1_long`, so the existing tests and saves keep their layout. Wall x = 9, gate (9,6) (the road's centre line is y = 6.7). Buildings stay off the road rows 6-7; every building keeps its stage-1 distance to the wall. Free tower spots for later: (8,9), (8,11), (8,0).
+- New scenario `stage1_outpost` instead of editing `stage1_long`, so the existing tests and saves keep their layout. Wall x = 12 (moved from 9 on 2026-11-21 to the first black stain of the new picture, giving 12 inside columns instead of 9), gate (12,6) (the road's centre line is y = 6.7). Buildings stay off the road rows 6-7; every building keeps its stage-1 distance to the wall. Free tower spots for later: (8,9), (8,11), (8,0).
 - Node count (about 33 trees/rocks) is data in `BANDS` in `data/world.js`; thin them for a scarcer game.
 
 ## Picked trees and rocks show a tag, not a card (2026-11-21)

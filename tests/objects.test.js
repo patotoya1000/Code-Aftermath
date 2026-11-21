@@ -105,7 +105,7 @@ test('PA-4: a bigger tree sprite never changes where the tree is, what it occupi
   const r = mount(); r.draw(frame);
   const tree = frame.nodes.find((n) => n.type === 'tree');
   const entry = r.lastDrawList.find((e) => e.id === tree.id);
-  assert.equal(entry.x, tree.x); assert.equal(entry.y, tree.y); assert.deepEqual(entry.footprint, { w: 1, h: 1 }); assert.equal(entry.spriteSize, 1.5);
+  assert.equal(entry.x, tree.x); assert.equal(entry.y, tree.y); assert.deepEqual(entry.footprint, { w: 1, h: 1 }); assert.equal(entry.spriteSize, 1.8);
   const c = (x, y) => cellCenter(r.viewport, x, y);
   assert.deepEqual(r.pick(c(tree.x, tree.y).x, c(tree.x, tree.y).y, frame), { kind: 'node', id: tree.id });
   const above = r.pick(c(tree.x, tree.y - 1).x, c(tree.x, tree.y - 1).y, frame);
@@ -119,4 +119,24 @@ test('PA-4: trees and survivors are drawn back to front by row', () => {
   npc.x = tree.x; npc.y = tree.y - 1; assert.deepEqual(order(), [npc.id, tree.id], 'survivor behind the tree is drawn first');
   npc.y = tree.y + 1; assert.deepEqual(order(), [tree.id, npc.id], 'survivor in front is drawn last');
   npc.y = tree.y; assert.deepEqual(order(), [tree.id, npc.id], 'same row: the survivor stands in front');
+});
+
+// ---- equipment icons (assets/equipments) ----
+import { ITEM_ICONS, ICON_FILES, iconUrl, hasIcon } from '../src/modules/assets/index.js';
+import { readFileSync as readIcon, existsSync as iconExists, readdirSync } from 'node:fs';
+test('every equipment picture is connected to an item id, every id has a transparent PNG, and the weapons that exist in the game have one', () => {
+  const dir = new URL('../assets/equipments/', import.meta.url);
+  const files = readdirSync(dir).filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)).sort();
+  assert.deepEqual([...ICON_FILES].sort(), files, 'no picture is left unconnected and none is missing');
+  for (const f of files) { assert.equal(readIcon(new URL(`${f}.png`, dir))[25], 6, `${f} is RGBA`); }
+  for (const id of ['spear', 'bow', 'crossbow', 'rifle']) assert.ok(hasIcon(id), id);
+  assert.equal(iconUrl('bow'), 'assets/equipments/bow.png'); assert.equal(iconUrl('wood'), null); assert.equal(iconUrl('toString'), null, 'only own ids');
+  for (const id of ['spear', 'bow', 'crossbow', 'rifle']) assert.ok(id in defsForIcons().weapons, `${id} is a weapon id in the arsenal`);
+});
+import { createDefinitions as mkDefs } from '../src/modules/definitions/index.js';
+function defsForIcons() { return mkDefs(); }
+test('the survivor card shows an icon for an item that has one and keeps the text row for the rest', () => {
+  const src = readIcon(new URL('../src/app/mainscreen.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('iconUrl') && src.includes('itemIcon(item)') && src.includes('itemIcon(i.id)'), 'equipment slots and inventory rows both use it');
+  assert.ok(readIcon(new URL('../src/app/mainscreen.css', import.meta.url), 'utf8').includes('.item-icon'));
 });

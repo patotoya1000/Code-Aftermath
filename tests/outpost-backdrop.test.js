@@ -21,14 +21,24 @@ test('the scenario validates and keeps the 40x16 grid the picture was drawn for'
 
 test('layout follows the sketch: wall line + gate on the road at the left, tower beside the wall, hq top-left, trees and rocks only outside', () => {
   const s = defs.scenarios.stage1_outpost; const by = (id) => s.buildings.find((b) => b.id === id);
-  assert.deepEqual(by('fence').bounds, { x1: 9, y1: 0, x2: 9, y2: 15, shape: 'line' });
-  assert.equal(by('gate').x, 9); assert.equal(by('gate').y, 6);
-  assert.equal(by('tower_1').x, 8, 'the tower stands right beside the wall (inside)');
-  assert.ok(by('hq').x < 9 && by('hq').y <= 3, 'the main building is inside, top-left');
-  for (const b of s.buildings) if (!b.bounds && b.id !== 'gate') { assert.ok(b.x < 9, `${b.id} is inside the wall`); assert.ok(b.y !== 6 && b.y !== 7, `${b.id} leaves the road rows free`); }
-  assert.ok(s.nodes.length >= 20 && s.nodes.every((n) => n.x > 12 && n.y !== 6 && n.y !== 7), 'nodes are outside the wall and off the road');
+  assert.deepEqual(by('fence').bounds, { x1: 12, y1: 0, x2: 12, y2: 15, shape: 'line' });
+  assert.equal(by('gate').x, 12); assert.equal(by('gate').y, 6);
+  assert.equal(by('tower_1').x, 11, 'the tower stands right beside the wall (inside)');
+  assert.ok(by('hq').x < 12 && by('hq').y <= 3, 'the main building is inside, top-left');
+  for (const b of s.buildings) if (!b.bounds && b.id !== 'gate') { assert.ok(b.x < 12, `${b.id} is inside the wall`); assert.ok(b.y !== 6 && b.y !== 7, `${b.id} leaves the road rows free`); }
+  assert.ok(s.nodes.length >= 20 && s.nodes.every((n) => n.x > 13 && n.y !== 6 && n.y !== 7), 'nodes are outside the wall and off the road');
   assert.ok(s.nodes.some((n) => n.type === 'rock') && s.nodes.some((n) => n.type === 'tree'));
   assert.equal(new Set(s.nodes.map((n) => `${n.x},${n.y}`)).size, s.nodes.length, 'no two nodes share a cell');
+});
+
+test('the wall stands on the first black stain of the picture, with room for the buildings and the nodes clear of the dirt tracks and the other stains', () => {
+  const s = defs.scenarios.stage1_outpost; const by = (id) => s.buildings.find((b) => b.id === id);
+  assert.equal(by('fence').bounds.x1, 12, 'the first scorch mark on the road starts at about x = 11.4 and the wall is the next column');
+  const inside = s.buildings.filter((b) => !b.bounds && b.id !== 'gate');
+  assert.ok(Math.max(...inside.map((b) => b.x)) - Math.min(...inside.map((b) => b.x)) >= 9, 'the buildings are spread over the strip, not packed');
+  const cells = inside.map((b) => `${b.x},${b.y}`); assert.equal(new Set(cells).size, cells.length, 'no two buildings share a door cell');
+  const tracks = [[24, 28, 0, 5], [27, 34, 8, 15]]; const stains = [[17, 22, 4, 5], [17, 22, 8, 10]]; // [x1, x2, y1, y2] in cells (measured on the picture)
+  for (const n of s.nodes) for (const [x1, x2, y1, y2] of [...tracks, ...stains]) assert.ok(!(n.x >= x1 && n.x <= x2 && n.y >= y1 && n.y <= y2), `${n.id} (${n.x},${n.y}) is not on a track or a stain`);
 });
 
 test('the projection carries the backdrop id and road line; plain scenarios carry none', () => {

@@ -237,33 +237,35 @@ stage1Long.terrain = {
 };
 stage1Long.nodes.push({ id: 'tree_4', type: 'tree', x: 31, y: 3 }, { id: 'tree_5', type: 'tree', x: 33, y: 9 });
 
-// The OUTPOST map (painted backdrop assets/backdrops/outpost.jpg, laid out from the author's guideline sketch): the same 40x16 grid, but the wall is the
-// line at x = 9 (about a quarter of the way across) with the gate at (9,6) on the road, so the settlement is the narrow strip behind it and the rest of the
-// map is the outside. Inside (x 0-8, the road rows 6-7 stay clear): hq top-left, tower_1 beside the wall, the other buildings north and south of the road.
-// Outside: four bands of trees and rocks that follow the sketch's yellow lines. The road itself is part of the picture (no `paths`); the screen-edge
-// arrows sit on its centre line (`roadY`). Every building keeps its stage-1 distance to the wall (tower 1, storage 2, tank 1); only the room changes.
+// The OUTPOST map (painted backdrop assets/backdrops/outpost.jpg, 1600x640 = the 40x16 grid at 40 px per cell): the same 40x16 grid, but the wall is the
+// line at x = 12 (the first black stain on the road: the picture's scorch mark is where the old barricade was blown open) with the gate at (12,6) on the road,
+// so the settlement is the strip behind it (12 columns, 3 more than the first layout, so the buildings are no longer packed together) and the rest of the
+// map is the outside. Inside (x 0-11, the road rows 6-7 stay clear): hq top, tower_1 beside the wall, the other buildings spread north and south of the road.
+// Outside: four bands of trees and rocks, kept off the two dirt tracks (x 24-28 north of the road, x 27-34 south of it) and off the other black stains
+// (x 17-22, rows 4-5 and 8-10). The road itself is part of the picture (no `paths`); the screen-edge arrows sit on its centre line (`roadY`).
+// Every building keeps its stage-1 distance to the wall (tower 1, storage 2, tank 1); only the room changes.
 const outpost = structuredClone(stage1);
 outpost.name = 'Stage 1 — The Outpost (painted map)';
 outpost.map = { width: 40, height: 16 };
 const place = (id, x, y) => { const b = outpost.buildings.find((q) => q.id === id); b.x = x; b.y = y; };
-const WALL_X = 9;
+const WALL_X = 12;
 const outFence = outpost.buildings.find((b) => b.id === 'fence');
 outFence.bounds = { x1: WALL_X, y1: 0, x2: WALL_X, y2: 15, shape: 'line' };
 outFence.x = WALL_X; outFence.y = 12;
 for (const [id, x, y] of [
-  ['hq', 5, 3], ['tower_1', 8, 3], ['storage_1', 7, 4], ['gate', WALL_X, 6],      // north of the road: hq (3x3 above its door), tower and storage by the wall
-  ['kitchen', 1, 1], ['field_1', 1, 4], ['tent_1', 3, 4],
-  ['workshop_1', 1, 10], ['generator_1', 4, 10], ['battery_1', 1, 13], ['solar_1', 4, 13], // south of the road
-  ['well', 6, 14], ['tank', 8, 13],                                               // tank stays 2 east / 1 north of the well (siphon reach)
+  ['hq', 6, 3], ['tower_1', WALL_X - 1, 3], ['storage_1', WALL_X - 2, 4], ['gate', WALL_X, 6],   // north of the road: hq (3x3 above its door), tower and storage by the wall
+  ['kitchen', 2, 1], ['field_1', 2, 4], ['tent_1', 4, 4],
+  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13],      // south of the road
+  ['well', 9, 14], ['tank', WALL_X - 1, 13],                                                       // tank stays 2 east / 1 north of the well (siphon reach)
 ]) place(id, x, y);
-outpost.survivors[0].x = 5; outpost.survivors[0].y = 5;
+outpost.survivors[0].x = 6; outpost.survivors[0].y = 5;
 outpost.terrain = { zones: [], paths: [], backdrop: 'outpost', roadY: 6.7 };
-// Trees and rocks along the sketch's four yellow bands, right of the wall (every third node is a rock). Edit these rows to grow, thin or move a band.
+// Trees and rocks right of the wall (every third node is a rock). Edit these rows to grow, thin or move a band.
 const BANDS = [
-  [[14, 1], [17, 1], [20, 1], [23, 1], [25, 2], [29, 1], [33, 1], [36, 1]],
-  [[14, 3], [17, 3], [20, 4], [22, 4], [25, 4], [28, 3], [31, 3], [34, 3], [37, 4]],
-  [[15, 9], [18, 8], [21, 8], [24, 8], [27, 8], [30, 8], [33, 8], [36, 8]],
-  [[14, 12], [17, 12], [20, 11], [23, 11], [26, 12], [29, 12], [32, 12], [35, 11]],
+  [[14, 1], [17, 1], [20, 1], [23, 1], [30, 1], [33, 1], [36, 1]],
+  [[14, 3], [17, 3], [20, 2], [31, 3], [34, 3], [37, 4]],
+  [[15, 9], [24, 8], [26, 9], [36, 9], [37, 8]],
+  [[14, 12], [17, 12], [20, 12], [23, 12], [25, 12], [35, 11], [37, 11]],
 ];
 outpost.nodes = [];
 { let t = 0; let r = 0; let i = 0;

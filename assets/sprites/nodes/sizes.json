@@ -1,40 +1,4 @@
 {
- "tree_green_full": {
-  "w": 192,
-  "h": 182
- },
- "tree_green_worn": {
-  "w": 167,
-  "h": 177
- },
- "tree_green_stump": {
-  "w": 81,
-  "h": 59
- },
- "tree_dead_full": {
-  "w": 171,
-  "h": 148
- },
- "tree_dead_worn": {
-  "w": 154,
-  "h": 147
- },
- "tree_dead_stump": {
-  "w": 97,
-  "h": 59
- },
- "tree_autumn_full": {
-  "w": 181,
-  "h": 134
- },
- "tree_autumn_worn": {
-  "w": 133,
-  "h": 134
- },
- "tree_autumn_stump": {
-  "w": 102,
-  "h": 60
- },
  "rock_spire_full": {
   "w": 155,
   "h": 139
@@ -70,5 +34,45 @@
  "rock_slab_rubble": {
   "w": 67,
   "h": 32
+ },
+ "tree_autumn_full_1": {
+  "w": 250,
+  "h": 326
+ },
+ "tree_autumn_full_2": {
+  "w": 248,
+  "h": 325
+ },
+ "tree_cut_1": {
+  "w": 173,
+  "h": 219
+ },
+ "tree_cut_2": {
+  "w": 175,
+  "h": 219
+ },
+ "tree_green_full_1": {
+  "w": 255,
+  "h": 337
+ },
+ "tree_green_full_2": {
+  "w": 256,
+  "h": 338
+ },
+ "tree_spring_full_1": {
+  "w": 253,
+  "h": 333
+ },
+ "tree_spring_full_2": {
+  "w": 249,
+  "h": 332
+ },
+ "tree_winter_full_1": {
+  "w": 238,
+  "h": 314
+ },
+ "tree_winter_full_2": {
+  "w": 233,
+  "h": 313
  }
 }

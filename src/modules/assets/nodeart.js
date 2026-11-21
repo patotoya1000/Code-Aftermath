@@ -9,15 +9,19 @@
 // Sprites of one type share one pixel scale (a stump is drawn smaller than its tree), so the width is relative to REF_W.
 
 export const NODE_ART_DIR = 'assets/sprites/nodes/';
-export const REF_W = Object.freeze({ tree: 192, rock: 192 }); // pixel width of the biggest sprite of each type; drawn at objectSpec(type).spriteSize cells
+export const REF_W = Object.freeze({ tree: 256, rock: 192 }); // pixel width of the biggest sprite of each type; drawn at objectSpec(type).spriteSize cells (tree: scripts/prepare-tree-sprites.py)
 export const WORN_BELOW = 0.5;                                // a node is 'worn' once it holds less than this share of a typical full node
 
 /** Visual families per node type. A node picks one deterministically from its id, so a map always looks the same. */
 export const NODE_FAMILIES = Object.freeze({
-  tree: Object.freeze(['green']),                 // 'dead' and 'autumn' exist too: use them for wasteland / season variants
+  tree: Object.freeze(['green']),                 // the main map's trees; 'spring', 'autumn' and 'winter' pictures exist too (TREE_FAMILIES): pass { tree: ['winter'] } to createNodeArt for a season
   rock: Object.freeze(['spire', 'arch', 'slab']),
 });
-const STAGE_FILE = { tree: { full: 'full', worn: 'worn', gone: 'stump' }, rock: { full: 'full', worn: 'worn', gone: 'rubble' } };
+export const TREE_FAMILIES = Object.freeze(['green', 'spring', 'autumn', 'winter']);
+/** Pictures per type: trees come in 2 looks per family (and 2 felled looks), picked from the id; rocks have one picture per family. */
+export const NODE_VARIANTS = Object.freeze({ tree: 2, rock: 1 });
+// Trees: full and worn both show the whole tree (there is no half-chopped picture); gone shows the felled tree (`tree_cut_<n>`, one set for every family).
+const STAGE_FILE = { tree: { full: 'full', worn: 'full', gone: 'cut' }, rock: { full: 'full', worn: 'worn', gone: 'rubble' } };
 
 /** 'full' | 'worn' | 'gone' from the ledger amount and the type's typical amount (`capacity`). amount <= 0 is always 'gone'. */
 export function nodeStage(amount, capacity) {
@@ -28,11 +32,14 @@ export function nodeStage(amount, capacity) {
 
 const hashId = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
 
-/** Sprite file stem for a node, e.g. tree_green_worn, rock_arch_rubble. Null for node types without painted art. */
+/** Sprite file stem for a node, e.g. tree_green_full_2, tree_cut_1, rock_arch_rubble. Null for node types without painted art. */
 export function nodeSpriteKey(type, id, stage, families = NODE_FAMILIES) {
   const list = families[type]; const files = STAGE_FILE[type];
   if (!list?.length || !files) return null;
-  return `${type}_${list[hashId(id) % list.length]}_${files[stage] ?? files.full}`;
+  const h = hashId(id); const family = list[h % list.length]; const file = files[stage] ?? files.full;
+  const look = 1 + (Math.floor(h / list.length) % (NODE_VARIANTS[type] ?? 1)); // the 2nd look of a tree is independent of its family
+  if (type === 'tree') return file === 'cut' ? `tree_cut_${look}` : `tree_${family}_${file}_${look}`;
+  return `${type}_${family}_${file}`;
 }
 
 /**

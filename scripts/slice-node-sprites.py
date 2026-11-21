@@ -13,20 +13,7 @@ SRC = os.path.join(ROOT, 'assets', 'source'); OUT = os.path.join(ROOT, 'assets',
 MAX_SIDE = 192  # the largest sprite of each sheet is scaled to this; every other sprite of that sheet uses the SAME factor, so a stump stays smaller than its tree
 
 # name: (sheet, (x1, y1, x2, y2))  -- boxes are in sheet pixels
-TREES = {
-  # green "healthy" family
-  'tree_green_full':     ('trees-sheet.png', (1140, 0, 1645, 460)),
-  'tree_green_worn':     ('trees-sheet.png', (1645, 0, 2172, 460), (1860, 200), 1),
-  'tree_green_stump':    ('trees-sheet.png', (1645, 0, 2172, 460), (2090, 380), 1),
-  # withered family (dead branches, few leaves) - for wasteland / ruined areas
-  'tree_dead_full':      ('trees-sheet.png', (40, 0, 495, 376)),
-  'tree_dead_worn':      ('trees-sheet.png', (500, 0, 900, 376)),
-  'tree_dead_stump':     ('trees-sheet.png', (900, 215, 1160, 385)),
-  # autumn-leaf family
-  'tree_autumn_full':    ('trees-sheet.png', (28, 378, 490, 724)),
-  'tree_autumn_worn':    ('trees-sheet.png', (570, 380, 900, 724)),
-  'tree_autumn_stump':   ('trees-sheet.png', (900, 556, 1165, 724)),
-}
+TREES = {}  # trees are no longer cut from trees-sheet.png: the finished tree pictures are processed by scripts/prepare-tree-sprites.py
 ROCKS = {}
 rows = [(0, 372), (372, 698), (698, 1024)]
 cols = [[(130, 665), (655, 1115), (1115, 1420)]] * 3
@@ -64,7 +51,10 @@ def main():
         if k < 1: c = c.resize((max(1, round(c.width * k)), max(1, round(c.height * k))), Image.LANCZOS)
         c.save(os.path.join(OUT, name + '.png'), optimize=True)
         meta[name] = {'w': c.width, 'h': c.height}
-    with open(os.path.join(OUT, 'sizes.json'), 'w') as f: json.dump(meta, f, indent=1)
+    sp = os.path.join(OUT, 'sizes.json')  # merge: keep the tree entries written by prepare-tree-sprites.py
+    old = json.load(open(sp)) if os.path.exists(sp) else {}
+    old.update(meta)
+    with open(sp, 'w') as f: json.dump(old, f, indent=1)
     print(len(meta), 'sprites ->', OUT)
 
 if __name__ == '__main__': main()
