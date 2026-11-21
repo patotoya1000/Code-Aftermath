@@ -1,5 +1,5 @@
 import { wallCellsOf } from '../../kernel/index.js';
-import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, REF_W } from '../assets/index.js';
+import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, REF_W, NPC_REF_H, NPC_CELLS, npcPose, walkFrameAt } from '../assets/index.js';
 import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, visibleCells, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
 // Production world renderer. Input: the RENDER PROJECTION only (never GameState). Output: pixels.
@@ -24,7 +24,7 @@ export function perimeterCells(bounds) {
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };
 
 export function mountRenderer(canvas, {
-  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, backdropArt = null, buildingArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
+  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, npcArt = null, backdropArt = null, buildingArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
@@ -235,11 +235,26 @@ export function mountRenderer(canvas, {
       const idx = frameIndexAt(e, time, stagger(p.id));
       note('npc', 'npc', p.id, e, { x: p.x, y: p.y, animation: p.animation, direction: p.direction, frameIndex: idx });
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
-      npcGeo.set(p.id, { p, cx, top: fy - vp.cell * 1.3 });
-      if (selected.kind === 'npc' && selected.id === p.id) glowed(() => { if (!blit(e, idx, cx, fy)) marker(cx, fy); }); // the picked survivor glows green
-      if (!blit(e, idx, cx, fy)) marker(cx, fy);
+      // painted survivor (assets/sprites/npc): drawn feet-on-the-cell, mirrored for left-facing work poses; until it has loaded the placeholder atlas draws
+      const pose = npcArt ? npcPose({ animation: p.animation, direction: p.direction, resource: p.resource, frame: walkFrameAt(time, stagger(p.id)) }) : null;
+      const art = pose ? npcArt.get(pose.key) : null;
+      const sc = vp.cell * NPC_CELLS / NPC_REF_H; // one size factor for every pose, so a tool pose is as big as the idle one
+      const drawArt = () => {
+        const w = art.img.naturalWidth * sc; const h = art.img.naturalHeight * sc;
+        if (pose.mirror) { ctx.save(); ctx.transform(-1, 0, 0, 1, cx, 0); ctx.drawImage(art.img, -art.ax * sc, fy - h, w, h); ctx.restore(); } // mirrored about the foot anchor
+        else ctx.drawImage(art.img, cx - art.ax * sc, fy - h, w, h);
+      };
+      npcGeo.set(p.id, { p, cx, top: art ? fy - art.img.naturalHeight * sc : fy - vp.cell * 1.3 });
+      if (art) {
+        ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx, fy - vp.cell * 0.03, vp.cell * 0.3, vp.cell * 0.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); // ground shadow
+        if (selected.kind === 'npc' && selected.id === p.id) glowed(drawArt); // the picked survivor glows green
+        drawArt();
+      } else {
+        if (selected.kind === 'npc' && selected.id === p.id) glowed(() => { if (!blit(e, idx, cx, fy)) marker(cx, fy); }); // the picked survivor glows green
+        if (!blit(e, idx, cx, fy)) marker(cx, fy);
+      }
       ctx.fillStyle = COLORS.label; ctx.font = `${Math.max(9, t * 0.3)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(p.name, cx, fy - vp.cell * 0.95);
+      ctx.fillText(p.name, cx, npcGeo.get(p.id).top - 3);
     }
     selNode = selected.kind === 'node' ? nodeGeo.get(selected.id) ?? null : null;
     // 5b loot piles (Z4): a small sack with the amount, where a zombie died; no atlas art yet (placeholder drawing from the projection)

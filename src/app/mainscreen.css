@@ -175,6 +175,7 @@ body::before {
   background:var(--code-bg); display:grid; place-items:center; font-size:28px; flex-shrink:0;
   overflow:hidden; position:relative;
 }
+#inspector-card .portrait .npc-portrait { width:100%; height:100%; object-fit:cover; object-position:50% 12%; transform:scale(1.5); transform-origin:50% 22%; } /* the survivor's head and shoulders */
 #inspector-card .portrait::after {
   content:""; position:absolute; inset:-2px; border-radius:8px;
   border:2px solid transparent; pointer-events:none;

@@ -173,6 +173,7 @@ export function renderProjection(state, defs) {
     npcs: Object.values(state.survivors).filter((s) => s.status !== 'away').map((s) => ({
       id: s.id, name: s.identity.name, x: s.position.x, y: s.position.y, direction: s.direction,
       animation: animationFor(s, currentAction(state, s.id)), status: s.status,
+      resource: currentAction(state, s.id)?.params?.resource ?? null, // what a gather job is after ('wood', 'stone'): picks the axe or the pickaxe picture; presentation only
       doing: doingFor(state, s), // one short line for the map tag ("gathering wood", "resting", ...); presentation only
     })),
     buildings: Object.values(state.buildings).map((b) => {

@@ -148,6 +148,7 @@ S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4
 | `tests/world-i2.test.js` | stage layout, storage info, gate/storehouse repair, ids in learner code |
 | `tests/assets-render.test.js` | asset keys, fallback chain, renderer is projection-only |
 | `tests/node-art.test.js` | painted tree/rock sprites: stage from ledger amount, sprite files exist and are RGBA, drawn only once loaded |
+| `tests/npc-art.test.js` | painted survivor sprites: every pose file exists (RGBA + foot anchor), 8 directions map to 4 views, walk frames, tool pose by resource, mirror when facing left, drawn only once loaded |
 | `tests/zones.test.js` | zone bar / camera zones (W1) |
 | `tests/ui-wiring.test.js` | main screen wiring, Codebook panel flow |
 | `tests/gestures.test.js` | UI-R1: drag pans (no pick after a drag), click vs jitter, wheel zoom, pinch, double-click reset, right button ignored |

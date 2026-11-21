@@ -7,7 +7,7 @@
 // decide how fast wall-clock time becomes simulation ticks; they never change a gameplay rule.
 
 import { mountRenderer } from '../modules/render/index.js';
-import { placeholderManifestFor, createNodeArt, createBackdropArt, createBuildingArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
+import { placeholderManifestFor, createNodeArt, createBackdropArt, createBuildingArt, createNpcArt } from '../modules/assets/index.js'; // createNodeArt: painted tree / rock sprites (assets/sprites/nodes)
 import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
@@ -46,7 +46,7 @@ async function init() {
   // IndexedDB can be missing or blocked (some private-browsing modes); then saves live in memory for this page only.
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
-  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), backdropArt: createBackdropArt(), buildingArt: createBuildingArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), npcArt: createNpcArt(), backdropArt: createBackdropArt(), buildingArt: createBuildingArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
   hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected, getCommands: () => app.codebook.entries.filter((e) => e.kind === 'command' && e.example) });
   await startScenario();
   renderHints();
@@ -270,7 +270,7 @@ function renderInspector() {
   if (selected.kind === 'npc') {
     const card = freeSim.inspector(selected.id);
     if (!card) { selected = null; return renderInspector(); }
-    header = { glyph: '👤', name: card.identity.name, sub: `${card.status} · ${card.identity.background}`, meta: `<span>ID: ${esc(card.id)}</span><span>Age: ${card.identity.age}</span><span>Pos: ${card.x},${card.y}</span><span>Dir: ${card.direction}</span>` };
+    header = { glyph: '<img class="npc-portrait" src="assets/sprites/npc/idle_down.png" alt="">', name: card.identity.name, sub: `${card.status} · ${card.identity.background}`, meta: `<span>ID: ${esc(card.id)}</span><span>Age: ${card.identity.age}</span><span>Pos: ${card.x},${card.y}</span><span>Dir: ${card.direction}</span>` };
     body = survivorSections(card, view);
   } else if (selected.kind === 'building') {
     const b = view.buildings.find((x) => x.id === selected.id);
