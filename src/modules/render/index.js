@@ -1,5 +1,5 @@
 import { wallCellsOf } from '../../kernel/index.js';
-import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, REF_W, NPC_REF_H, NPC_CELLS, npcPose, walkFrameAt } from '../assets/index.js';
+import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, wallSections, artLevel, bandLayout, BAND_TUNING, REF_W, NPC_REF_H, NPC_CELLS, npcPose, walkFrameAt, workSwing, facingVector, isStoneWork, WORK_LUNGE_CELLS, WORK_TILT_RAD } from '../assets/index.js';
 import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, visibleCells, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
 // Production world renderer. Input: the RENDER PROJECTION only (never GameState). Output: pixels.
@@ -14,6 +14,7 @@ const COLORS = {
   terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', glow: '#4ade80', hover: '#8ec8ff', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
   zone: 'rgba(63,143,79,0.14)', zoneEdge: 'rgba(63,143,79,0.45)', path: '#4a4333', labelOutline: 'rgba(15,14,12,0.85)',
 };
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const LABEL_MIN_TILE = 26; // below this tile size world labels would only add clutter
 
 /** Cells on the perimeter of an inclusive rectangle. */
@@ -24,10 +25,11 @@ export function perimeterCells(bounds) {
 const stagger = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 400; };
 
 export function mountRenderer(canvas, {
-  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, npcArt = null, backdropArt = null, buildingArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false,
+  manifest = DEFAULT_MANIFEST(), atlasImage = null, nodeArt = null, npcArt = null, backdropArt = null, buildingArt = null, createCanvas = null, now = () => (typeof performance !== 'undefined' ? performance.now() : 0), debug = false, smoothing = false, integerScale = false, backdropParallaxRatio = 0.5, wallArtLevel = null,
 } = {}) {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
+  buildingArt?.preload?.(); // the wall and gate level pictures too, so the first frame already shows them
   npcArt?.preload?.(); // load every painted survivor pose now, so no pose waits for its first use (the placeholder survivor must not flash)
   let atlas = atlasImage;
   if (!atlas) {
@@ -39,7 +41,7 @@ export function mountRenderer(canvas, {
   let vp = createViewport({ map: { width: 1, height: 1 }, view: { width: 1, height: 1 }, integer: integerScale }); // camera state lives here
   let selected = { kind: null, id: null };
   let hover = { kind: null, id: null };
-  const nodePeak = new Map(); let lastTick = -1; let selNode = null; let tagBtn = null; let worldW = 0; const nodeGeo = new Map(); const npcGeo = new Map(); const bldGeo = new Map(); // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
+  const nodePeak = new Map(); let lastTick = -1; let selNode = null; let tagBtn = null; let worldW = 0; const nodeGeo = new Map(); const npcGeo = new Map(); const bldGeo = new Map(); const gateBoxes = new Map(); // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
   let debugOn = debug;
   let drawList = [];
   const lastPose = new Map(); // survivor id -> the last painted pose that was actually drawn for her (the stand-in while a new pose is still loading)
@@ -87,6 +89,30 @@ export function mountRenderer(canvas, {
     return { ...frame, npcs };
   }
 
+  /** Run a draw call with smooth (bilinear) scaling: the big painted wall, gate and silhouette pictures are scaled down several times and would alias without it. */
+  const smoothly = (draw) => { if (!('imageSmoothingEnabled' in ctx)) return draw(); ctx.save(); ctx.imageSmoothingEnabled = true; if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high'; try { draw(); } finally { ctx.restore(); } };
+
+  /** The backdrop's top / bottom silhouettes: they frame the map from the canvas margin above and below it (bandLayout has the placement maths). Drawn before every
+   *  object, so a survivor or a tree standing on the map edge is never covered. Panning slides them slower than the map (parallax); at zoom 1 the camera is fixed and they sit centred. */
+  function drawBands(backdropId, world, rect) {
+    const bands = backdropArt?.bands?.(backdropId) ?? {};
+    const t = vp.map.width > 0 ? clamp(vp.center.x / vp.map.width, 0, 1) : 0.5;
+    for (const side of ['top', 'bottom']) {
+      const band = bands[side]; if (!band) continue;
+      const L = bandLayout({ side, view: { w: rect.width, h: rect.height }, world, cell: vp.cell, image: { w: band.img.naturalWidth, h: band.img.naturalHeight }, spec: band, t, parallax: backdropParallaxRatio });
+      smoothly(() => {
+        for (const tile of L.tiles) {
+          if (tile.flip) { ctx.save(); ctx.transform(-1, 0, 0, 1, tile.x + L.tileW, 0); ctx.drawImage(band.img, 0, L.y, L.tileW, L.h); ctx.restore(); } // mirrored: neighbouring tiles meet on their own edge
+          else ctx.drawImage(band.img, tile.x, L.y, L.tileW, L.h);
+        }
+      });
+      if (side === 'top') { // the dark mass ends in a straight line: a soft shadow below it lets it melt into the ground instead
+        const vh = BAND_TUNING.vignetteCells * vp.cell; const g = ctx.createLinearGradient?.(0, L.edgeY, 0, L.edgeY + vh);
+        if (g?.addColorStop) { g.addColorStop(0, 'rgba(12,14,12,0.6)'); g.addColorStop(1, 'rgba(12,14,12,0)'); ctx.fillStyle = g; ctx.fillRect(world.x, L.edgeY, world.w, vh); }
+      }
+    }
+  }
+
   function drawFrame(rawFrame, { events = rawFrame.events } = {}) {
     const frame = smoothed(rawFrame);
     drawList = [];
@@ -102,7 +128,7 @@ export function mountRenderer(canvas, {
     const t = vp.cell;
     const world = cellRect(vp, 0, 0, mw, mh); worldW = world.w;
     const time = now();
-    if ((frame.tick ?? 0) < lastTick) nodePeak.clear(); lastTick = frame.tick ?? 0; selNode = null; nodeGeo.clear(); npcGeo.clear(); bldGeo.clear(); // a restart / load rewinds the clock: forget old peaks
+    if ((frame.tick ?? 0) < lastTick) nodePeak.clear(); lastTick = frame.tick ?? 0; selNode = null; nodeGeo.clear(); npcGeo.clear(); bldGeo.clear(); gateBoxes.clear(); // a restart / load rewinds the clock: forget old peaks
     for (const n of frame.nodes || []) if ((n.amount ?? 0) > (nodePeak.get(n.id) ?? 0)) nodePeak.set(n.id, n.amount);
 
     // 1 terrain
@@ -113,7 +139,10 @@ export function mountRenderer(canvas, {
     terrainList = []; pathList = [];
     const backdrop = terrain.backdrop && backdropArt ? backdropArt.get(terrain.backdrop) : null; // a painted picture replaces the tiles, zones, road pieces and grid
     const ground = backdrop ? [] : groundGrid(frame); const vis = visibleCells(vp);
-    if (backdrop) ctx.drawImage(backdrop, world.x, world.y, world.w, world.h);
+    if (backdrop) { // the picture IS the map rectangle: it is never offset, or the road in it would no longer lie under the gate and the buildings
+      ctx.drawImage(backdrop, world.x, world.y, world.w, world.h);
+      drawBands(terrain.backdrop, world, rect);
+    }
     else for (let y = vis.y1; y <= vis.y2; y++) for (let x = vis.x1; x <= vis.x2; x++) {
       const e = resolver.resolveTerrain(tileKeyAt(ground, x, y)); const f = e.frames[0];
       terrainList.push({ x, y, ground: ground[y][x], key: e.key, step: e.step });
@@ -142,9 +171,11 @@ export function mountRenderer(canvas, {
     const buildings = frame.buildings || [];
     /** Run a draw call with a green glow around whatever it paints (the "this is picked" cue for survivors, buildings, trees and rocks). */
     const glowed = (draw, passes = 2) => { ctx.save(); ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); for (let k = 0; k < passes; k++) draw(); ctx.restore(); };
+    const gateDraws = new Map(); // gate id -> draw call (filled with the line walls below, used when the gate itself is drawn)
     const drawBuilding = (b, x, y, layer) => {
       const e = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note(layer, 'building', b.id, e, { x, y, condition: b.condition, ...(b.footprint ? { footprint: { ...b.footprint } } : {}) });
+      if (layer === 'building' && gateDraws.has(b.id)) { gateDraws.get(b.id)(); return; } // a gate standing in a line wall is drawn with its level picture
       const art = layer === 'building' && buildingArt ? buildingArt.get(b.type, b.condition) : null;
       if (art) { // painted picture: horizontally centred on the footprint, standing on the bottom edge of its lowest row
         const pl = buildingPlacement(b); const w = vp.cell * art.cells; const h = w * (art.img.naturalHeight / art.img.naturalWidth);
@@ -173,11 +204,45 @@ export function mountRenderer(canvas, {
     //   fence line (the gate) replaces that fence cell, leaving the opening.
     //   PA-4: the piece shown depends on the neighbours on the fence line (straight / corner / end), the building's level and condition.
     const lateFence = [];
+    // 2a LINE walls with level pictures (wall_level<n>, gate_level<n>): a stack of wall sections with the gate section replacing one (assets/wallart.js). A wall (or a gate) whose
+    //    picture has not loaded, and every rectangular wall, keeps the old per-cell pieces below.
+    const lineWalls = new Map();
+    if (buildingArt?.getLevel) for (const fb of buildings) {
+      if (!fb.bounds || fb.bounds.shape !== 'line') continue;
+      const wallArt = buildingArt.getLevel('fence', artLevel(wallArtLevel ?? fb.level), fb.condition); if (!wallArt) continue;
+      const gates = [];
+      for (const g of buildings) if (g.type === 'gate' && !g.bounds && g.x === fb.bounds.x1 && g.y >= fb.bounds.y1 && g.y <= fb.bounds.y2) {
+        const ga = buildingArt.getLevel('gate', artLevel(wallArtLevel ?? g.level), g.condition); if (ga) gates.push({ g, ga });
+      }
+      lineWalls.set(fb.id, { fb, wallArt, gates, sections: wallSections({ top: fb.bounds.y1, bottom: fb.bounds.y2 + 1, gates: gates.map((q) => q.g.y) }) });
+    }
+    const drawSection = (art, cx, sec, glow) => { // one section picture, stretched vertically to meet its neighbours
+      const w = vp.cell * art.w; const y0 = gridToScreen(vp, 0, sec.y0).y; const h = (sec.y1 - sec.y0) * vp.cell;
+      smoothly(() => {
+        ctx.globalAlpha = art.alpha;
+        if (glow) glowed(() => ctx.drawImage(art.img, cx - w / 2, y0, w, h), 1);
+        ctx.drawImage(art.img, cx - w / 2, y0, w, h);
+      });
+      return { y0, h, w };
+    };
+    for (const { fb, wallArt, gates, sections } of lineWalls.values()) {
+      const cx = tileCenterX(fb.bounds.x1); const picked = selected.kind === 'building' && selected.id === fb.id;
+      for (const sec of sections) if (sec.kind === 'wall') { const r = drawSection(wallArt, cx, sec, picked); if (!bldGeo.has(fb.id) || r.y0 < bldGeo.get(fb.id).top) bldGeo.set(fb.id, { b: fb, cx, top: r.y0 }); }
+      for (const { g, ga } of gates) {
+        const sec = sections.find((q) => q.kind === 'gate' && q.gateY === g.y); if (!sec) continue;
+        gateDraws.set(g.id, () => {
+          const r = drawSection(ga, cx, sec, selected.kind === 'building' && selected.id === g.id);
+          bldGeo.set(g.id, { b: g, cx, top: r.y0 });
+          gateBoxes.set(g.id, { x0: cx - vp.cell * 0.55, x1: cx + vp.cell * 0.55, y0: r.y0, y1: r.y0 + r.h }); // the painted gate is what the pointer sees, so it is what picks the gate
+        });
+      }
+    }
     for (const p of fenceCells(frame)) {
       const b = buildings.find((q) => q.id === p.id);
       const e = resolver.resolveFence({ mask: p.mask, level: p.level, condition: p.condition });
       const whole = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note('fence', 'building', b.id, whole, { x: p.x, y: p.y, condition: b.condition, piece: e.key ?? p.key, mask: p.mask, pieceStep: e.step });
+      if (lineWalls.has(p.id)) continue; // drawn as sections above
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
       const art = buildingArt ? buildingArt.get(b.type, p.condition ?? b.condition) : null;
       if (art) { // painted wall piece / gate: the gate is drawn after the whole wall so a neighbouring piece never covers it
@@ -248,16 +313,29 @@ export function mountRenderer(canvas, {
       }
       const loading = !art && Boolean(npcArt?.pending?.()); // nothing painted is ready yet but pictures are on the way: draw no body (never the mock) until they arrive
       const sc = vp.cell * NPC_CELLS / NPC_REF_H; // one size factor for every pose, so a tool pose is as big as the idle one
+      // chopping / mining: the tool picture is a still, so she is moved back and forth toward her tree / rock (assets/npcart.js workSwing); only while a gather pose is actually drawn
+      const swing = art && String(p.animation).toUpperCase() === 'GATHER' && pose.key.startsWith('tool_') ? workSwing(time, stagger(p.id)) : null;
+      const face = swing ? facingVector(p.direction) : null;
       const drawArt = () => {
         const w = art.img.naturalWidth * sc; const h = art.img.naturalHeight * sc;
+        if (swing) { // lunge along the facing direction, leaning toward it, pivoting on her feet
+          ctx.save(); ctx.translate(cx + face[0] * swing.lunge * WORK_LUNGE_CELLS * vp.cell, fy + face[1] * swing.lunge * WORK_LUNGE_CELLS * vp.cell * 0.6); ctx.rotate(Math.sign(face[0]) * swing.lunge * WORK_TILT_RAD); ctx.translate(-cx, -fy);
+        }
         if (pose.mirror) { ctx.save(); ctx.transform(-1, 0, 0, 1, cx, 0); ctx.drawImage(art.img, -art.ax * sc, fy - h, w, h); ctx.restore(); } // mirrored about the foot anchor
         else ctx.drawImage(art.img, cx - art.ax * sc, fy - h, w, h);
+        if (swing) ctx.restore();
       };
       npcGeo.set(p.id, { p, cx, top: art ? fy - art.img.naturalHeight * sc : fy - vp.cell * 1.3 });
       if (art) {
         ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx, fy - vp.cell * 0.03, vp.cell * 0.3, vp.cell * 0.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); // ground shadow
         if (selected.kind === 'npc' && selected.id === p.id) glowed(drawArt); // the picked survivor glows green
         drawArt();
+        if (swing && swing.impact > 0) { // the hit: a few chips (wood-brown for a tree, grey for a rock) fly out from where the tool lands and fade
+          const grow = 1 - swing.impact; const hx = cx + face[0] * vp.cell * 0.62; const hy = fy - vp.cell * 0.5 + face[1] * vp.cell * 0.3;
+          ctx.save(); ctx.globalAlpha = swing.impact; ctx.fillStyle = isStoneWork(p.resource) ? '#c9c7bd' : '#b98a52';
+          for (let i = 0; i < 4; i++) { const ang = -Math.PI / 2 + (i - 1.5) * 0.7; const r = vp.cell * (0.1 + 0.42 * grow); const sz = Math.max(1.5, vp.cell * 0.07); ctx.fillRect(hx + Math.cos(ang) * r - face[0] * r * 0.4, hy + Math.sin(ang) * r + grow * vp.cell * 0.18, sz, sz); }
+          ctx.restore();
+        }
       } else if (!loading) { // no painted picture exists at all (files missing / failed): the placeholder keeps her visible
         if (selected.kind === 'npc' && selected.id === p.id) glowed(() => { if (!blit(e, idx, cx, fy)) marker(cx, fy); }); // the picked survivor glows green
         if (!blit(e, idx, cx, fy)) marker(cx, fy);
@@ -413,6 +491,7 @@ export function mountRenderer(canvas, {
     const { x, y } = screenToTile(sx, sy);
     for (const n of frame.nodes || []) if (n.x === x && n.y === y) return { kind: 'node', id: n.id };
     for (const b of frame.buildings || []) if (!b.bounds) { const r = buildingRect(b); if (x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) return { kind: 'building', id: b.id }; } // any cell of a footprint
+    for (const [id, r] of gateBoxes) if (sx >= r.x0 && sx <= r.x1 && sy >= r.y0 && sy <= r.y1) return { kind: 'building', id }; // the painted gate (taller than its one logical cell)
     for (const b of frame.buildings || []) if (b.bounds && perimeterCells(b.bounds).some(([cx, cy]) => cx === x && cy === y)) return { kind: 'building', id: b.id };
     return null;
   }
@@ -442,6 +521,13 @@ export function mountRenderer(canvas, {
     get lastTerrain() { return terrainList; },
     get lastPaths() { return pathList; },
     get lastLoot() { return lootList; },
+    // Silhouette parallax: ratio 0-1. 0 = the top / bottom bands are exactly canvas-wide and never slide, 1 = widest slide when the camera pans (zoomed in). Default 0.5.
+    // Both bands use the same ratio and the same camera position, so they always move together; the map picture itself never moves (it IS the map).
+    get backdropParallaxRatio() { return backdropParallaxRatio; },
+    set backdropParallaxRatio(r) { backdropParallaxRatio = clamp(r, 0, 1); },
+    // Preview: draw the wall and gate pictures of this level (1-5) whatever the building's real level is (null = the real level). Presentation only; for looking at art.
+    get wallArtLevel() { return wallArtLevel; },
+    set wallArtLevel(l) { wallArtLevel = l == null ? null : artLevel(l); },
     resolver,
     // Camera (PA-1): presentation only. None of these can change a logical position; picking and drawing both read the same viewport.
     get viewport() { return vp; },

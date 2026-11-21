@@ -95,6 +95,12 @@ R5: lessons shown on the map; final art swaps the atlas through the manifest.
 - The UI must not parse learner commands itself or invent gameplay numbers.
 - Do not store gameplay-relevant data in renderer state.
 
+# Backdrop, silhouettes and wall art (2026-11-21)
+
+- The painted map picture (`terrain.backdrop`) is drawn EXACTLY on the map rectangle (`world.x`, `world.y`); never offset it (that once pushed the road away from the gate).
+- Silhouette bands (`BACKDROP_BANDS`, `bandLayout`) are drawn right after the picture, before every object: the top one stands on the map's top edge, the bottom one hangs from the bottom edge, filling the canvas margin (never thinner than 2 cells, overlapping the map when there is no margin). Neighbouring tiles are mirrored. `renderer.backdropParallaxRatio` (0-1) lets them slide slower than the map when the camera pans.
+- Line walls and their gate are drawn as level sections (`wallSections`, `buildingArt.getLevel`); see `AI_MEMORY/assets/BUILDING_ASSETS.md`. Big painted pictures are drawn with smoothing on (`smoothly`); the older sprites still draw with `imageSmoothingEnabled = false`.
+
 # Related Documentation
 
 - `docs/game/09-rendering-boundary-and-ui.md`

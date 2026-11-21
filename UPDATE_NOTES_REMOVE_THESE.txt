@@ -1,0 +1,44 @@
+Files in this zip are NEW or CHANGED: copy them over your project, keeping their folder paths.
+
+DELETE these from your project (housekeeping; a zip cannot delete files):
+  assets/building/gate_level1.png
+  assets/building/gate_level2.png
+  assets/building/gate_level3.png
+  assets/building/gate_level4.png
+  assets/building/gate_level5.png
+  assets/building/wall_level1.png
+  assets/building/wall_level3.png
+  assets/building/wall_level4.png
+  assets/building/wall_level5.png
+  assets/building/walls_level2.png
+  assets/source/backdrops/bottom_silhouette.png
+  assets/source/backdrops/top_silhouette.png
+  assets/source/trees-sheet.jpg
+  assets/sprites/nodes/tree_autumn_full1.png
+  assets/sprites/nodes/tree_autumn_full2.png
+  assets/sprites/nodes/tree_green_full1.png
+  assets/sprites/nodes/tree_green_full_2.jpg
+  assets/sprites/nodes/tree_spring_full1.png
+  assets/sprites/nodes/tree_spring_full2.png
+  assets/sprites/nodes/tree_winter_full1.png
+  assets/sprites/nodes/tree_winter_full2.png
+  docs/correction/C0_BASELINE.md
+  docs/correction/CODE_AFTERmath_AUDIT.md
+  docs/correction/CODE_AFTERmath_CORRECTION_PHASES.md
+  docs/correction/CODE_AFTERmath_IMPLEMENTATION_PHASES.md
+  docs/correction/CODE_AFTERmath_UI_RENDER_IMPLEMENTATION.md
+  docs/correction/REVIEW_2026-11-12.md
+  docs/game/18-grid-pixel-art-asset-integration.md
+  scripts/legacy-debug/check-http.mjs
+  scripts/legacy-debug/check-playwright-load.mjs
+  scripts/legacy-debug/check-playwright-run.mjs
+  scripts/legacy-debug/check-server-while-running.mjs
+  scripts/legacy-debug/debug-app-run.mjs
+  scripts/legacy-debug/debug-browser-call.mjs
+  scripts/legacy-debug/debug-node-sandbox.mjs
+  scripts/legacy-debug/debug-runattempt.mjs
+  scripts/legacy-debug/debug-smoke.mjs
+  scripts/legacy-debug/tmp-verify.mjs
+  smoke.png
+
+The moved wall/gate pictures (assets/building/*) now live in assets/sprites/buildings/ and the silhouettes in assets/backdrops/, so assets/building/ and assets/source/backdrops/ must be removed too.

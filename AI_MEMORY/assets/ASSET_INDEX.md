@@ -2,7 +2,7 @@
 
 Authoritative for: how assets are named, resolved and where they live. Sprite rules → `AI_MEMORY/assets/SPRITE_INDEX.md`. Per-domain lists → `NPC_ASSETS.md`, `BUILDING_ASSETS.md`, `RESOURCE_ASSETS.md`, `UI_ASSETS.md` (same folder).
 
-**Status:** there are NO image files for the game. Every frame comes from the in-code placeholder atlas (`buildPlaceholderManifest` + `paintPlaceholderAtlas` in `src/modules/assets/index.js`). `.gitignore` excludes `*.png`. Real art is PLANNED (phase I1) and swaps in by supplying a different manifest + image; nothing in gameplay changes.
+**Status (updated 2026-11-21):** the game now has painted art: map backdrop + silhouettes (`assets/backdrops/`), buildings incl. wall/gate levels 1-5 (`assets/sprites/buildings/`), trees/rocks (`assets/sprites/nodes/`), survivors (`assets/sprites/npc/`), item icons (`assets/equipments/`); originals the scripts read are in `assets/source/`. Each is loaded lazily and the renderer falls back to the in-code placeholder atlas (`buildPlaceholderManifest` + `paintPlaceholderAtlas` in `src/modules/assets/index.js`) until a picture has loaded. The registry table below still lists the placeholder keys; per-domain files are in `NPC_ASSETS.md`, `BUILDING_ASSETS.md`, `RESOURCE_ASSETS.md`.
 
 ## How an asset is chosen
 

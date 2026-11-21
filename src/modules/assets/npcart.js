@@ -28,11 +28,14 @@ export const NPC_POSES = Object.freeze([
 export const NPC_ANCHORS = Object.freeze(Object.fromEntries(Object.entries({ idle_down: 35.1, idle_up: 34.7, idle_left: 33.9, idle_right: 36.5, tool_axe: 32.4, tool_pickaxe: 32.5, tool_spear: 34.3, tool_bow: 38.8, tool_crossbow: 32.7, tool_rifle: 31.6, tool_wrench: 36.5, downed: 66.4, dead: 54.2, walk_down_0: 34.4, walk_down_1: 34.9, walk_up_0: 32.8, walk_up_1: 33.2, walk_left_0: 40.3, walk_left_1: 34.0, walk_right_0: 36.9, walk_right_1: 34.4 }).map(([k, ax]) => [k, { ax }])));
 const LEFT_VIEWS = new Set(['left']);
 
+/** Is this gather job a rock job (pickaxe, stone chips) rather than a tree job (axe, wood chips)? */
+export const isStoneWork = (resource) => /stone|rock|ore|metal|scrap/.test(String(resource ?? ''));
+
 /** Which tool picture a work animation shows. `resource` is what the survivor is gathering ('wood', 'stone', ...), null when unknown. */
 export function toolPoseFor(animation, resource = null) {
   const a = String(animation ?? '').toLowerCase();
   if (a === 'repair' || a === 'work') return 'tool_wrench';
-  if (a === 'gather') return /stone|rock|ore|metal|scrap/.test(String(resource ?? '')) ? 'tool_pickaxe' : 'tool_axe';
+  if (a === 'gather') return isStoneWork(resource) ? 'tool_pickaxe' : 'tool_axe';
   if (a === 'attack') return 'tool_spear';
   return null;
 }
@@ -52,6 +55,31 @@ export function npcPose({ animation = 'IDLE', direction = 'DOWN', resource = nul
   const tool = toolPoseFor(a, resource);
   if (tool) return { key: tool, mirror: mirrorLeft };
   return { key: `idle_${view}`, mirror: false };
+}
+
+// ---- Chopping / mining swing (presentation only) ----
+// The tool picture is one still image, so the "banging" is motion: the survivor leans back to wind up, lunges at the tree / rock, presses in for a moment (the hit: chips fly)
+// and eases back, over and over. The simulation does not know about it; a survivor still owns exactly one logical cell and the node does not move.
+export const WORK_SWING_MS = 900;     // one wind-up + strike + recovery
+export const WORK_LUNGE_CELLS = 0.4;  // how far the full lunge goes toward the target, in grid cells (the wind-up goes back 0.35 of that)
+export const WORK_TILT_RAD = 0.2;     // lean at full lunge, about the feet
+const FACING = Object.freeze({ UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0], UP_LEFT: [-Math.SQRT1_2, -Math.SQRT1_2], UP_RIGHT: [Math.SQRT1_2, -Math.SQRT1_2], DOWN_LEFT: [-Math.SQRT1_2, Math.SQRT1_2], DOWN_RIGHT: [Math.SQRT1_2, Math.SQRT1_2] });
+/** Unit vector (x right, y down) of a simulation direction; a survivor works facing her node, so this points at it. Unknown -> down. */
+export const facingVector = (direction) => FACING[direction] ?? FACING.DOWN;
+
+/**
+ * Where the swing is at `timeMs`: `lunge` -0.35..1 (negative = leaning back to wind up, 1 = fully into the hit, 0 = at rest) and `impact` 0..1 (1 the instant the tool lands,
+ * fading out; the renderer throws chips with it). `offsetMs` staggers survivors so two of them never strike in step. Pure.
+ */
+export function workSwing(timeMs, offsetMs = 0) {
+  const t = ((((timeMs + offsetMs) % WORK_SWING_MS) + WORK_SWING_MS) % WORK_SWING_MS) / WORK_SWING_MS;
+  let lunge;
+  if (t < 0.5) lunge = -0.35 * (1 - (1 - t / 0.5) ** 2);                    // wind-up: ease back
+  else if (t < 0.62) { const u = (t - 0.5) / 0.12; lunge = -0.35 + 1.35 * u * u; } // strike: fast, accelerating
+  else if (t < 0.72) lunge = 1;                                              // pressed into the hit
+  else { const u = (t - 0.72) / 0.28; lunge = 1 - (u * u * (3 - 2 * u)); }  // recover (smoothstep) back to rest
+  const impact = t >= 0.62 && t < 0.8 ? 1 - (t - 0.62) / 0.18 : 0;
+  return { lunge: lunge + 0, impact }; // + 0 turns -0 into 0
 }
 
 /** Which of the two stride frames to show at `timeMs` (presentation clock only). */

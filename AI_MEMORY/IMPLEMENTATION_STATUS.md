@@ -69,7 +69,7 @@ Authoritative for: what exists *now* (verified in code on 2026-11-20; `npm test`
 
 ## OBSOLETE (kept only as history)
 
-- Turn-based model: not present in code. Its docs (the old correction folder) and the scratch scripts (the old legacy-debug folder) were deleted in the 2026-11-19 housekeeping.
+- Turn-based model: not present in code. Its docs (the old correction folder) and the scratch scripts (the old legacy-debug folder) were deleted in the 2026-11-19 housekeeping (they reappeared in a later project zip and were removed again 2026-11-21 - do not restore them).
 - `docs/PHASES.md` line "C2 turn-based free play" (marked historical in the file).
 
 ## Conflicts found (recorded, not silently reconciled)
@@ -122,6 +122,7 @@ S0–S5 cleanup/alignment — done (2026-11-13). R4a Needs Policies — done. R4
 | `tests/screens.test.js` | map screens: order and numbering, edge arrows and their end stops, alert levels from a real raid day, town and front scene art from the live view (train only while in, away marker, wave sky), shared panel rows only insert code and escape text, building scenes never change the state hash, markup + styles + wiring (40×16 start, arrow keys, no zone code left) |
 | `tests/long-map.test.js` | `stage1_long`: 40×16 with one line wall at x = 22 and the gate at (22,7), the settlement is stage 1 shifted by exactly 6, waves spawn at x = 39 and never cross, the gate is the only way over, determinism + two-week soak |
 | `tests/outpost-backdrop.test.js` | (also hover tags, worker line, doing, glow) `stage1_outpost`: validates, picture aspect = map aspect, layout from the guideline sketch (wall x = 9, gate (9,6) on the road, tower beside the wall, hq top-left, trees and rocks only outside and off the road rows), projection carries `terrain.backdrop` / `roadY`, `createBackdropArt` loads lazily, app + server wiring; picked tree / rock = green glow + name + resource bar + GATHER button drawn by the renderer (`pickTag`), no card; the button inserts `survivor.gather(...)` for the last picked survivor |
+| `tests/wall-art.test.js` | Wall/gate level pictures + silhouette bands: `wallSections` layout, `getLevel` fallback + darkened copy, `bandLayout`, files exist, renderer draws sections / bands / picks the painted gate, backdrop drawn on the map rectangle |
 | `tests/town.test.js` | W4 table validation (no money), pure offers per seed+day, rotation + announcements, stat ranges, price = pure function of stats (rounded up), recruit pays from stock and adds a real survivor, every refusal changes nothing (state hash), default payment order, beds, hired stays hired, new survivor takes commands, sandbox `town.recruit` + frozen `town` + not on `survivor`, replay determinism, API/Codebook, UI buttons mirror the rules, soak ledger |
 | `tests/lesson-timeline.test.js` | R5 lessons run on the command timeline: a lesson attempt records the timeline, replays to the same state hash, and progress saves the timeline |
 | `tests/events.test.js` | O18 pure schedule, weights, public upcoming + sandbox read, warnings, rat/equipment/cache effects, capped history, replay-safe hash, soak with events on, validation |

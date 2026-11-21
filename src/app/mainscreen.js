@@ -46,7 +46,7 @@ async function init() {
   // IndexedDB can be missing or blocked (some private-browsing modes); then saves live in memory for this page only.
   try { adapter = typeof indexedDB !== 'undefined' ? createIndexedDbAdapter() : undefined; } catch { adapter = undefined; }
   app = createApp(adapter ? { adapter } : {});
-  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), npcArt: createNpcArt(), backdropArt: createBackdropArt(), buildingArt: createBuildingArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true });
+  renderer = mountRenderer($('map-canvas'), { manifest: placeholderManifestFor(app.defs), nodeArt: createNodeArt(), npcArt: createNpcArt(), backdropArt: createBackdropArt(), buildingArt: createBuildingArt(), debug: new URLSearchParams(location.search).has('debug'), smoothing: true, wallArtLevel: Number(new URLSearchParams(location.search).get('wallLevel')) || null }); // ?wallLevel=1..5 previews that level's wall + gate pictures
   hud = mountHud({ renderer, getView: () => freeSim?.studentView(), select: (kind, id) => selectEntity(kind, id), getSelected: () => selected, getCommands: () => app.codebook.entries.filter((e) => e.kind === 'command' && e.example) });
   await startScenario();
   renderHints();

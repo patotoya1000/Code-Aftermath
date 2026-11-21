@@ -53,7 +53,7 @@ check(box.width > 400, 'map uses the full world column, not a narrow strip');
 // I2: the gate is a real, selectable world object, and the code hint the UI shows for it actually runs
 const t = Math.min(box.width / 40, box.height / 16); // the live map is the 40x16 painted outpost (stage1_outpost)
 const ox = box.x + (box.width - 40 * t) / 2; const oy = box.y + (box.height - 16 * t) / 2;
-await page.mouse.click(ox + 9.5 * t, oy + 6.5 * t); // gate tile (9, 6), in the line wall
+await page.mouse.click(ox + 12.5 * t, oy + 6.5 * t); // gate tile (12, 6), in the line wall (the painted gate is taller than its cell and picks the gate too)
 check((await text('#inspector-card')).includes('Gate'), 'clicking the gate selects it');
 check(await page.locator('#inspector-card [data-snippet="survivor.repair(gate);"]').count() === 1, 'the inspector Repair button inserts code that names the gate by id');
 await page.click('#btn-code');

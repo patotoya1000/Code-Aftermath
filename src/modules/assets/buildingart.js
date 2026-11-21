@@ -6,6 +6,8 @@
 // so a ruin is smaller than the finished building instead of being stretched to the same width.
 // Until a picture has loaded (or when it is missing, or there is no DOM) `get()` answers null and the renderer draws its placeholder instead.
 
+import { WALL_SECTION_CELLS, WALL_ART_LEVELS } from './wallart.js';
+
 export const BUILDING_ART_DIR = 'assets/sprites/buildings/';
 export const BUILDING_ART = Object.freeze({
   hq: { file: 'hq', cells: 3.3, refW: 331 },
@@ -25,14 +27,59 @@ export const BUILDING_ART = Object.freeze({
 });
 export const ART_CONDITIONS = Object.freeze(['repaired', 'damaged', 'ruined']);
 
+// LEVEL art (wall + gate): one painted picture per building LEVEL, `<file>_level<1-5>.png`. It is a whole wall section (see wallart.js), drawn WALL_SECTION_CELLS tall,
+// so one picture pixel is `refH / WALL_SECTION_CELLS` per cell. The pictures only show the finished building, so a damaged or ruined one is the same picture darkened
+// (`LEVEL_TINT`) until condition pictures exist. A level whose picture is missing falls back to the next lower one; nothing here ever invents a higher one.
+export const LEVEL_ART = Object.freeze({ fence: { file: 'wall', refH: 670 }, gate: { file: 'gate', refH: 670 } });
+export const LEVEL_TINT = Object.freeze({ repaired: null, damaged: { color: 'rgba(34,20,10,0.32)', alpha: 1 }, ruined: { color: 'rgba(22,12,8,0.58)', alpha: 0.86 } });
+
 /** Lazy image cache, same shape as createNodeArt. `get(type, condition)` → { img, cells } (cells = the picture's drawn width in grid cells) or null. */
-export function createBuildingArt({ baseUrl = BUILDING_ART_DIR, specs = BUILDING_ART, loadImage = null } = {}) {
+export function createBuildingArt({ baseUrl = BUILDING_ART_DIR, specs = BUILDING_ART, loadImage = null, createCanvas = null, sectionCells = WALL_SECTION_CELLS, levels = WALL_ART_LEVELS } = {}) {
   const cache = new Map();
   const make = loadImage ?? (typeof Image === 'undefined' ? null : (url) => { const img = new Image(); img.src = url; return img; });
+  const makeCanvas = createCanvas ?? (typeof document === 'undefined' ? null : (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; });
   const isReady = (img) => Boolean(img && img.complete !== false && (img.naturalWidth ?? img.width) > 0);
+  const entry = (key) => {
+    let e = cache.get(key);
+    if (!e) { e = { img: make(`${baseUrl}${key}.png`), failed: false, tinted: new Map() }; try { e.img.onerror = () => { e.failed = true; }; } catch { /* non-DOM image stand-in */ } cache.set(key, e); }
+    return e;
+  };
+  /** The picture to draw for a condition: the plain image when repaired, else a darkened copy made once (or the plain image when no canvas exists, e.g. in Node). */
+  const shaded = (e, condition) => {
+    const t = LEVEL_TINT[condition] ?? null; if (!t) return { img: e.img, alpha: 1 };
+    if (!e.tinted.has(condition)) {
+      let img = e.img;
+      if (makeCanvas) {
+        try {
+          const w = e.img.naturalWidth ?? e.img.width; const h = e.img.naturalHeight ?? e.img.height; const c = makeCanvas(w, h); const g = c.getContext('2d');
+          g.drawImage(e.img, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = t.color; g.fillRect(0, 0, w, h); img = c;
+        } catch { img = e.img; }
+      }
+      e.tinted.set(condition, img);
+    }
+    return { img: e.tinted.get(condition), alpha: t.alpha };
+  };
   return {
     specs,
     has: (type) => Object.hasOwn(specs, type),
+    hasLevelArt: (type) => Object.hasOwn(LEVEL_ART, type),
+    /** Start loading every level picture now so no section waits for its first use. */
+    preload() { if (!make) return; for (const spec of Object.values(LEVEL_ART)) for (const lv of levels) entry(`${spec.file}_level${lv}`); },
+    /**
+     * The level picture for a wall ('fence') or a 'gate': { img, alpha, w } or null (not loaded yet / no art for this type) - the caller then draws the old per-cell
+     * piece. `w` = the picture's drawn width in grid cells. A missing level falls back to the nearest lower one that exists.
+     */
+    getLevel(type, level, condition) {
+      const spec = Object.hasOwn(LEVEL_ART, type) ? LEVEL_ART[type] : null; if (!spec || !make) return null;
+      for (let lv = Math.min(levels.at(-1), Math.max(1, Math.trunc(Number(level) || 1))); lv >= 1; lv--) {
+        const e = entry(`${spec.file}_level${lv}`);
+        if (e.failed) continue;
+        if (!isReady(e.img)) return null; // still loading: no flash of a lower level, the old piece stands in
+        const s = shaded(e, condition);
+        return { img: s.img, alpha: s.alpha, level: lv, w: (e.img.naturalWidth ?? e.img.width) / (spec.refH / sectionCells) };
+      }
+      return null;
+    },
     get(type, condition) {
       const spec = Object.hasOwn(specs, type) ? specs[type] : null; if (!spec || !make) return null;
       const cond = ART_CONDITIONS.includes(condition) ? condition : 'repaired';

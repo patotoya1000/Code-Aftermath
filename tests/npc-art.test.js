@@ -112,3 +112,54 @@ test('a placeholder zombie is tinted differently from the placeholder survivor',
   assert.ok(Object.entries(m.frames).filter(([k]) => k.startsWith('zombie_')).every(([, f]) => f.spec.zombie === true));
   assert.ok(Object.entries(m.frames).filter(([k]) => k.startsWith('npc_')).every(([, f]) => !f.spec.zombie));
 });
+
+// ---- chopping / mining swing: she moves back and forth toward her tree / rock (presentation only) ----
+import { workSwing, facingVector, isStoneWork, WORK_SWING_MS, WORK_LUNGE_CELLS, WORK_TILT_RAD } from '../src/modules/assets/index.js';
+
+test('the swing winds up (leans back), strikes (lunges in), presses, recovers, and repeats every WORK_SWING_MS', () => {
+  const at = (f) => workSwing(f * WORK_SWING_MS);
+  assert.equal(at(0).lunge, 0); assert.ok(at(0.4).lunge < -0.2 && at(0.4).lunge >= -0.35, 'wind-up leans back');
+  assert.ok(Math.abs(at(0.5).lunge + 0.35) < 1e-9, 'the deepest wind-up is just before the strike');
+  assert.ok(at(0.56).lunge > at(0.5).lunge && at(0.62).lunge > 0.99, 'the strike is fast and lands at 1');
+  assert.equal(at(0.66).lunge, 1); assert.ok(at(0.85).lunge < 1 && at(0.85).lunge > 0, 'then recovers'); assert.ok(Math.abs(at(0.999).lunge) < 0.01);
+  assert.deepEqual(workSwing(123), workSwing(123 + WORK_SWING_MS), 'periodic'); assert.deepEqual(workSwing(-50), workSwing(WORK_SWING_MS - 50), 'negative time is fine');
+  assert.ok(at(0.62).impact === 1 && at(0.7).impact < 1 && at(0.7).impact > 0 && at(0.9).impact === 0 && at(0.3).impact === 0, 'chips only right after the hit');
+  const all = Array.from({ length: 200 }, (_, i) => workSwing(i * 4.5).lunge); assert.ok(Math.min(...all) >= -0.35 - 1e-9 && Math.max(...all) <= 1 + 1e-9);
+});
+
+test('survivors are staggered, the facing vector points at the target, and stone work is told from tree work', () => {
+  assert.notEqual(workSwing(300, 0).lunge, workSwing(300, 250).lunge);
+  assert.deepEqual(facingVector('LEFT'), [-1, 0]); assert.deepEqual(facingVector('DOWN'), [0, 1]); assert.deepEqual(facingVector('nonsense'), [0, 1]);
+  assert.ok(Math.abs(Math.hypot(...facingVector('UP_RIGHT')) - 1) < 1e-9);
+  assert.equal(isStoneWork('stone'), true); assert.equal(isStoneWork('wood'), false); assert.equal(isStoneWork(null), false);
+  assert.equal(toolPoseFor('GATHER', 'stone'), 'tool_pickaxe'); assert.equal(toolPoseFor('GATHER', 'wood'), 'tool_axe');
+});
+
+function swingRig(animation, resource = 'wood', direction = 'RIGHT') {
+  const base = newSim().renderProjection(); const frame = { ...base, npcs: base.npcs.map((n, i) => (i === 0 ? { ...n, animation, direction, resource } : { ...n })) };
+  const drawn = []; const ctxOps = [];
+  const ctx = new Proxy({}, { get: (t, p) => (p === 'drawImage' ? (...a) => drawn.push({ a, at: ctxOps.filter((o) => o[0] === 'translate').at(-1) }) : p in t ? t[p] : (...a) => { ctxOps.push([p, ...a]); }), set: (t, p, v) => { t[p] = v; return true; } });
+  const canvas = { width: 960, height: 640, getContext: () => ctx, getBoundingClientRect: () => ({ width: 960, height: 640 }) };
+  let clock = 0; const art = createNpcArt({ loadImage: () => ({ complete: true, naturalWidth: 70, naturalHeight: 112 }), now: () => clock });
+  const r = mountRenderer(canvas, { manifest: placeholderManifestFor(defs), createCanvas: () => canvas, npcArt: art, now: () => clock });
+  const survivorPos = () => { ctxOps.length = 0; drawn.length = 0; r.draw(frame); const t = ctxOps.filter((o) => o[0] === 'translate' && o.length === 3); return { t, drawn: drawn.length, ops: [...ctxOps] }; };
+  return { survivorPos, tick: (ms) => { clock = ms; }, frame };
+}
+
+test('a gathering survivor is moved toward her node in time; an idle or walking one never is', () => {
+  const g = swingRig('GATHER', 'wood', 'RIGHT'); const xs = new Set();
+  for (const ms of [0, 200, 450, 560, 600, 700, 850]) { g.tick(ms); const { ops } = g.survivorPos(); const tr = ops.find((o) => o[0] === 'translate' && Math.abs(o[1]) > 0 && o.length === 3 && o[1] > 0); xs.add(tr && Math.round(tr[1] * 100)); }
+  assert.ok(xs.size > 3, `the body moves through the swing (saw ${xs.size} distinct positions)`);
+  for (const a of ['IDLE', 'WALK', 'REST']) { const w = swingRig(a); const seen = new Set(); for (const ms of [0, 300, 600, 900]) { w.tick(ms); seen.add(w.survivorPos().ops.filter((o) => o[0] === 'rotate').length); } assert.deepEqual([...seen], [0], `${a}: no swing rotation`); }
+});
+
+test('the swing leans toward the node (rotate sign follows the facing side) and the chips only appear at the hit', () => {
+  // each survivor's swing is staggered by her id, so scan the whole cycle instead of guessing the phase
+  const scan = (dir, res = 'wood') => { const w = swingRig('GATHER', res, dir); const rows = []; for (let ms = 0; ms < WORK_SWING_MS; ms += 30) { w.tick(ms); const o = w.survivorPos().ops; rows.push({ rot: o.find((q) => q[0] === 'rotate')?.[1] ?? 0, fills: o.filter((q) => q[0] === 'fillRect').length }); } return rows; };
+  const right = scan('RIGHT'); const left = scan('LEFT'); const down = scan('DOWN');
+  assert.ok(Math.max(...right.map((r) => r.rot)) > 0.8 * WORK_TILT_RAD && Math.min(...right.map((r) => r.rot)) < 0, 'facing right: leans +  at the hit, a little - in the wind-up');
+  assert.ok(Math.min(...left.map((r) => r.rot)) < -0.8 * WORK_TILT_RAD && Math.max(...left.map((r) => r.rot)) <= 0.35 * WORK_TILT_RAD + 1e-9, 'facing left: leans - at the hit, a little + in the wind-up');
+  assert.ok(down.every((r) => r.rot === 0), 'facing straight down or up: no tilt');
+  const base = Math.min(...right.map((r) => r.fills)); const peak = Math.max(...right.map((r) => r.fills));
+  assert.equal(peak - base, 4, 'four chips at the hit, none the rest of the time'); assert.ok(right.filter((r) => r.fills > base).length < right.length * 0.3, 'only for a short moment');
+});

@@ -13,3 +13,7 @@ Authoritative for: the survivor's visual states. Registry → `AI_MEMORY/assets/
 - PLANNED: winter outfit (cold-weather design), weapon poses wired to combat, sit/sleep (rest), eat/drink, hurt, per-survivor palette variants (Mark / Anna / John), gather/repair as 2-frame loops.
 - Forbidden: storing sprite keys on the survivor; choosing animation by wall-clock in gameplay.
 - No mock model while painted art loads (2026-11-21): `createNpcArt().preload()` (called by `mountRenderer`) loads all poses at start, idle first; `pending()` is true while pictures are on the way (4 s timeout). The renderer draws the wanted pose, else the survivor's last drawn painted pose, else the standing picture of her view, else (nothing painted ready) no body while `pending()`, and the placeholder atlas figure only when no painted picture exists (files missing / timed out). The placeholder zombie (`spec.zombie`) is tinted grey-green so it is never mistaken for a survivor.
+
+## Chopping / mining swing (2026-11-21)
+
+- The tool pictures (`tool_axe`, `tool_pickaxe`) are stills. While a GATHER tool pose is drawn the renderer moves the survivor toward her node and back (`workSwing` in `src/modules/assets/npcart.js`: lean back, lunge, press, recover, 900 ms cycle, staggered per survivor id) and tilts her about her feet, with four wood / stone chips at the hit. Tune with `WORK_SWING_MS`, `WORK_LUNGE_CELLS`, `WORK_TILT_RAD`. Presentation only: the logical cell, the node and the simulation never move. Repair (wrench) and fighting are not animated this way yet.
