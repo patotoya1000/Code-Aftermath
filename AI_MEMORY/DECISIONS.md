@@ -232,3 +232,8 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - New scenario `stage1_outpost` instead of editing `stage1_long`, so the existing tests and saves keep their layout. Wall x = 9, gate (9,6) (the road's centre line is y = 6.7). Buildings stay off the road rows 6-7; every building keeps its stage-1 distance to the wall. Free tower spots for later: (8,9), (8,11), (8,0).
 - Node count (about 33 trees/rocks) is data in `BANDS` in `data/world.js`; thin them for a scarcer game.
 
+## Picked trees and rocks show a tag, not a card (2026-11-21)
+
+- The owner wants a click on a tree or rock to glow green and show its name and a resource bar, and no info card for them. Buildings and survivors keep their card (they have actions to show).
+- The bar needs a full mark but the state does not store a node's starting amount (adding it would change saves and replays), so the renderer remembers the highest amount it has seen per node and never uses less than the type's typical amount. A save loaded half-gathered shows a slightly short full mark until the node is seen fuller.
+

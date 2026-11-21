@@ -288,8 +288,16 @@ function renderInspector() {
 function selectEntity(kind, id) {
   selected = { kind, id };
   renderer.select(kind, id);
-  cardOpen = true; paintCard();
+  cardOpen = kind !== 'node'; paintCard(); // a picked tree / rock shows its name + resource bar on the map (glowing green); it opens no card
   refreshUI();
+}
+/** Drop a tree / rock pick (empty click, Esc) and go back to the default survivor, who commands go to. Returns true if there was one. */
+function clearNodePick() {
+  if (selected?.kind !== 'node') return false;
+  const first = freeSim?.studentView().survivors[0];
+  selected = first ? { kind: 'npc', id: first.id } : null;
+  if (selected) renderer.select('npc', first.id); else renderer.clearSelection();
+  refreshUI(); return true;
 }
 
 // The card floats over the map and never takes width from it. Phones keep their own tab layout, where the card is a tab.
@@ -783,7 +791,7 @@ function bindScreens() {
 
 function bindEvents() {
   bindScreens();
-  bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pick(x, y, currentProjection()), onHit: (hit) => selectEntity(hit.kind, hit.id), onEmpty: () => setCardOpen(false) });
+  bindMapGestures($('map-canvas'), { camera: renderer, pick: (x, y) => renderer.pick(x, y, currentProjection()), onHit: (hit) => selectEntity(hit.kind, hit.id), onEmpty: () => { setCardOpen(false); clearNodePick(); } });
   $('inspector-toggle')?.addEventListener('click', () => setCardOpen(false));
   const zoomBy = (f) => { const r = $('map-canvas').getBoundingClientRect(); renderer.zoomAt(f, r.width / 2, r.height / 2); };
   $('btn-zoom-in')?.addEventListener('click', () => zoomBy(1.25));
@@ -810,6 +818,7 @@ function bindEvents() {
     else if (e.key === 'Escape' && isCodePanelOpen) toggleCodePanel();
     else if (e.key === 'Escape' && !typing && screenId !== 'outpost' && picked[screenId]) { picked[screenId] = null; paintScreens(true); }
     else if (e.key === 'Escape' && !typing && screenId !== 'outpost') setScreen('outpost');
+    else if (e.key === 'Escape' && !typing && clearNodePick()) { /* the tree / rock glow is gone */ }
     else if (e.key === 'Escape' && cardOpen && !typing) setCardOpen(false);
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !typing && !e.altKey && !e.ctrlKey && !e.metaKey && !isCodePanelOpen && !isBookOpen()) { e.preventDefault?.(); stepScreen(e.key === 'ArrowLeft' ? -1 : 1); }
     if ((e.key === 'b' || e.key === 'B') && e.altKey) (isBookOpen() ? setBookOpen(false) : openBook(null)); // Alt+B: Codebook

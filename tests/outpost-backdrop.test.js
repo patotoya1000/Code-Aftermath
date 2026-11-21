@@ -50,3 +50,41 @@ test('the app starts on the outpost map and the server knows .jpg', () => {
   assert.ok(readFileSync(new URL('../src/app/mainscreen.js', import.meta.url), 'utf8').includes("backdropArt: createBackdropArt()"));
   assert.ok(readFileSync(new URL('../scripts/serve.mjs', import.meta.url), 'utf8').includes("'.jpg': 'image/jpeg'"));
 });
+
+// ---- picked tree / rock: green glow + name + resource bar on the map, no info card ----
+import { mountRenderer } from '../src/modules/render/index.js';
+import { placeholderManifestFor } from '../src/modules/assets/index.js';
+
+function recordingCanvas(w = 1640, h = 656) {
+  const calls = []; const ctx = new Proxy({}, { get: (t, p) => (p in t ? t[p] : (...a) => { calls.push([p, ...a]); }), set: (t, p, v) => { t[p] = v; return true; } });
+  return { calls, canvas: { width: w, height: h, getContext: () => ctx, getBoundingClientRect: () => ({ width: w, height: h }) } };
+}
+const nodeFrame = (amount) => ({ tick: 5, map: { width: 40, height: 16 }, environment: { isNight: false, hour: 8, weather: 'clear' }, terrain: { zones: [], paths: [] }, buildings: [], npcs: [], zombies: [], stock: {}, events: [],
+  nodes: [{ id: 'tree_1', type: 'tree', name: 'Tree', resource: 'wood', x: 20, y: 4, visual: 'available', amount, capacity: 35 }, { id: 'rock_1', type: 'rock', name: 'Rock', resource: 'stone', x: 24, y: 4, visual: 'available', amount: 25, capacity: 25 }] });
+
+test('the render projection names each node and the resource it yields', () => {
+  const n = renderProjection(state(), defs).nodes[0];
+  assert.ok(typeof n.name === 'string' && n.name.length > 0 && ['wood', 'stone'].includes(n.resource));
+});
+
+test('a picked tree is drawn with a green glow plus a name and amount tag; an unpicked one is not', () => {
+  const { calls, canvas } = recordingCanvas();
+  const r = mountRenderer(canvas, { manifest: placeholderManifestFor(defs), createCanvas: () => recordingCanvas().canvas });
+  r.draw(nodeFrame(28));
+  assert.ok(!calls.some((c) => c[0] === 'fillText' && c[1] === 'Tree'), 'no tag before anything is picked');
+  calls.length = 0; r.select('node', 'tree_1'); r.draw(nodeFrame(28));
+  assert.ok(calls.some((c) => c[0] === 'fillText' && c[1] === 'Tree'), 'the name is drawn');
+  assert.ok(calls.some((c) => c[0] === 'fillText' && c[1] === '28 wood'), 'the amount and resource are drawn');
+  assert.ok(calls.some((c) => c[0] === 'ellipse'), 'placeholder tree gets a glow blob (painted sprites use a green shadow)');
+  r.select('node', 'rock_1'); calls.length = 0; r.draw(nodeFrame(28));
+  assert.ok(calls.some((c) => c[0] === 'fillText' && c[1] === 'Rock') && !calls.some((c) => c[0] === 'fillText' && c[1] === 'Tree'), 'picking the rock moves the tag');
+});
+
+test('a depleted node says so, and the app opens no card for a node pick', () => {
+  const { calls, canvas } = recordingCanvas();
+  const r = mountRenderer(canvas, { manifest: placeholderManifestFor(defs), createCanvas: () => recordingCanvas().canvas });
+  r.select('node', 'tree_1'); r.draw(nodeFrame(0));
+  assert.ok(calls.some((c) => c[0] === 'fillText' && c[1] === 'depleted'));
+  const src = readFileSync(new URL('../src/app/mainscreen.js', import.meta.url), 'utf8');
+  assert.ok(src.includes("cardOpen = kind !== 'node'") && src.includes('clearNodePick'));
+});

@@ -44,9 +44,10 @@ check((await text('#clock-label')).includes('PAUSED'), 'PAUSE freezes the clock'
 const box = await page.locator('#map-canvas').boundingBox();
 await page.screenshot({ path: process.argv[2] ?? 'smoke.png' });
 check(box.width > 200 && box.height > 200, 'map canvas is visible');
-const shell = await page.locator('#app-shell').boundingBox();
+// HUD layout: the map fills the shell and the top bar floats over it as cards, so the check is that the bar stays fully on screen
+const vpSize = page.viewportSize();
 const bar = await page.locator('#top-bar').boundingBox();
-check(shell.y >= bar.y + bar.height - 1, 'game shell starts below the header (nothing hidden underneath it)');
+check(bar.x >= 0 && bar.y >= 0 && bar.x + bar.width <= vpSize.width && bar.y + bar.height <= vpSize.height, 'the HUD top bar is fully inside the window');
 check(box.width > 400, 'map uses the full world column, not a narrow strip');
 
 // I2: the gate is a real, selectable world object, and the code hint the UI shows for it actually runs
@@ -54,7 +55,7 @@ const t = Math.min(box.width / 40, box.height / 16); // the live map is the 40x1
 const ox = box.x + (box.width - 40 * t) / 2; const oy = box.y + (box.height - 16 * t) / 2;
 await page.mouse.click(ox + 9.5 * t, oy + 6.5 * t); // gate tile (9, 6), in the line wall
 check((await text('#inspector-card')).includes('Gate'), 'clicking the gate selects it');
-check((await text('#inspector-card')).includes('survivor.repair(gate)'), 'inspector hint names the gate by id');
+check(await page.locator('#inspector-card [data-snippet="survivor.repair(gate);"]').count() === 1, 'the inspector Repair button inserts code that names the gate by id');
 await page.click('#btn-code');
 await page.fill('#code-editor', 'survivor.repair(gate);');
 await page.click('#btn-run-code');
@@ -84,6 +85,7 @@ await page.keyboard.press('End');
 await page.keyboard.type('l L ');
 check(await page.evaluate(() => getComputedStyle(document.querySelector('#lesson-player-panel')).display) === 'none', 'typing the letter "l" in the editor does not open lesson mode');
 await page.click('#code-close');
+if ((await page.getAttribute('[data-fold="system"]', 'aria-expanded')) === 'false') await page.click('[data-fold="system"]'); // the System card starts folded; open it like a user would
 await page.click('#btn-lessons');
 await page.waitForSelector('[data-action="start-lesson"]');
 await page.click('[data-action="start-lesson"]'); // first lesson

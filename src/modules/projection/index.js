@@ -168,7 +168,7 @@ export function renderProjection(state, defs) {
     terrain: terrainOf(state, defs),
     nodes: Object.values(state.nodes).map((n) => {
       const left = total(state, nodeKey(n.id));
-      return { id: n.id, type: n.type, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left, capacity: defs.nodeTypes?.[n.type]?.amount ?? 0 }; // capacity = the type's typical amount; the renderer shows a worn look from it
+      return { id: n.id, type: n.type, name: defs.nodeTypes?.[n.type]?.name ?? n.type, resource: n.resource ?? defs.nodeTypes?.[n.type]?.yields ?? null, x: n.x, y: n.y, visual: left > 0 ? 'available' : 'depleted', amount: left, capacity: defs.nodeTypes?.[n.type]?.amount ?? 0 }; // capacity = the type's typical amount; the renderer shows a worn look from it
     }),
     stock: Object.fromEntries(Object.keys(defs.items).map((i) => [i, total(state, stockKey(i))])),
     zombies: zombieProjection(state, defs),

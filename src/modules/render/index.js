@@ -11,7 +11,7 @@ const DEFAULT_MANIFEST = () => buildPlaceholderManifest({ buildings: { hq: [1], 
 // Placeholder colours of the loot sacks (Z4) until the item art exists.
 const LOOT_COLORS = { bones: '#e8e2cf', hide: '#a0693b', rags: '#9aa3ad', scrap: '#7c8794', gland: '#7ed957', noise_lure: '#e8b04a', boss_core: '#c24ee8', arrows: '#d9c07a', bolts: '#d9c07a', bullets: '#d9c07a' };
 const COLORS = {
-  terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', hover: '#8ec8ff', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
+  terrain: '#1d2420', grid: 'rgba(0,0,0,0.16)', select: '#ffd46b', glow: '#4ade80', hover: '#8ec8ff', event: '#ef7d74', label: '#e8e4d8', debug: 'rgba(120,200,255,0.9)',
   zone: 'rgba(63,143,79,0.14)', zoneEdge: 'rgba(63,143,79,0.45)', path: '#4a4333', labelOutline: 'rgba(15,14,12,0.85)',
 };
 const LABEL_MIN_TILE = 26; // below this tile size world labels would only add clutter
@@ -38,6 +38,7 @@ export function mountRenderer(canvas, {
   let vp = createViewport({ map: { width: 1, height: 1 }, view: { width: 1, height: 1 }, integer: integerScale }); // camera state lives here
   let selected = { kind: null, id: null };
   let hover = { kind: null, id: null };
+  const nodePeak = new Map(); let lastTick = -1; let selNode = null; // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
   let debugOn = debug;
   let drawList = [];
   let pathList = []; // PA-3: road pieces drawn
@@ -99,6 +100,8 @@ export function mountRenderer(canvas, {
     const t = vp.cell;
     const world = cellRect(vp, 0, 0, mw, mh);
     const time = now();
+    if ((frame.tick ?? 0) < lastTick) nodePeak.clear(); lastTick = frame.tick ?? 0; selNode = null; // a restart / load rewinds the clock: forget old peaks
+    for (const n of frame.nodes || []) if ((n.amount ?? 0) > (nodePeak.get(n.id) ?? 0)) nodePeak.set(n.id, n.amount);
 
     // 1 terrain
     ctx.clearRect(0, 0, rect.width, rect.height);
@@ -180,10 +183,16 @@ export function mountRenderer(canvas, {
         const e = resolver.resolveNode({ type: n.type, visual: n.visual });
         note('node', 'node', n.id, e, { x: n.x, y: n.y, visual: n.visual, footprint: spec.footprint, spriteSize: spec.spriteSize });
         const art = nodeArt ? nodeArt.get(nodeArt.key(n.type, n.id, nodeStage(n.amount ?? (n.visual === 'available' ? 1 : 0), n.capacity))) : null;
+        const picked = selected.kind === 'node' && selected.id === n.id; // a picked tree / rock glows green and carries a name + resource bar (drawn in drawSelection)
         if (art) { // painted sprite: bottom-centre on the cell's foot, width relative to the type's biggest sprite (stump < tree)
           const w = vp.cell * spec.spriteSize * (art.naturalWidth / (REF_W[n.type] ?? art.naturalWidth)); const h = w * (art.naturalHeight / art.naturalWidth);
+          if (picked) { ctx.save(); ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); for (let k = 0; k < 2; k++) ctx.drawImage(art, tileCenterX(n.x) - w / 2, tileFootY(n.y) - h, w, h); ctx.restore(); }
           ctx.drawImage(art, tileCenterX(n.x) - w / 2, tileFootY(n.y) - h, w, h);
-        } else if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
+          if (picked) selNode = { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - h };
+        } else {
+          if (picked) { ctx.save(); ctx.fillStyle = 'rgba(74,222,128,0.35)'; ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); ctx.beginPath(); ctx.ellipse(tileCenterX(n.x), tileFootY(n.y) - vp.cell * 0.4, vp.cell * 0.5, vp.cell * 0.55, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); selNode = { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - vp.cell * spec.spriteSize }; }
+          if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
+        }
         continue;
       }
       if (a.z) {
@@ -244,8 +253,29 @@ export function mountRenderer(canvas, {
   function selectionRect(frame) {
     return entityRect(frame, selected.kind, selected.id) ?? entityRect(frame, hover.kind, hover.id);
   }
+  /** Name + resource bar floating above the picked tree / rock. The bar's full mark is the most this node has held (or its type's typical amount). */
+  function drawNodeTag() {
+    if (!selNode) return;
+    const { n, cx, top } = selNode;
+    const full = Math.max(nodePeak.get(n.id) ?? 0, n.capacity ?? 0, n.amount ?? 0, 1); const frac = Math.max(0, Math.min(1, (n.amount ?? 0) / full));
+    const fs = Math.max(10, vp.cell * 0.34); const w = Math.max(92, vp.cell * 3); const h = fs * 2.9; const x = cx - w / 2; const y = Math.max(world_top() + 2, top - h - 6);
+    ctx.save();
+    ctx.fillStyle = 'rgba(8,20,12,0.86)'; ctx.strokeStyle = COLORS.glow; ctx.lineWidth = 1.5;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, 7); else ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#eafbee'; ctx.font = `700 ${fs}px system-ui`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(n.name ?? n.type, x + 8, y + 5);
+    ctx.font = `${fs * 0.9}px system-ui`; ctx.textAlign = 'right'; ctx.fillStyle = n.amount > 0 ? '#bbf7d0' : '#fca5a5';
+    ctx.fillText(n.amount > 0 ? `${n.amount} ${n.resource ?? ''}`.trim() : 'depleted', x + w - 8, y + 5 + fs * 0.05);
+    const bx = x + 8; const by = y + h - fs * 0.95 - 5; const bw = w - 16; const bh = fs * 0.62;
+    ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = frac > 0.35 ? '#4ade80' : frac > 0 ? '#fbbf24' : '#f87171'; ctx.fillRect(bx, by, bw * frac, bh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.restore();
+  }
+  const world_top = () => vp.oy;
   function drawSelection(frame) {
-    const selectedRect = selected.id ? entityRect(frame, selected.kind, selected.id) : null;
+    drawNodeTag();
+    const selectedRect = selected.id && selected.kind !== 'node' ? entityRect(frame, selected.kind, selected.id) : null; // nodes get the green glow + tag instead of the dashed box
     const hoverRect = hover.id && (!selected.id || selected.id !== hover.id) ? entityRect(frame, hover.kind, hover.id) : null;
     if (!selectedRect && !hoverRect) return;
     ctx.setLineDash?.([6, 5]);
