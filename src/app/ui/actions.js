@@ -2,7 +2,7 @@
 // Each entry is derived from the student view (what learner code may read), so a button is enabled exactly when the real command's
 // documented requirements are met right now, and its tooltip says why not when they are not. A button never runs anything: it only
 // puts a code snippet into the editor (data-action="insert"), so every command still goes through the sandbox like typed code.
-// Rules come from the Codebook entries (src/modules/api/codebook-data.js): repair, upgrade, gather, deposit, cook/craft, eat, drink, rest, stop, queue, mount, reload, guard.
+// Rules come from the Codebook entries (src/modules/api/codebook-data.js): repair, upgrade, gather, deposit, cook/craft, eat, drink, rest, stop, queue, mount, reload, guard, collect, attack.
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
@@ -50,6 +50,9 @@ export function buildingActionList(b, view = {}) {
 
 /** What this survivor can do right now (`s` = a student-view survivor or inspector card). */
 export function survivorActionList(s, view = {}) {
+  if (s?.status === 'away') {
+    return [{ id: 'away', label: 'Away on expedition', snippet: 'scavenge.away', enabled: false, reason: 'Away on expedition: commands are unavailable until return.' }];
+  }
   const out = [];
   const needs = s.needs ?? {};
   const food = Object.values(view?.foods ?? {}).some((f) => f.available > 0);
@@ -73,6 +76,69 @@ export function survivorActionList(s, view = {}) {
   out.push({ id: 'stop', label: 'Stop', snippet: 'survivor.stop();', enabled: !!s.task || (s.queued ?? 0) > 0,
     reason: s.task || (s.queued ?? 0) > 0 ? 'Cancels her running and queued jobs.' : 'She is not doing anything.' });
   return out;
+}
+
+/** What can be done with a resource node right now. */
+export function nodeActionList(node, view = {}) {
+  if (!node) return [];
+  const free = (view?.survivors ?? []).some((s) => s.status === 'active');
+  const hasAmount = (node.amount ?? 0) > 0;
+  return [{
+    id: `gather:${node.resource}`,
+    label: `Gather ${node.resource}`,
+    snippet: `survivor.gather("${node.resource}", 20);`,
+    enabled: hasAmount && free,
+    reason: !hasAmount ? 'This node is depleted.' : !free ? 'No active survivor is available.' : `Hauls ${node.resource} to storage in loads of 20.`,
+  }];
+}
+
+/** What can be done with a loot pile right now. */
+export function lootActionList(pile, view = {}) {
+  if (!pile) return [];
+  const wave = !!view?.threats?.wave?.active;
+  const free = (view?.survivors ?? []).some((s) => s.status === 'active');
+  const hasQty = (pile.qty ?? 0) > 0;
+  const reason = !hasQty ? 'The loot pile is empty.' : wave ? 'Cannot collect loot while a wave is active.' : !free ? 'No active survivor is available.' : `Collects ${pile.item} from the ground into base stock.`;
+  return [{
+    id: `collect:${pile.item}`,
+    label: `Collect ${pile.item}`,
+    snippet: `survivor.collect("${pile.item}");`,
+    enabled: hasQty && !wave && free,
+    reason,
+  }];
+}
+
+/** What can be done with a zombie or wanderer right now. */
+export function zombieActionList(zombie, view = {}) {
+  if (!zombie) return [];
+  const wave = !!view?.threats?.wave?.active;
+  const isWanderer = zombie.wanderer === true || String(zombie.id ?? '').startsWith('wanderer_');
+  const free = (view?.survivors ?? []).some((s) => s.status === 'active');
+  const alive = (zombie.health ?? 1) > 0;
+  const canAttack = alive && free && (wave || isWanderer);
+  const reason = !alive ? 'Already defeated.' : !free ? 'No active survivor is available.' : (!wave && !isWanderer) ? 'No active wave.' : `Orders the survivor to attack ${zombie.id}.`;
+  return [{
+    id: `attack:${zombie.id}`,
+    label: `Attack ${zombie.name ?? zombie.id}`,
+    snippet: `survivor.attack("${zombie.id}");`,
+    enabled: canAttack,
+    reason,
+  }];
+}
+
+/** What can be done with a mounted weapon on a tower right now. */
+export function mountActionList(mount, tower, view = {}) {
+  if (!mount || !tower) return [];
+  const working = tower.condition !== 'ruined';
+  const full = mount.hopper >= mount.hopperMax;
+  const inStock = have(view, mount.ammo) > 0;
+  return [{
+    id: `reload:${mount.weapon}`,
+    label: `Reload ${mount.name ?? mount.weapon}`,
+    snippet: `survivor.take("${mount.ammo}", 20);\nsurvivor.reload(${tower.id}, "${mount.ammo}", 20);`,
+    enabled: working && !full && inStock,
+    reason: !working ? 'Repair the tower first.' : full ? 'The hopper is full.' : !inStock ? `No ${mount.ammo} in base stock.` : `Takes up to 20 ${mount.ammo} to the hopper.`,
+  }];
 }
 
 /** Point a snippet at one specific survivor. The first survivor is plain `survivor.`; others are `survivors[i].`. */

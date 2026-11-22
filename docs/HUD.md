@@ -35,3 +35,8 @@ Nothing here changes the simulation; the engine modules are untouched.
 - **Bottom band:** the code panel, lesson drawer and Codebook dock at the bottom, so resources, clock and PLAY stay visible. PLAY and speed live in the Clock card; the System card holds the rarely used buttons.
 - **Lessons:** Run tests the code on the lesson's own world and reports in the code panel (goal chips). "Completed" always comes from saved progress, so a failed retry never un-completes a lesson.
 - Tests: `tests/gestures.test.js`, `tests/ui-wiring.test.js`.
+
+## Planned UI-7 contextual cards and outpost roads
+- Survivor selection should use side navigation for `INFO / ATTRIBUTES / EQUIPMENT / BAG / COMMANDS`; building, tower, wall and gate selections should use context-specific `INFO / DEFENCE / UPGRADE / STORAGE / COMMANDS` variants.
+- Tabs are presentation-only and every action continues to insert a real sandbox/API command.
+- Add a top-road OUTPOST arrow for `FOREST` and a bottom-road OUTPOST arrow for `QUARRY`; see `docs/game/27-contextual-ui-and-map-navigation.md`.

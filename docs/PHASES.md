@@ -31,14 +31,20 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [x] **UI-R1** (2026-11-19) full-screen map, on-map selection card, drag-pan / zoom, bottom-docked code and lesson panels, lesson Run feedback, completion from saved progress
 - [x] PA-1 camera · PA-2 terrain · PA-3 roads · PA-4 objects + fence autotiling · PA-5 multi-cell buildings
 - [~] PA-6 … PA-8 NPC/zombie sprites and interaction: placeholder art only
-- [ ] **UI-C1 unified card/inspector system** (`docs/game/26-unified-card-and-inspector-system.md`):
-  - [ ] UI-C1A shared card shell, tabs, metrics, actions and state helpers
-  - [ ] UI-C1B survivor and personal inventory/equipment cards
-  - [ ] UI-C1C consistent building cards, including tower/wall/gate variants
-  - [ ] UI-C1D node, loot, zombie, mount and offer cards
-  - [ ] UI-C1E Town/Train/Expedition/Power/Water panel consistency
-  - [ ] UI-C1F drift, mobile, keyboard, accessibility and state tests
-- [ ] **I1 final art / real sprite sheets** (after UI-C1 and the UI are accepted)
+- [x] **UI-C1 unified card/inspector system** (`docs/game/26-unified-card-and-inspector-system.md`):
+  - [x] UI-C1A shared card shell, tabs, metrics, actions and state helpers
+  - [x] UI-C1B survivor and personal inventory/equipment cards
+  - [x] UI-C1C consistent building cards, including tower/wall/gate variants
+  - [x] UI-C1D node, loot, zombie, mount and offer cards
+  - [x] UI-C1E Town/Train/Expedition/Power/Water panel consistency
+  - [x] UI-C1F drift, mobile, keyboard, accessibility and state tests
+- [ ] **UI-7 contextual inspector + outpost road navigation** (`docs/game/27-contextual-ui-and-map-navigation.md`)
+  - [ ] UI-7A context-aware survivor/building navigation, with honest empty states
+  - [ ] UI-7B survivor INFO / ATTRIBUTES / EQUIPMENT / BAG / COMMANDS tabs
+  - [ ] UI-7C building INFO / DEFENCE / UPGRADE / STORAGE / COMMANDS variants
+  - [ ] UI-7D top-road OUTPOST button to FOREST and bottom-road OUTPOST button to QUARRY
+  - [ ] UI-7E responsive, keyboard, reduced-motion and projection/drift tests
+- [ ] **I1 final art / real sprite sheets** (after the contextual UI and the UI are accepted)
 
 ## Still to do
 - [ ] Playtest balance of the whole zombie ladder (long game)

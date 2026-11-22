@@ -31,3 +31,4 @@ Nothing was rewritten; sections were only moved. The logic doc is the **logic au
 | [24-forest-quarry-mining-sawmill-design.md](24-forest-quarry-mining-sawmill-design.md) | Forest/quarry regions, mining, sawmill and vehicle phases R0-R7 |
 | [25-watchtower-ladder-and-mounts-design.md](25-watchtower-ladder-and-mounts-design.md) | Five-level watchtower ladder, mounted weapons and aiming presentation |
 | [26-unified-card-and-inspector-system.md](26-unified-card-and-inspector-system.md) | **Added 2026-11-22:** unified UI-C1 card/inspector contract and implementation phases |
+| [27-contextual-ui-and-map-navigation.md](27-contextual-ui-and-map-navigation.md) | **Added 2026-11-22:** planned UI-7 contextual survivor/building inspectors and direct OUTPOST top-road FOREST / bottom-road QUARRY navigation |

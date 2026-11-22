@@ -12,7 +12,7 @@ import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
 import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from './ui/actions.js'; // buttons that mirror the real command rules
-import { wallCardHtml, isWallCard } from './ui/wallcard.js'; // P3: the wall / gate card with INFO | UPGRADE | CODE tabs
+import { renderSurvivorCard, renderBuildingCard, renderNodeCard, renderLootCard, renderZombieCard, emptyCardView, renderCardShell, nextTabFromKey } from './ui/cards/index.js';
 import { SCREENS, screenOf, arrowState, alertLevel, ROAD_SPOTS } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
 import { townSceneSvg, frontSceneSvg, regionSceneSvg } from './ui/scenes.js';
 import { recruitHtml, trainHtml, housingHtml, scavengeHeadHtml, scavengeRowsHtml, scavengeLostHtml, raidHtml } from './ui/panels.js';
@@ -268,26 +268,36 @@ function buildingSections(b, view) {
 }
 
 function renderInspector() {
-  if (!selected || !freeSim) { $('inspector-card').innerHTML = `<div class="header"><div class="portrait">?</div><div class="info"><div class="name">—</div><div class="sub">Select a survivor, building or resource</div></div></div>`; return; }
+  if (!selected || !freeSim) { $('inspector-card').innerHTML = renderCardShell(emptyCardView()); return; }
   const view = freeSim.studentView();
-  let header; let body = '';
+  const proj = currentProjection();
+  let html = '';
   if (selected.kind === 'npc') {
     const card = freeSim.inspector(selected.id);
     if (!card) { selected = null; return renderInspector(); }
-    header = { glyph: '<img class="npc-portrait" src="assets/sprites/npc/idle_down.png" alt="">', name: card.identity.name, sub: `${card.status} · ${card.identity.background}`, meta: `<span>ID: ${esc(card.id)}</span><span>Age: ${card.identity.age}</span><span>Pos: ${card.x},${card.y}</span><span>Dir: ${card.direction}</span>` };
-    body = survivorSections(card, view);
+    html = renderSurvivorCard(card, view);
   } else if (selected.kind === 'building') {
     const b = view.buildings.find((x) => x.id === selected.id);
     if (!b) { selected = null; return renderInspector(); }
-    header = { glyph: '🏗', name: b.name, sub: `${b.condition} · Lvl ${b.level}`, meta: `<span>ID: ${esc(b.id)}</span><span>Type: ${esc(b.type)}</span>` };
-    body = buildingSections(b, view);
+    html = renderBuildingCard(b, view, { wallTab, survivorId: selectedActor(view) });
+  } else if (selected.kind === 'zombie') {
+    const z = view.threats?.wave?.zombies?.find((x) => x.id === selected.id)
+      ?? view.threats?.wanderers?.find((x) => x.id === selected.id)
+      ?? proj.zombies?.find((x) => x.id === selected.id);
+    if (!z) { selected = null; return renderInspector(); }
+    html = renderZombieCard(z, view, { survivorId: selectedActor(view) });
+  } else if (selected.kind === 'loot') {
+    const pile = view.threats?.loot?.piles?.find((x) => x.id === selected.id)
+      ?? proj.loot?.find((x) => x.id === selected.id);
+    if (!pile) { selected = null; return renderInspector(); }
+    html = renderLootCard(pile, view, { survivorId: selectedActor(view) });
   } else {
     const n = view.nodes.find((x) => x.id === selected.id);
     if (!n) { selected = null; return renderInspector(); }
-    header = { glyph: n.type === 'tree' ? '🌲' : '🪨', name: cap(n.type), sub: `${n.amount} ${n.resource} left`, meta: `<span>ID: ${esc(n.id)}</span><span>Pos: ${n.x},${n.y}</span>` };
-    body = section('⛏', 'Resource', `<div class="needs-grid">${bar(n.resource, n.amount, Math.max(n.amount, 1), n.amount ? 'good' : 'bad')}</div><div style="margin-top:6px;">${muted(`Use survivor.gather("${n.resource}") to harvest.`)}</div>`);
+    const projNode = proj.nodes?.find((x) => x.id === selected.id) ?? null;
+    html = renderNodeCard(n, view, { projNode, survivorId: selectedActor(view) });
   }
-  $('inspector-card').innerHTML = `<div class="header"><div class="portrait selected">${header.glyph}</div><div class="info"><div class="name">${esc(header.name)}</div><div class="sub">${esc(header.sub)}</div><div class="meta-row" id="inspector-meta">${header.meta}</div></div></div>${body}`;
+  $('inspector-card').innerHTML = html;
 }
 
 function selectEntity(kind, id) {
@@ -847,6 +857,15 @@ function bindEvents() {
     else if (e.key === 'Escape' && !typing && screenId !== 'outpost') setScreen('outpost');
     else if (e.key === 'Escape' && !typing && clearNodePick()) { /* the tree / rock glow is gone */ }
     else if (e.key === 'Escape' && cardOpen && !typing) setCardOpen(false);
+    const focusedTab = document.activeElement?.closest?.('[role="tab"]');
+    if (focusedTab && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End')) {
+      const list = focusedTab.closest('[role="tablist"]');
+      const tabs = list ? [...list.querySelectorAll('[role="tab"]')].map((b) => ({ id: b.dataset.tab || b.textContent, el: b })) : [];
+      const curId = focusedTab.dataset?.tab || focusedTab.textContent;
+      const nextId = nextTabFromKey(tabs, curId, e.key);
+      const nextBtn = tabs.find((t) => t.id === nextId)?.el;
+      if (nextBtn) { e.preventDefault?.(); nextBtn.click(); nextBtn.focus(); return; }
+    }
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !typing && !e.altKey && !e.ctrlKey && !e.metaKey && !isCodePanelOpen && !isBookOpen()) { e.preventDefault?.(); stepScreen(e.key === 'ArrowLeft' ? -1 : 1); }
     if ((e.key === 'b' || e.key === 'B') && e.altKey) (isBookOpen() ? setBookOpen(false) : openBook(null)); // Alt+B: Codebook
     if (e.key === ' ' && !isCodePanelOpen && !typing && tag !== 'BUTTON') { e.preventDefault?.(); togglePlay(); } // Space: play / pause
@@ -864,6 +883,7 @@ function bindEvents() {
     else if (action === 'open-book') openBook(el.dataset.entry || null);
     else if (action === 'insert-example') insertExample(el.dataset.entry);
     else if (action === 'insert') insertSnippet(el.dataset.snippet);
+    else if (action === 'copy') { globalThis.navigator?.clipboard?.writeText?.(el.dataset.snippet || '').catch?.(() => {}); }
     else if (action === 'wall-tab') { wallTab = el.dataset.tab || 'info'; renderInspector(); }
     else if (action === 'lesson-list') { renderLessonList(); }
     else if (action === 'lesson-progress') renderProgressScreen();

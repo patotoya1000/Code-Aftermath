@@ -1,11 +1,16 @@
-// Panel HTML for the town and the expeditions (W3/W4/W5). ONE place builds these rows, so the nav-bar panels (hud.js) and the TOWN / FRONT screens
-// (screens.js) can never disagree. Every button only INSERTS CODE into the editor (data-action="insert"); nothing here changes the running world.
+// Panel HTML for the town, expeditions, power, water, resources, and events (UI-C1E).
+// ONE place builds these rows, so the nav-bar panels (hud.js) and the TOWN / FRONT screens (screens.js) can never disagree.
+// Every button only INSERTS CODE into the editor (data-action="insert"); nothing here changes the running world.
 // Read-only over the learner `view` (studentView): pure functions, no DOM.
 import { townActionList, trainActionList, scavengeActionList, actionButtons } from './actions.js';
 
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const costHtml = (price) => price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+export function panelEmptyHtml(message = 'Nothing to show.') {
+  return `<div class="np-sub uc-empty">${esc(message)}</div>`;
+}
 
 /** Recruit board: who is at the gate, what they cost, a Hire button per offer. */
 export function recruitHtml(view) {
@@ -17,7 +22,7 @@ export function recruitHtml(view) {
     const stats = [...Object.entries(o.skills).map(([k, v]) => `${k} ${v}`), ...o.traits].join(' · ') || 'no skills yet';
     return `<div class="np-row"><div class="np-main"><strong>${esc(o.name)}${o.train ? ' 🚆' : ''}</strong><span>${esc(stats)}</span><span class="np-sub">STR ${o.attributes.strength} AGI ${o.attributes.agility} END ${o.attributes.endurance} · worth ${o.worth}</span><span class="np-sub">${costHtml(a.price)}</span></div>${actionButtons([a], {})}</div>`;
   }).join('');
-  return `${head}${rows}`;
+  return `${head}${rows || panelEmptyHtml('No recruit offers today.')}`;
 }
 
 /** Train status + the goods on board. */
@@ -88,4 +93,54 @@ export function raidHtml(view) {
   lines.push(raids || (w?.active ? '' : '<div class="np-sub">No raid announced.</div>'), bosses);
   lines.push('<div class="np-sub">Waves come by themselves at dusk. Prepare: repair the wall, post guards, craft weapons. Bring everyone inside first.</div>');
   return lines.join('');
+}
+
+/** Power grid panel (UI-C1E): production, demand, battery storage, and building rows. */
+export function powerPanelHtml(view) {
+  const p = view?.power;
+  if (!p) return panelEmptyHtml('No power grid data.');
+  const head = `<div class="np-sub">Supply: <strong>${p.supply ?? 0}</strong> · Demand: <strong>${p.demand ?? 0}</strong> · Stored: <strong>${p.stored ?? 0}/${p.capacity ?? 0}</strong></div>`;
+  const rows = (view.buildings ?? []).filter((b) => b.power).map((b) => {
+    const bp = b.power;
+    const detail = bp.role === 'storage' ? `${bp.charge}/${bp.capacity} stored` : bp.role === 'consumer' ? `uses ${bp.use}` : `${bp.producing}/${bp.output} power`;
+    return `<div class="np-row"><div class="np-main"><strong>${esc(b.name)}</strong><span>${esc(bp.status)} · ${esc(detail)}</span></div></div>`;
+  }).join('');
+  return `${head}${rows || panelEmptyHtml('No power buildings.')}`;
+}
+
+/** Water panel (UI-C1E): wells, reservoirs, siphon status, and base water stock. */
+export function waterPanelHtml(view) {
+  const wells = (view?.buildings ?? []).filter((b) => b.water);
+  const stock = view?.base?.water ?? 0;
+  const cap = view?.base?.capacity?.water ?? 0;
+  const head = `<div class="np-sub">Base water stock: <strong>${stock} / ${cap}</strong></div>`;
+  if (!wells.length) return `${head}${panelEmptyHtml('No wells on this map.')}`;
+  const rows = wells.map((b) => {
+    const w = b.water;
+    return `<div class="np-row"><div class="np-main"><strong>${esc(b.name)}</strong><span>${w.amount}/${w.capacity} reservoir · ${w.working ? 'working' : 'ruined'}</span>${w.siphon ? `<span class="np-sub">Siphon: ${esc(w.siphon.status)}</span>` : ''}</div></div>`;
+  }).join('');
+  return `${head}${rows}`;
+}
+
+/** Resources panel (UI-C1E): base stock vs capacity and perishables. */
+export function resourcesPanelHtml(view) {
+  const base = view?.base;
+  if (!base) return panelEmptyHtml('No resource stock data.');
+  const capMap = base.capacity ?? {};
+  const rows = Object.keys(capMap).filter((k) => (base[k] ?? 0) > 0 || (capMap[k] ?? 0) > 0).map((k) => {
+    const qty = base[k] ?? 0;
+    const max = capMap[k] ?? 0;
+    const res = base.reserved?.[k] ?? 0;
+    return `<div class="np-row"><div class="np-main"><strong>${esc(k)}</strong><span>${qty}${max ? ` / ${max}` : ''}${res ? ` (${res} reserved)` : ''}</span></div></div>`;
+  }).join('');
+  return rows || panelEmptyHtml('No stored resources.');
+}
+
+/** Events panel (UI-C1E): upcoming risk events and recent history. */
+export function eventsPanelHtml(view) {
+  const ev = view?.events;
+  if (!ev) return panelEmptyHtml('No event schedule.');
+  const up = (ev.upcoming ?? []).map((e) => `<div class="np-row"><div class="np-main"><strong>Day ${e.day}: ${esc(e.kind)}</strong><span class="np-sub">${esc(e.summary ?? '')}</span></div></div>`).join('');
+  const hist = (ev.history ?? []).slice(-5).reverse().map((e) => `<div class="np-sub">Day ${e.day}: ${esc(e.kind)}</div>`).join('');
+  return `${up || panelEmptyHtml('No upcoming events announced.')}${hist ? `<div class="np-sub" style="margin-top:6px;"><strong>Recent</strong></div>${hist}` : ''}`;
 }

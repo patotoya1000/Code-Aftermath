@@ -431,7 +431,7 @@ export function mountRenderer(canvas, {
 
   function entityRect(frame, kind, id) {
     if (!kind || !id) return null;
-    const find = { npc: frame.npcs, zombie: frame.zombies, building: frame.buildings, node: frame.nodes }[kind];
+    const find = { npc: frame.npcs, zombie: frame.zombies, building: frame.buildings, node: frame.nodes, loot: frame.loot }[kind];
     const ent = (find || []).find((e) => e.id === id);
     if (!ent) return null;
     if (ent.bounds || ent.footprint) { const { x1, y1, x2, y2 } = ent.bounds ?? ent.footprint; return { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 }; }
@@ -548,6 +548,7 @@ export function mountRenderer(canvas, {
     for (const n of frame.npcs || []) if (Math.abs(n.x - tx) < 0.7 && Math.abs(n.y - ty) < 0.7) return { kind: 'npc', id: n.id };
     const { x, y } = screenToTile(sx, sy);
     for (const n of frame.nodes || []) if (n.x === x && n.y === y) return { kind: 'node', id: n.id };
+    for (const l of frame.loot || []) if (l.x === x && l.y === y) return { kind: 'loot', id: l.id };
     for (const b of frame.buildings || []) if (!b.bounds) { const r = buildingRect(b); if (x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) return { kind: 'building', id: b.id }; } // any cell of a footprint
     for (const [id, r] of gateBoxes) if (sx >= r.x0 && sx <= r.x1 && sy >= r.y0 && sy <= r.y1) return { kind: 'building', id }; // the painted gate (taller than its one logical cell)
     for (const b of frame.buildings || []) if (b.bounds && perimeterCells(b.bounds).some(([cx, cy]) => cx === x && cy === y)) return { kind: 'building', id: b.id };

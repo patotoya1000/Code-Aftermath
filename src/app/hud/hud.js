@@ -7,12 +7,12 @@
 // The overlay uses the renderer's own viewport, so it stays aligned with the sprites under pan/zoom/resize.
 import { cellRect, cellCenter, gridToScreen } from '../../modules/viewport/index.js';
 import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from '../ui/actions.js';
-import { townPanelHtml, scavengePanelHtml } from '../ui/panels.js';
+import { townPanelHtml, scavengePanelHtml, powerPanelHtml, waterPanelHtml, resourcesPanelHtml, eventsPanelHtml } from '../ui/panels.js';
 
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
 // Which inspector tab each section (by its heading) belongs to; anything not listed stays on Info so nothing is ever hidden for good.
-const TAB_OF = [[/^(needs|conditions|attributes|skills|traits)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage)/i, 'bag'], [/^(policies|hooks|actions)/i, 'command']];
+const TAB_OF = [[/^(needs|conditions|attributes|skills|traits|occupation)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage|cold storage)/i, 'bag'], [/^(policies|hooks|actions|commands|combat|reload)/i, 'command']];
 const KEY_ORDER = ['hq', 'tower', 'gate', 'workshop', 'kitchen', 'field', 'well', 'storage'];
 
 const noop = { frame() {}, foldAll() {}, get state() { return {}; } };
@@ -174,7 +174,7 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
 
   // ---------- navigation panels: Task / Assign / Building / Survivors (read the real view; buttons only insert code) ----------
   const panel = $('nav-panel'); const panelBody = $('nav-panel-body'); const panelTitle = $('nav-panel-title');
-  const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors', town: 'Town', scavenge: 'Expeditions' };
+  const NAV = { task: 'Task board', assign: 'Assign a command', build: 'Buildings', survivors: 'Survivors', town: 'Town', scavenge: 'Expeditions', power: 'Power grid', water: 'Water', resources: 'Resources', events: 'Events' };
   let navMode = null; let navSig = ''; const assignPick = { survivor: null, command: 'command.gather' };
   const npBar = (v) => `<span class="np-bar"><i style="width:${Math.max(0, Math.min(100, v))}%" class="${v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good'}"></i></span>`;
   const first = (list, ids) => list.filter((a) => ids.includes(a.id));
@@ -205,6 +205,10 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
     }
     if (navMode === 'town') return townPanelHtml(view);
     if (navMode === 'scavenge') return scavengePanelHtml(view);
+    if (navMode === 'power') return powerPanelHtml(view);
+    if (navMode === 'water') return waterPanelHtml(view);
+    if (navMode === 'resources') return resourcesPanelHtml(view);
+    if (navMode === 'events') return eventsPanelHtml(view);
     if (navMode === 'assign') {
       const cmds = getCommands(); const cmd = cmds.find((c) => c.id === assignPick.command) ?? cmds[0];
       const sid = survivors.some((s) => s.id === assignPick.survivor) ? assignPick.survivor : survivors[0]?.id;
