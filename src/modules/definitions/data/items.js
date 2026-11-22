@@ -46,6 +46,18 @@ export const items = {
   arrows: { name: 'Arrows', unitWeight: 1 },
   bolts: { name: 'Bolts', unitWeight: 1 },
   bullets: { name: 'Bullets', unitWeight: 1 },
+  // P1 (docs/game/23 section 5): fortress materials. Sand and cement come from scavenge sites and zombie loot; the smelter turns scrap + charcoal into steel ingots, the
+  // workshop into steel plate, hinge sets, concrete blocks and sandbags. All heavy, none of it spoils.
+  sand: { name: 'Sand', unitWeight: 3 },
+  cement: { name: 'Cement', unitWeight: 3 },
+  steel_ingot: { name: 'Steel ingot', unitWeight: 3 },
+  steel_plate: { name: 'Steel plate', unitWeight: 4 },
+  concrete_block: { name: 'Concrete block', unitWeight: 5 },
+  hinge_set: { name: 'Hinge set', unitWeight: 2 },
+  sandbag: { name: 'Sandbag', unitWeight: 2 },
+  // Smelter bars kept for LATER use (no recipe consumes them yet): lead bars will cast bullets, iron bars will upgrade weapons and craft body armor.
+  lead_bar: { name: 'Lead bar', unitWeight: 3 },
+  iron_bar: { name: 'Iron bar', unitWeight: 3 },
 };
 
 // Carry capacity (R3), in weight units: (base + perStrength x strength) x every matching trait multiplier, rounded down.

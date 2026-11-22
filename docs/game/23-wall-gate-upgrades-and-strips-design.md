@@ -1,4 +1,4 @@
-# 23. Wall and Gate Upgrades, Reserved Defence Strips, Smelter and HQ-Gated Levels (DESIGN — NOT implemented)
+# 23. Wall and Gate Upgrades, Reserved Defence Strips, Smelter and HQ-Gated Levels (P0-P3 IMPLEMENTED 2026-11-22, `SIM_VERSION` 0.42.0; P4-P8 design only)
 
 > Status: owner direction (2026-11-21/22) turned into a phased plan. **[decided]** = stated by the owner, **[proposed]** = recommendation to confirm, **[open]** = needs an answer before its phase.
 > Builds on [21](21-outpost-wall-town-economy-design.md) (line wall, scavenging), [20](20-zombies-waves-loot-design.md) (zombies, waves, boss), [12](12-buildings-visual-spec.md) (building visuals) and [19](19-codebook-and-ui-display.md) (UI actions only insert code).
@@ -95,6 +95,9 @@ New items (all **[proposed]**): `sand`, `cement`, `steel_ingot`, `steel_plate`, 
 **Loot (sand and cement)** [proposed]: new scavenge sites with the existing fields (ticks, danger, regrowDays, yield): *construction site* (cement, sand, scrap), *quarry* (sand, stone), *hardware depot* (hinges, scrap, tools). Raid rewards also drop sand and cement. Both are heavy, so carry capacity limits trips; a storage building holds them.
 
 Cost to reach top tier (rough, wall 3->5 plus gate 2->5): ~20 cement, ~40 sand, ~28 blocks-worth in total after crafting, ~44 steel plates (~88 ingots, ~176 scrap, ~88 charcoal), 18 hinge sets, 2 boss cores.
+
+### Future bars (added 2026-11-22)
+`lead_bar` (3 scrap, smelter, HQ 2) is for **bullets** and `iron_bar` (3 scrap + 1 charcoal, smelter, HQ 2) is for **weapon upgrades and body armor**. Both are made and stored now; no recipe consumes them yet, so the current bullets/weapon recipes are unchanged. [open] when bullets switch to lead and what an armor slot does.
 
 ## 6. Boss and progression [decided]
 

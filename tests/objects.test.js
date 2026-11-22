@@ -58,7 +58,7 @@ test('PA-4: atlas holds every piece (16 masks × levels × conditions); fallback
   }
   const r = createAssetResolver(m);
   assert.equal(r.resolveFence({ mask: E | W, level: 1, condition: 'ruined' }).step, 1);
-  assert.equal(r.resolveFence({ mask: E | W, level: 5, condition: 'ruined' }).step, 2, 'unknown level → another level of the same shape');
+  assert.equal(r.resolveFence({ mask: E | W, level: 9, condition: 'ruined' }).step, 2, 'unknown level → another level of the same shape');
   const bare = buildPlaceholderManifest({ buildings: { fence: [1] } });
   for (const k of Object.keys(bare.animations).filter((k) => k.startsWith('fence_') && !k.includes('isolated'))) delete bare.animations[k];
   const iso = createAssetResolver(bare).resolveFence({ mask: N | S, level: 1, condition: 'repaired' });

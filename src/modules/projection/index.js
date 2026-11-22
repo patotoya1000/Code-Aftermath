@@ -2,7 +2,7 @@ import { deepFreeze, API_VERSION, own } from '../../kernel/index.js';
 import { available, stockKey, nodeKey, total, summary } from '../resources/index.js';
 import { deriveConditions, carriedLoad, carryCapacity, skillProgress } from '../survivors/index.js';
 import { environmentView } from '../environment/index.js';
-import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, stationsFor } from '../buildings/index.js';
+import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, stationsFor, hqLevelOf, hqLock, armorOf } from '../buildings/index.js';
 import { waterInfoFor } from '../water/index.js';
 import { perishableView, coldInfoFor } from '../spoilage/index.js';
 import { farmInfoFor, cropBook } from '../farming/index.js';
@@ -64,7 +64,7 @@ function buildingView(state, defs, b) {
   const def = defs.buildings[b.type];
   const storageInfo = storageInfoFor(state, defs, b);
   const water = waterInfoFor(state, defs, b); // wells: reservoir, recharge, siphon
-  const recipesHere = recipesAt(defs, b);
+  const recipesHere = recipesAt(state, defs, b);
   const cold = coldInfoFor(state, defs, b); // cold cellar: { capacity, factor, working }
   const farm = farmInfoFor(state, defs, b); // farms: plots, shelter, growth/yield %
   const power = powerInfoFor(state, defs, b); // generators, panels, freezers: output / use, status, fuel
@@ -72,7 +72,11 @@ function buildingView(state, defs, b) {
   return {
     id: b.id, type: b.type, name: def.levels[b.level]?.name ?? def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
-    upgrade: nextUpgrade(defs, b), // { level, cost, ticks } or null
+    upgrade: nextUpgrade(defs, b), // { level, cost, ticks, minHq? } or null
+    ...(nextUpgrade(defs, b)?.minHq ? { upgradeLocked: hqLock(state, nextUpgrade(defs, b)) } : {}), // P0: { need, have } while the HQ is too low, else null
+    maxLevel: Math.max(...Object.keys(def.levels).map(Number)),
+    ...(def.levels[b.level]?.armor !== undefined ? { armor: armorOf(defs, b) } : {}), // P3: what a zombie's wall hit is reduced by (fence, gate)
+    ...(nextUpgrade(defs, b) ? { nextLevel: { name: def.levels[b.level + 1].name ?? def.name, maxHealth: def.levels[b.level + 1].maxHealth, ...(def.levels[b.level + 1].armor !== undefined ? { armor: def.levels[b.level + 1].armor } : {}) } } : {}),
     ...(storageInfo ? { storageInfo } : {}), ...(water ? { water } : {}), ...(def.note ? { note: def.note } : {}),
     ...(cold ? { cold } : {}), ...(farm ? { farm } : {}), ...(power ? { power } : {}), ...(tower ? { tower } : {}),
     ...(recipesHere.length ? { recipes: recipesHere } : {}), // station buildings: which recipes are cooked here (and from which level)
@@ -80,16 +84,16 @@ function buildingView(state, defs, b) {
 }
 
 /** Recipes a station building type makes: [{ id, stationLevel, working }] - `working` = this very building can cook it right now. */
-function recipesAt(defs, b) {
+function recipesAt(state, defs, b) {
   return Object.entries(defs.recipes ?? {}).filter(([, r]) => r.station === b.type)
-    .map(([id, r]) => ({ id, action: r.action, stationLevel: r.stationLevel, working: b.condition === 'repaired' && b.level >= r.stationLevel }));
+    .map(([id, r]) => ({ id, action: r.action, stationLevel: r.stationLevel, ...(r.minHq ? { minHq: r.minHq } : {}), working: b.condition === 'repaired' && b.level >= r.stationLevel && (!r.minHq || hqLevelOf(state) >= r.minHq) }));
 }
 
 /** The learner's recipe book: what each recipe needs and makes, whether a working station exists, and whether base stock can pay for a batch. */
 function recipeBook(state, defs) {
   return Object.fromEntries(Object.entries(defs.recipes ?? {}).map(([id, r]) => [id, {
-    id, name: r.name, action: r.action, station: r.station, stationLevel: r.stationLevel, power: r.power ?? 0, inputs: { ...r.inputs }, outputs: { ...r.outputs }, ticks: r.ticks, skill: r.skill,
-    stationWorking: stationsFor(state, defs, r).working.length > 0,
+    id, name: r.name, action: r.action, station: r.station, stationLevel: r.stationLevel, ...(r.minHq ? { minHq: r.minHq } : {}), power: r.power ?? 0, inputs: { ...r.inputs }, outputs: { ...r.outputs }, ticks: r.ticks, skill: r.skill,
+    stationWorking: stationsFor(state, defs, r).working.length > 0 && (!r.minHq || hqLevelOf(state) >= r.minHq),
     canAfford: Object.entries(r.inputs).every(([item, qty]) => available(state, stockKey(item)) >= qty),
   }]));
 }

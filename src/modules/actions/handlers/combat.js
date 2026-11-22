@@ -14,8 +14,8 @@ const nearestZombie = (state, from) => {
 
 export const combatHandler = {
   validate(ctx, a) {
-    if (!ctx.state.threats?.wave) return fail('NO_WAVE');
     const z = ctx.state.threats.zombies[a.params.targetId];
+    if (!ctx.state.threats?.wave && !z?.wanderer) return fail('NO_WAVE'); // a lone daytime wanderer can be attacked with no wave on
     if (!z || z.health <= 0) return fail('NO_TARGET');
     return ok;
   },

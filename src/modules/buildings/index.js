@@ -90,13 +90,33 @@ export function storageRoom(state, item, exceptActionId = null) {
   return Math.max(0, storageCapacity(state, item) - total(state, stockKey(item)) - incoming);
 }
 
-/** The next level's upgrade offer for a building ({ level, cost, ticks }) or null at the top / when none is defined. */
+/** The next level's upgrade offer for a building ({ level, cost, ticks, minHq? }) or null at the top / when none is defined. `minHq` = the HQ level this level needs (P0). */
 export function nextUpgrade(defs, b) {
   const def = defs.buildings[b.type];
   const level = b.level + 1;
   const spec = def.upgrade?.[level];
-  return def.levels[level] && spec ? { level, cost: { ...spec.cost }, ticks: spec.ticks } : null;
+  return def.levels[level] && spec ? { level, cost: { ...spec.cost }, ticks: spec.ticks, ...(spec.minHq ? { minHq: spec.minHq } : {}) } : null;
 }
+
+/** The headquarters level of this world (the highest `hq` building; 0 when there is none). It is the ceiling for walls, gates and strip builds (docs/game/23 section 3). */
+export function hqLevelOf(state) {
+  let lv = 0;
+  for (const b of Object.values(state.buildings)) if (b.type === 'hq' && b.level > lv) lv = b.level;
+  return lv;
+}
+
+/** Why this upgrade is locked by the HQ, or null: `{ need, have }` when the HQ is below the level the upgrade asks for. */
+export function hqLock(state, up) {
+  if (!up?.minHq) return null;
+  const have = hqLevelOf(state);
+  return have >= up.minHq ? null : { need: up.minHq, have };
+}
+
+/** Repair numbers for this building AT ITS LEVEL: the building's `repair` table, overridden by the level's own `repair` when it has one (heavier walls take heavier repairs). */
+export const repairOf = (defs, b) => ({ ...defs.buildings[b.type].repair, ...(defs.buildings[b.type].levels[b.level]?.repair ?? {}) });
+
+/** Wall armor of a fence or gate: the level's `armor`, else `waveRules.wallArmorPerLevel` x level (the pre-P3 rule). Subtracted from every zombie wall hit. */
+export const armorOf = (defs, b) => defs.buildings[b.type].levels[b.level]?.armor ?? (defs.waveRules?.wallArmorPerLevel ?? 1) * b.level;
 
 /** Station buildings for a recipe: `all` of its type, and the `working` ones (fully repaired and at least the recipe's station level). */
 export function stationsFor(state, defs, recipe) {

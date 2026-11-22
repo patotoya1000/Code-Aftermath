@@ -26,6 +26,14 @@ export const scavenge = {
     roadside_store: { name: 'Roadside store', ticks: 40, danger: 10, regrowDays: 2, yield: { rags: [2, 5], packaging: [1, 3], potato: [1, 3] } },
     old_farmhouse: { name: 'Old farmhouse', ticks: 60, danger: 15, regrowDays: 3, yield: { wheat: [3, 8], potato: [2, 5], carrot: [2, 5] } },
     junkyard: { name: 'Junkyard', ticks: 80, danger: 25, regrowDays: 4, yield: { scrap: [4, 9], rags: [1, 3] } },
+    // P1 (docs/game/23 section 5): the fortress materials. Sand and cement are heavy, so carry limits and storage room decide how much of a trip comes home.
+    construction_site: { name: 'Construction site', ticks: 70, danger: 20, regrowDays: 4, yield: { cement: [3, 8], sand: [6, 14], scrap: [2, 5] } },
+    // `region` (optional, default 'front') says which MAP SCREEN lists the site: the FRONT road, the FOREST (north road, far and slow) or the QUARRY (south road, heavy loads).
+    quarry: { name: 'Quarry', region: 'quarry', ticks: 50, danger: 15, regrowDays: 3, yield: { sand: [8, 18], stone: [6, 12] } },
+    deep_quarry: { name: 'Deep quarry', region: 'quarry', ticks: 90, danger: 25, regrowDays: 5, yield: { stone: [14, 26], sand: [4, 8] } },
+    forest_edge: { name: 'Forest edge', region: 'forest', ticks: 70, danger: 10, regrowDays: 2, yield: { wood: [14, 26] } },
+    deep_forest: { name: 'Deep forest', region: 'forest', ticks: 130, danger: 30, regrowDays: 4, yield: { wood: [32, 52], hide: [1, 3] } },
+    hardware_depot: { name: 'Hardware depot', ticks: 90, danger: 30, regrowDays: 5, yield: { hinge_set: [2, 5], scrap: [4, 9] } },
     army_depot: { name: 'Army depot', ticks: 110, danger: 40, regrowDays: 7, yield: { arrows: [6, 14], bolts: [4, 10], bullets: [3, 8], scrap: [2, 5] } },
   },
 };

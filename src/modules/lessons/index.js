@@ -14,6 +14,7 @@ export const FAILURE_HINTS = {
   NOT_NEEDED: 'That action was not needed right now (the need is already full).',
   MAX_LEVEL: 'That building cannot be upgraded any further (or has no upgrade).',
   NEEDS_REPAIR: 'Repair the building completely before upgrading it.',
+  HQ_LEVEL: 'The headquarters is not a high enough level for that yet. Upgrade the hq first (check building.upgrade.minHq).',
   NOTHING_TO_REPAIR: 'That building is already at full health.',
   UNKNOWN_TARGET: 'The target does not exist.',
   OUT_OF_BOUNDS: 'That tile is outside the map.',

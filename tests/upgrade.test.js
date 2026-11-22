@@ -40,7 +40,7 @@ test('a ruined or damaged building must be repaired first (NEEDS_REPAIR), and no
 });
 
 test('no next level → MAX_LEVEL; a building without an upgrade table → MAX_LEVEL', () => {
-  const sim = newSim('stage1', 1, (st) => { fixHq(st); st.buildings.hq.level = 2; st.buildings.hq.health = 300; st.buildings.tent_1.health = 60; });
+  const sim = newSim('stage1', 1, (st) => { fixHq(st); st.buildings.hq.level = 4; st.buildings.hq.health = 650; st.buildings.tent_1.health = 60; }); // P0: the HQ now has levels 1-4
   call(sim, 'upgrade', 'hq'); runUntilIdle(sim, 100);
   call(sim, 'upgrade', 'tent_1'); runUntilIdle(sim, 100);
   assert.equal((failedWith(sim).match(/MAX_LEVEL/g) ?? []).length, 2);

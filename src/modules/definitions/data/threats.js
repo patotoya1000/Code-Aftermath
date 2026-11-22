@@ -52,9 +52,9 @@ export const lootTables = {
   walker: [{ item: 'bones', min: 1, max: 2, chancePercent: 70 }, { item: 'rags', min: 1, max: 2, chancePercent: 60 }],
   runner: [{ item: 'hide', min: 1, max: 2, chancePercent: 70 }, { item: 'bones', min: 1, max: 1, chancePercent: 40 }],
   boomer: [{ item: 'gland', min: 1, max: 1, chancePercent: 100, requires: 'not_exploded' }],
-  thrower: [{ item: 'scrap', min: 1, max: 3, chancePercent: 80 }],
+  thrower: [{ item: 'scrap', min: 1, max: 3, chancePercent: 80 }, { item: 'sand', min: 1, max: 3, chancePercent: 40 }],
   screamer: [{ item: 'rags', min: 1, max: 1, chancePercent: 60 }, { item: 'noise_lure', min: 1, max: 1, chancePercent: 25 }],
-  brute: [{ item: 'bones', min: 2, max: 4, chancePercent: 100 }, { item: 'hide', min: 2, max: 3, chancePercent: 80 }],
+  brute: [{ item: 'bones', min: 2, max: 4, chancePercent: 100 }, { item: 'hide', min: 2, max: 3, chancePercent: 80 }, { item: 'cement', min: 1, max: 2, chancePercent: 50 }, { item: 'sand', min: 2, max: 4, chancePercent: 60 }],
   horde_king: [{ item: 'boss_core', min: 1, max: 1, chancePercent: 100 }, { item: 'gland', min: 2, max: 3, chancePercent: 100 }],
 };
 
@@ -70,3 +70,16 @@ export const raidSchedule = {
   defense: { perLevel: 15, damagedPercent: 50 },
   breached: { lootPercent: 25, loot: ['food', 'water', 'wheat', 'bread', 'potato', 'carrot', 'hot_meal', 'mre'] },
 };
+
+// The WANDERER (docs/game/24 phase W1): a lone common zombie that drifts around OUTSIDE the wall in daylight, outside any raid. It appears at a random time shortly after dawn on
+// some days, wanders at random, chases a survivor who is outside within `chaseRange`, hits like its type does, and wanders off at dusk. Kill it with the ordinary `attack`.
+// Every roll is a pure function of (seed, day), so replays cannot diverge. All numbers are placeholders to tune.
+//   type            which zombie it is (a `defs.zombies` id; its health, damage and loot come from there)
+//   firstDay        the first day one can appear
+//   chancePercent   chance per day that one comes
+//   spawnWindowTicks  it appears within this many ticks after dawn
+//   maxAlive        at most this many at once
+//   stepTicks       ticks per step (a wanderer is slower than a raider)
+//   chaseRange      a survivor outside the wall within this many cells (Chebyshev) is chased
+//   attackEveryTicks  ticks between hits once it is next to a survivor
+export const wanderer = { type: 'walker', firstDay: 2, chancePercent: 60, spawnWindowTicks: 40, maxAlive: 1, stepTicks: 5, chaseRange: 5, attackEveryTicks: 8 };

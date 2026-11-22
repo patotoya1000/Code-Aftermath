@@ -1,6 +1,6 @@
 import { hashString, chebyshev, directionFromDelta, isLineWall, wallCellsOf, insideWall } from '../../kernel/index.js';
 import { stockKey, available, discard } from '../resources/index.js';
-import { applyHealth, blockedTiles, findPath } from '../buildings/index.js';
+import { applyHealth, blockedTiles, findPath, armorOf } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
 import { dayOf, timeOf } from '../environment/index.js';
 import { awardSkillXp } from '../survivors/index.js';
@@ -346,6 +346,84 @@ function spawnCell(state, day, n, blocked) {
   return { x: 0, y: 0, side };
 }
 
+// ---- The WANDERER (docs/game/24 W1): a lone daytime zombie outside the wall, no raid needed. Lives in `threats.zombies` with `wanderer: true` so the renderer, `attack`, loot and the
+// learner reads treat it like any zombie. It exists only while NO wave is on (it wanders off at dusk, before a wave could start), so wave bookkeeping never sees it. ----
+const wanderNum = (seed, day, salt) => parseInt(hashString(`${seed}:${day}:wander:${salt}`).slice(-8), 16);
+const ticksPerHourOf = (defs) => defs.environment.ticksPerDay / 24;
+/** The tick one day's wanderer would appear at (pure): shortly after dawn. */
+export function wandererSpawnTick(defs, seed, day) {
+  const e = defs.environment; const tph = ticksPerHourOf(defs);
+  const dawn = (day - 1) * e.ticksPerDay - e.startHour * tph + e.dawnHour * tph;
+  return Math.round(dawn) + (wanderNum(seed, day, 'at') % defs.wanderer.spawnWindowTicks);
+}
+/** Whether a wanderer comes on this day (pure). */
+export const wandererComes = (defs, seed, day) => Boolean(defs.wanderer) && day >= defs.wanderer.firstDay && wanderNum(seed, day, 'roll') % 100 < defs.wanderer.chancePercent;
+export const wanderersOf = (state) => Object.values(state.threats.zombies).filter((z) => z.wanderer).sort((a, b) => (a.id < b.id ? -1 : 1));
+
+function spawnWanderer(ctx, day) {
+  const { state, defs } = ctx; const cfg = defs.wanderer;
+  const at = spawnCell(state, day, wanderNum(state.seed, day, 'edge') % 5, zombieBlocked(state));
+  state.threats.wanderCounter += 1; // its own counter, so a wanderer never changes the ids (and so the order) of a raid's zombies
+  const id = `wanderer_${state.threats.wanderCounter}`;
+  state.threats.zombies[id] = { id, type: cfg.type, x: at.x, y: at.y, direction: 'DOWN', state: 'walk', health: statsOf(defs, cfg.type).health, move: 0, hit: 0, goal: null, route: null, reached: null, wanderer: true };
+  ctx.emit('wanderer.spawned', { id, type: cfg.type, x: at.x, y: at.y, side: SIDES[at.side] });
+}
+
+/** Called every tick (after survivors acted): a wanderer may appear (daytime, no wave), then each one chases a survivor outside the wall or drifts at random. */
+export function tickWanderers(ctx) {
+  const { state, defs } = ctx; const cfg = defs.wanderer;
+  if (!cfg || state.threats.wave) return;
+  const time = timeOf(defs, state.tick);
+  if (time.isNight) return;
+  if (wanderersOf(state).length < cfg.maxAlive && state.tick === wandererSpawnTick(defs, state.seed, time.day) && wandererComes(defs, state.seed, time.day)) spawnWanderer(ctx, time.day);
+  const fence = fenceOf(state);
+  const blocked = zombieBlocked(state);
+  const outside = (c) => c.x >= 0 && c.y >= 0 && c.x < state.map.width && c.y < state.map.height && !isInside(fence, c) && !blocked.has(cellKey(c.x, c.y));
+  const prey = Object.values(state.survivors).sort((a, b) => (a.id < b.id ? -1 : 1)).filter((s) => s.status !== 'away' && s.status !== 'downed' && !isInside(fence, s.position)).map((s) => ({ id: s.id, x: s.position.x, y: s.position.y }));
+  for (const z of wanderersOf(state)) {
+    if (z.health <= 0) continue;
+    const victim = nearest(z, prey.filter((p) => chebyshev(z, p) <= cfg.chaseRange));
+    if (victim && chebyshev(z, victim) <= 1) { // next to a survivor: stand and hit
+      z.state = 'attack'; z.route = null; z.goal = null;
+      z.direction = directionFromDelta(victim.x - z.x, victim.y - z.y) ?? z.direction;
+      if (z.reached !== victim.id) { z.reached = victim.id; ctx.emit('wanderer.reached_survivor', { id: z.id, survivorId: victim.id }); }
+      z.hit += 1;
+      if (z.hit >= cfg.attackEveryTicks) {
+        z.hit = 0;
+        const survivor = state.survivors[victim.id]; const damage = Math.max(0, statsOf(defs, z.type).damage);
+        if (survivor?.status === 'active') {
+          survivor.needs.health = Math.max(0, survivor.needs.health - damage);
+          ctx.emit('survivor.damaged', { survivorId: survivor.id, cause: 'zombie', zombieId: z.id, zombieType: z.type, damage, health: survivor.needs.health });
+          if (survivor.needs.health <= 0) { survivor.status = 'downed'; ctx.emit('survivor.downed', { survivorId: survivor.id, cause: 'zombie', zombieId: z.id }); }
+        }
+      }
+      continue;
+    }
+    z.hit = 0; z.reached = null;
+    z.move += 1;
+    if (z.move < cfg.stepTicks) { if (z.state === 'attack' || z.state === 'hurt') z.state = 'walk'; continue; }
+    z.move = 0;
+    let next = null;
+    if (victim) { // chase: the first step of a path to her (stays outside the wall)
+      z.route = findPath(state, z, victim, blocked);
+      const n = z.route?.[0]; if (n && chebyshev(z, n) === 1 && !isInside(fence, n)) next = n;
+    } else { // drift: a random free neighbouring cell, outside the wall
+      z.route = null;
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      const start = wanderNum(state.seed, state.tick, z.id) % 4;
+      for (let i = 0; i < 4 && !next; i++) { const [dx, dy] = dirs[(start + i) % 4]; const c = { x: z.x + dx, y: z.y + dy }; if (outside(c)) next = c; }
+    }
+    if (!next) { z.state = 'idle'; continue; }
+    z.state = 'walk'; z.direction = directionFromDelta(next.x - z.x, next.y - z.y) ?? z.direction;
+    z.x = next.x; z.y = next.y;
+  }
+}
+
+/** Called at dusk, BEFORE a wave may start: the wanderers drift off the map. */
+export function wanderersLeave(ctx) {
+  for (const z of wanderersOf(ctx.state)) { ctx.emit('wanderer.left', { id: z.id, type: z.type, x: z.x, y: z.y }); delete ctx.state.threats.zombies[z.id]; }
+}
+
 /** Called at dusk of `day`: if a raid is scheduled, it becomes a wave (zombies spawn over the next ticks), and the gate closes. */
 export function waveStart(ctx, day) {
   const { state, defs } = ctx;
@@ -399,7 +477,7 @@ function hitWall(ctx, wave, z, cell) {
   const def = statsOf(defs, z.type);
   const bh = behaviourFor(defs, z);
   const raw = def.damage * (bh?.type === 'siege' ? bh.wallMultiplier : 1);
-  damageWall(ctx, wave, cell.building, Math.max(0, raw - defs.waveRules.wallArmorPerLevel * cell.building.level));
+  damageWall(ctx, wave, cell.building, Math.max(0, raw - armorOf(defs, cell.building))); // P3: armor comes from the level's data
 }
 
 /** The wave is cleared when nothing is left to spawn and nothing walks: the gate opens at once (sortie window). */
@@ -610,7 +688,7 @@ function addPile(ctx, item, qty, x, y, z) {
 /** Put loot on the ground where `z` died. */
 function dropLoot(ctx, z) {
   const { state, defs } = ctx;
-  const day = state.threats.wave?.day ?? 0;
+  const day = state.threats.wave?.day ?? dayOf(defs, state.tick); // a wanderer dies in daylight, with no wave
   for (const { item, qty } of lootFor(defs, state.seed, day, z)) addPile(ctx, item, qty, z.x, z.y, z);
 }
 
@@ -717,6 +795,7 @@ export function threatsView(state, defs) {
     noise: { ...defs.noise, attention: state.threats.attention, loudest: loudestTower(state)?.id ?? null, reinforced: state.threats.wave?.reinforced ?? 0 },
     waveRules: { ...defs.waveRules },
     wave: waveView(state, defs),
+    wanderers: wanderersOf(state).map((z) => ({ id: z.id, type: z.type, x: z.x, y: z.y, state: z.state, health: z.health, maxHealth: statsOf(defs, z.type).health })), // the lone daytime zombies outside the wall: attack one by id
     loot: lootView(state, defs),
     history: state.threats.history.map((h) => ({ ...h, composition: { ...h.composition }, lost: { ...h.lost } })),
   };

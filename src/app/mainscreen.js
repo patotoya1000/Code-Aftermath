@@ -12,8 +12,9 @@ import { createIndexedDbAdapter } from '../modules/persistence/index.js';
 import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
 import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from './ui/actions.js'; // buttons that mirror the real command rules
-import { SCREENS, screenOf, arrowState, alertLevel } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
-import { townSceneSvg, frontSceneSvg } from './ui/scenes.js';
+import { wallCardHtml, isWallCard } from './ui/wallcard.js'; // P3: the wall / gate card with INFO | UPGRADE | CODE tabs
+import { SCREENS, screenOf, arrowState, alertLevel, ROAD_SPOTS } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
+import { townSceneSvg, frontSceneSvg, regionSceneSvg } from './ui/scenes.js';
 import { recruitHtml, trainHtml, housingHtml, scavengeHeadHtml, scavengeRowsHtml, scavengeLostHtml, raidHtml } from './ui/panels.js';
 import { bindMapGestures } from './ui/gestures.js'; // drag to pan, wheel / pinch to zoom, click to pick
 import { mountHud } from './hud/hud.js'; // HUD skin: card folding, inspector tabs, tactical overlay (presentation only)
@@ -249,7 +250,9 @@ function powerSection(b) {
   return section('⚡', 'Power', `<div style="font-size:11px;">${body}</div>`);
 }
 
+let wallTab = 'info'; // which tab of the wall / gate card is open (kept while the card repaints)
 function buildingSections(b, view) {
+  if (isWallCard(b)) return wallCardHtml(b, view, wallTab);
   const pct = Math.round((b.health / b.maxHealth) * 100);
   const storage = b.storageInfo
     ? Object.entries(b.storageInfo.capacity).map(([k, c]) => bar(k, b.storageInfo.current[k] ?? 0, c, 'good').replace(/<div class="value">\d+<\/div>/, `<div class="value">${b.storageInfo.current[k] ?? 0}/${c}</div>`)).join('')
@@ -731,7 +734,7 @@ function cycleSpeed() { clock.cycleSpeed(); refreshUI(); }
 
 // ---- Map screens. MAP 1 TOWN and MAP 3 FRONT are static maps that slide over the live OUTPOST canvas; the edge arrows and the arrow keys move between them.
 // Nothing here touches the simulation: it keeps running underneath, and every button on a map only inserts code into the editor. ----
-let screenId = 'outpost'; const picked = { town: null, front: null }; const sceneSig = {}; let pressing = false;
+let screenId = 'outpost'; const picked = { town: null, front: null, forest: null, quarry: null }; const sceneSig = {}; let pressing = false;
 const TITLES = { hall: 'Recruit hall', station: 'Train station', housing: 'Housing', raid: 'Raid road' };
 function detailFor(kind, view) {
   const spot = picked[kind]; if (!spot) return null;
@@ -759,7 +762,7 @@ function paintScreens(force = false) {
     if (b.dataset) b.dataset.alert = dir === 'east' && !a.disabled && a.to === 'front' ? alert : 'none';
     if ($(`screen-${dir}-label`)) $(`screen-${dir}-label`).textContent = a.disabled ? '' : (dir === 'east' && alert === 'raid' ? 'RAID!' : a.label);
   }
-  for (const [kind, build] of [['town', townSceneSvg], ['front', frontSceneSvg]]) {
+  for (const [kind, build] of [['town', townSceneSvg], ['front', frontSceneSvg], ['forest', (v, o) => regionSceneSvg(v, 'forest', o)], ['quarry', (v, o) => regionSceneSvg(v, 'quarry', o)]]) {
     const pane = $(`screen-${kind}`); if (!pane) continue;
     pane.setAttribute?.('aria-hidden', String(screenId !== kind));
     if (screenId !== kind && !force && sceneSig[kind]) continue; // a map that is off screen is redrawn when it slides in
@@ -781,11 +784,16 @@ function setScreen(id) {
   const pane = $(`screen-${id}`); if (pane) pane.querySelector?.('[data-spot]')?.focus?.({ preventScroll: true });
 }
 function stepScreen(dir) { const a = arrowState(screenId)[dir === -1 ? 'west' : 'east']; if (!a.disabled) setScreen(a.to); }
-function pickSpot(kind, id) { picked[kind] = picked[kind] === id ? null : id; paintScreens(true); }
+function pickSpot(kind, id) {
+  const road = ROAD_SPOTS.find((r) => r.id === id); // a road sign on the FRONT jumps to that map; the BACK spot of a side map returns (no code, the world is untouched)
+  if (road) { setScreen(road.to); return; }
+  if (id === 'back') { setScreen('front'); return; }
+  picked[kind] = picked[kind] === id ? null : id; paintScreens(true);
+}
 function bindScreens() {
   $('screen-west')?.addEventListener('click', () => stepScreen(-1));
   $('screen-east')?.addEventListener('click', () => stepScreen(1));
-  for (const kind of ['town', 'front']) {
+  for (const kind of ['town', 'front', 'forest', 'quarry']) {
     const pane = $(`screen-${kind}`); if (!pane) continue;
     pane.addEventListener('pointerdown', () => { pressing = true; });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) pane.addEventListener(ev, () => { pressing = false; });
@@ -856,6 +864,7 @@ function bindEvents() {
     else if (action === 'open-book') openBook(el.dataset.entry || null);
     else if (action === 'insert-example') insertExample(el.dataset.entry);
     else if (action === 'insert') insertSnippet(el.dataset.snippet);
+    else if (action === 'wall-tab') { wallTab = el.dataset.tab || 'info'; renderInspector(); }
     else if (action === 'lesson-list') { renderLessonList(); }
     else if (action === 'lesson-progress') renderProgressScreen();
     else if (action === 'mobile-tab') activateMobileTab(el.dataset.mobileTab || 'world');

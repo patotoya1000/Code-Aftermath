@@ -6,6 +6,7 @@ export { NODE_ART_DIR, REF_W, WORN_BELOW, NODE_FAMILIES, TREE_FAMILIES, NODE_VAR
 export { NPC_ART_DIR, NPC_REF_H, NPC_CELLS, NPC_POSES, NPC_ANCHORS, VIEW_OF, npcPose, toolPoseFor, walkFrameAt, createNpcArt, isStoneWork, workSwing, facingVector, WORK_SWING_MS, WORK_LUNGE_CELLS, WORK_TILT_RAD } from './npcart.js';
 export { BUILDING_ART_DIR, BUILDING_ART, ART_CONDITIONS, LEVEL_ART, LEVEL_TINT, createBuildingArt } from './buildingart.js';
 export { WALL_SECTION_CELLS, WALL_ART_LEVELS, wallSections, artLevel } from './wallart.js';
+export { LOADER, loaderPulse, shimmerX, isLoading, drawLoaderMap, drawLoaderSpot } from './loader.js';
 export { BACKDROP_DIR, BACKDROP_FILES, BACKDROP_BANDS, BAND_TUNING, createBackdropArt, bandLayout } from './backdrops.js';
 export { ICON_DIR, ITEM_ICONS, ICON_FILES, hasIcon, iconUrl } from './icons.js';
 export { OBJECT_SPECS, objectSpec, footprintCells, fenceCells, fencePieceKey, buildingRect, buildingCells, buildingPlacement } from './objects.js';

@@ -2,13 +2,14 @@ import { own } from '../../../kernel/index.js';
 import { stockKey } from '../../resources/index.js';
 import { awardSkillXp } from '../../survivors/index.js';
 import { syncPlots } from '../../farming/index.js';
-import { maxHealthOf, applyHealth, nextUpgrade } from '../../buildings/index.js';
+import { maxHealthOf, applyHealth, nextUpgrade, hqLock } from '../../buildings/index.js';
 import { ok, fail, approachThenWork, tooTired } from './shared.js';
 
 /**
  * upgrade: raise a WORKING building one level (docs/game/06). The building must be fully repaired first (ruins and damage are
  * fixed with repair, never skipped by paying more), the next level must exist in its `upgrade` table, and the materials are
- * reserved up front like repair. Level effects come from data: new max health, optional per-level storage.
+ * reserved up front like repair. Level effects come from data: new max health, optional per-level storage. An upgrade whose `minHq` is above the HQ level is refused
+ * with HQ_LEVEL before anything is reserved (docs/game/23 section 3).
  */
 export const upgradeHandler = {
   validate(ctx, a) {
@@ -16,6 +17,7 @@ export const upgradeHandler = {
     if (!b) return fail('UNKNOWN_TARGET');
     const up = nextUpgrade(ctx.defs, b);
     if (!up) return fail('MAX_LEVEL');
+    if (hqLock(ctx.state, up)) return fail('HQ_LEVEL'); // P0: a building cannot be raised above what the headquarters allows
     if (b.condition !== 'repaired' || b.health < maxHealthOf(ctx.defs, b)) return fail('NEEDS_REPAIR');
     if (tooTired(ctx, a.actorId)) return fail('EXHAUSTED');
     a.targetId = b.id;

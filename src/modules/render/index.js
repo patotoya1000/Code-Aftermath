@@ -1,5 +1,6 @@
 import { wallCellsOf } from '../../kernel/index.js';
 import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, wallSections, artLevel, bandLayout, BAND_TUNING, REF_W, NPC_REF_H, NPC_CELLS, npcPose, walkFrameAt, workSwing, facingVector, isStoneWork, WORK_LUNGE_CELLS, WORK_TILT_RAD } from '../assets/index.js';
+import { isLoading, drawLoaderMap, drawLoaderSpot } from '../assets/index.js'; // loader animation while a painted picture is still on its way
 import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, visibleCells, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
 // Production world renderer. Input: the RENDER PROJECTION only (never GameState). Output: pixels.
@@ -138,11 +139,14 @@ export function mountRenderer(canvas, {
     // 1a ground tiles (PA-2): the ground grid is derived from the projection; only visible cells are drawn, edges cover whole pixels
     terrainList = []; pathList = [];
     const backdrop = terrain.backdrop && backdropArt ? backdropArt.get(terrain.backdrop) : null; // a painted picture replaces the tiles, zones, road pieces and grid
-    const ground = backdrop ? [] : groundGrid(frame); const vis = visibleCells(vp);
+    const loadingMap = !backdrop && isLoading(terrain.backdrop && backdropArt ? backdropArt.state?.(terrain.backdrop) : 'none'); // the picture is on its way: a loader, not the old green tiles
+    const hideGround = Boolean(backdrop) || loadingMap;
+    const ground = hideGround ? [] : groundGrid(frame); const vis = visibleCells(vp);
     if (backdrop) { // the picture IS the map rectangle: it is never offset, or the road in it would no longer lie under the gate and the buildings
       ctx.drawImage(backdrop, world.x, world.y, world.w, world.h);
       drawBands(terrain.backdrop, world, rect);
     }
+    else if (loadingMap) drawLoaderMap(ctx, world, time);
     else for (let y = vis.y1; y <= vis.y2; y++) for (let x = vis.x1; x <= vis.x2; x++) {
       const e = resolver.resolveTerrain(tileKeyAt(ground, x, y)); const f = e.frames[0];
       terrainList.push({ x, y, ground: ground[y][x], key: e.key, step: e.step });
@@ -150,13 +154,13 @@ export function mountRenderer(canvas, {
       const r = cellRectCovering(vp, x, y);
       ctx.drawImage(atlas, f.x, f.y, f.w, f.h, r.x, r.y, r.w, r.h);
     }
-    for (const z of backdrop ? [] : terrain.zones) { // presentation-only ground areas (the forest)
+    for (const z of hideGround ? [] : terrain.zones) { // presentation-only ground areas (the forest)
       const r = cellRect(vp, z.x1, z.y1, z.x2 - z.x1 + 1, z.y2 - z.y1 + 1);
       ctx.fillStyle = COLORS.zone; ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.strokeStyle = COLORS.zoneEdge; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     }
     // 1b road pieces (PA-3): shape chosen from neighbouring road cells / the gate
-    for (const p of backdrop ? [] : pathCells(frame)) {
+    for (const p of hideGround ? [] : pathCells(frame)) {
       if (p.x < vis.x1 || p.x > vis.x2 || p.y < vis.y1 || p.y > vis.y2) continue;
       const e = resolver.resolvePath(p.key); const f = e.frames[0];
       pathList.push({ x: p.x, y: p.y, mask: p.mask, key: e.key, requested: p.key, step: e.step });
@@ -165,8 +169,8 @@ export function mountRenderer(canvas, {
       else { ctx.fillStyle = COLORS.path; ctx.fillRect(r.x + r.w * 0.08, r.y + r.h * 0.2, r.w * 0.84, r.h * 0.6); }
     }
     ctx.strokeStyle = COLORS.grid; ctx.lineWidth = 1;
-    if (!backdrop || debugOn) for (let x = 0; x <= mw; x++) { const sx = gridToScreen(vp, x, 0).x; ctx.beginPath(); ctx.moveTo(sx, world.y); ctx.lineTo(sx, world.y + world.h); ctx.stroke(); }
-    if (!backdrop || debugOn) for (let y = 0; y <= mh; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.beginPath(); ctx.moveTo(world.x, sy); ctx.lineTo(world.x + world.w, sy); ctx.stroke(); }
+    if (!hideGround || debugOn) for (let x = 0; x <= mw; x++) { const sx = gridToScreen(vp, x, 0).x; ctx.beginPath(); ctx.moveTo(sx, world.y); ctx.lineTo(sx, world.y + world.h); ctx.stroke(); }
+    if (!hideGround || debugOn) for (let y = 0; y <= mh; y++) { const sy = gridToScreen(vp, 0, y).y; ctx.beginPath(); ctx.moveTo(world.x, sy); ctx.lineTo(world.x + world.w, sy); ctx.stroke(); }
 
     const buildings = frame.buildings || [];
     /** Run a draw call with a green glow around whatever it paints (the "this is picked" cue for survivors, buildings, trees and rocks). */
@@ -183,6 +187,10 @@ export function mountRenderer(canvas, {
         bldGeo.set(b.id, { b, cx: ax + w / 2, top: ay });
         if (selected.kind === 'building' && selected.id === b.id) glowed(() => ctx.drawImage(art.img, ax, ay, w, h));
         ctx.drawImage(art.img, ax, ay, w, h);
+      } else if (layer === 'building' && buildingArt && isLoading(buildingArt.state?.(b.type, b.condition))) { // picture on its way: a pulse over the footprint, never the mock block
+        const fr = buildingRect(b); const box = cellRect(vp, fr.x1, fr.y1, fr.x2 - fr.x1 + 1, fr.y2 - fr.y1 + 1);
+        bldGeo.set(b.id, { b, cx: box.x + box.w / 2, top: box.y });
+        drawLoaderSpot(ctx, box, time, stagger(b.id));
       } else if (b.footprint && layer === 'building') { // PA-5: a multi-cell building is drawn across its whole footprint
         // frame bottom (not the foot pivot) rests on the footprint's bottom edge, so a scaled sprite never hangs below its cells
         const pl = buildingPlacement(b); const at = { x: cellCenter(vp, pl.gx, 0).x, y: gridToScreen(vp, 0, pl.gy + 1).y - (manifest.frame.h - manifest.pivot.y) * k() * pl.size };
@@ -237,12 +245,20 @@ export function mountRenderer(canvas, {
         });
       }
     }
+    const loadingWalls = new Set(); // line walls whose level picture is still loading: a pulsing strip instead of the old per-cell pieces
+    if (buildingArt?.levelState) for (const fb of buildings) {
+      if (!fb.bounds || fb.bounds.shape !== 'line' || lineWalls.has(fb.id) || !isLoading(buildingArt.levelState('fence', artLevel(wallArtLevel ?? fb.level)))) continue;
+      loadingWalls.add(fb.id);
+      const box = cellRect(vp, fb.bounds.x1, fb.bounds.y1, 1, fb.bounds.y2 - fb.bounds.y1 + 1);
+      bldGeo.set(fb.id, { b: fb, cx: box.x + box.w / 2, top: box.y });
+      drawLoaderSpot(ctx, box, time, stagger(fb.id));
+    }
     for (const p of fenceCells(frame)) {
       const b = buildings.find((q) => q.id === p.id);
       const e = resolver.resolveFence({ mask: p.mask, level: p.level, condition: p.condition });
       const whole = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note('fence', 'building', b.id, whole, { x: p.x, y: p.y, condition: b.condition, piece: e.key ?? p.key, mask: p.mask, pieceStep: e.step });
-      if (lineWalls.has(p.id)) continue; // drawn as sections above
+      if (lineWalls.has(p.id) || loadingWalls.has(p.id)) continue; // drawn as sections (or as the loader strip) above
       const cx = tileCenterX(p.x); const fy = tileFootY(p.y);
       const art = buildingArt ? buildingArt.get(b.type, p.condition ?? b.condition) : null;
       if (art) { // painted wall piece / gate: the gate is drawn after the whole wall so a neighbouring piece never covers it
@@ -250,6 +266,8 @@ export function mountRenderer(canvas, {
         const draw = () => { if (picked) glowed(() => ctx.drawImage(art.img, cx - w / 2, ay, w, h), 1); ctx.drawImage(art.img, cx - w / 2, ay, w, h); };
         if (!bldGeo.has(b.id) || ay < bldGeo.get(b.id).top) bldGeo.set(b.id, { b, cx, top: ay }); // a tag over a wall sits on its top end; over the gate, on the gate
         if (b.type === 'fence') draw(); else lateFence.push(draw);
+      } else if (buildingArt && isLoading(buildingArt.state?.(b.type, p.condition ?? b.condition))) {
+        drawLoaderSpot(ctx, cellRect(vp, p.x, p.y, 1, 1), time, stagger(`${p.id}${p.x}${p.y}`)); // a wall piece whose picture is on its way
       } else if (!blit(e.key ? e : whole, 0, cx, fy)) marker(cx, fy);
     }
     for (const draw of lateFence) draw();
@@ -272,7 +290,8 @@ export function mountRenderer(canvas, {
         const n = a.n; const spec = objectSpec(n.type);
         const e = resolver.resolveNode({ type: n.type, visual: n.visual });
         note('node', 'node', n.id, e, { x: n.x, y: n.y, visual: n.visual, footprint: spec.footprint, spriteSize: spec.spriteSize });
-        const art = nodeArt ? nodeArt.get(nodeArt.key(n.type, n.id, nodeStage(n.amount ?? (n.visual === 'available' ? 1 : 0), n.capacity))) : null;
+        const nKey = nodeArt ? nodeArt.key(n.type, n.id, nodeStage(n.amount ?? (n.visual === 'available' ? 1 : 0), n.capacity)) : null;
+        const art = nodeArt ? nodeArt.get(nKey) : null;
         const picked = selected.kind === 'node' && selected.id === n.id; // a picked tree / rock glows green and carries a name + resource bar (drawn in drawSelection)
         if (art) { // painted sprite: bottom-centre on the cell's foot, width relative to the type's biggest sprite (stump < tree)
           const w = vp.cell * spec.spriteSize * (art.naturalWidth / (REF_W[n.type] ?? art.naturalWidth)); const h = w * (art.naturalHeight / art.naturalWidth);
@@ -282,7 +301,9 @@ export function mountRenderer(canvas, {
         } else {
           if (picked) { ctx.save(); ctx.fillStyle = 'rgba(74,222,128,0.35)'; ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); ctx.beginPath(); ctx.ellipse(tileCenterX(n.x), tileFootY(n.y) - vp.cell * 0.4, vp.cell * 0.5, vp.cell * 0.55, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); selNode = { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - vp.cell * spec.spriteSize }; }
           nodeGeo.set(n.id, { n, cx: tileCenterX(n.x), top: tileFootY(n.y) - vp.cell * spec.spriteSize });
-          if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
+          if (nodeArt && isLoading(nodeArt.state?.(nKey))) { // the picture is on its way: a soft pulse where the tree / rock will stand (the mock model only draws if the picture failed)
+            drawLoaderSpot(ctx, { x: tileCenterX(n.x) - vp.cell * 0.32, y: tileFootY(n.y) - vp.cell * 0.85, w: vp.cell * 0.64, h: vp.cell * 0.85 }, time, stagger(n.id));
+          } else if (!blit(e, 0, tileCenterX(n.x), tileFootY(n.y), spec.spriteSize)) marker(tileCenterX(n.x), tileFootY(n.y));
         }
         continue;
       }

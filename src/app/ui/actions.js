@@ -22,13 +22,14 @@ export function buildingActionList(b, view = {}) {
   }
   for (const r of b.recipes ?? []) {
     out.push({ id: `${r.action}:${r.id}`, label: `${cap(r.action)} ${r.id}`, snippet: `survivor.${r.action}("${r.id}", 5);`, enabled: !!r.working,
-      reason: r.working ? `Runs 5 batches of ${r.id}.` : b.condition === 'repaired' ? `Needs ${b.type} level ${r.stationLevel}: upgrade it first.` : 'Repair it first.' });
+      reason: r.working ? `Runs 5 batches of ${r.id}.` : r.minHq && (view?.hq?.level ?? 0) < r.minHq ? `Needs HQ level ${r.minHq} (it is level ${view?.hq?.level ?? 0}): upgrade the hq first.` : b.condition === 'repaired' ? `Needs ${b.type} level ${r.stationLevel}: upgrade it first.` : 'Repair it first.' });
   }
   if (b.upgrade) {
     const short = Object.entries(b.upgrade.cost).filter(([k, v]) => have(view, k) < v).map(([k, v]) => `${v - have(view, k)} more ${k}`);
     const ready = b.condition === 'repaired' && b.health >= b.maxHealth;
-    out.push({ id: 'upgrade', label: `Upgrade → L${b.upgrade.level}`, snippet: `survivor.upgrade(${b.id});`, enabled: ready && !short.length,
-      reason: !ready ? 'It must be fully repaired first.' : short.length ? `Short of ${short.join(', ')}.` : `Level ${b.upgrade.level} costs ${cost(b.upgrade.cost)}.` });
+    const lock = b.upgradeLocked ?? null; // P0: { need, have } while the HQ is below the level this upgrade needs
+    out.push({ id: 'upgrade', label: `Upgrade → L${b.upgrade.level}`, snippet: `survivor.upgrade(${b.id});`, enabled: ready && !short.length && !lock,
+      reason: lock ? `Needs HQ level ${lock.need} (it is level ${lock.have}): upgrade the hq first.` : !ready ? 'It must be fully repaired first.' : short.length ? `Short of ${short.join(', ')}.` : `Level ${b.upgrade.level} costs ${cost(b.upgrade.cost)}.` });
   }
   if (b.tower) {
     const t = b.tower; const wave = !!view?.threats?.wave?.active;

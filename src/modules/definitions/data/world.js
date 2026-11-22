@@ -18,15 +18,29 @@ export const buildings = {
     footprint: { x: -1, y: -2, w: 3, h: 3 },
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
     // `upgrade[level]` = what it takes to REACH that level (building must be fully repaired first). A level may override `storage`.
-    upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 } },
+    // P0 (docs/game/23 section 3): the HQ is the ceiling for every wall, gate and strip build (`minHq` on an upgrade = the HQ level it needs). Levels 3-4 are defined below the table.
+    upgrade: { 2: { cost: { wood: 30, stone: 15 }, ticks: 60 }, 3: { cost: { wood: 40, stone: 40, steel_plate: 8 }, ticks: 90 }, 4: { cost: { concrete_block: 20, steel_plate: 16, boss_core: 1 }, ticks: 120 } },
     storage: { wood: 150, stone: 150, food: 100, water: 100, wheat: 60, bread: 40, potato: 40, carrot: 40, hot_meal: 20, mre: 30, packaging: 30, glass: 20, fertilizer: 30, charcoal: 40, nutrients: 30, bone_meal: 30, advanced_spear: 3, bow: 3, crossbow: 3, rifle: 3, suppressor: 2, ballista: 1, repeating_crossbow: 1, minigun: 1, arrows: 40, bolts: 40, bullets: 40, bones: 30, hide: 20, rags: 30, scrap: 30, gland: 10, noise_lure: 5, boss_core: 3 },
   },
   fence: {
     name: 'Perimeter Fence',
-    levels: { 1: { maxHealth: 100 }, 2: { maxHealth: 160 } },
+    // P3 (docs/game/23 section 2): the wall ladder. `armor` is subtracted from every zombie wall hit (levels without it fall back to waveRules.wallArmorPerLevel x level);
+    // a level's own `repair` table replaces the building's (heavier walls take heavier repairs). Each upgrade needs the HQ level in `minHq`.
+    levels: {
+      1: { maxHealth: 100, armor: 1 },
+      2: { maxHealth: 160, armor: 2 },
+      3: { name: 'Stone Wall', maxHealth: 320, armor: 3, repair: { cost: { wood: 6, stone: 6 }, healthPerAction: 40, ticks: 30 } },
+      4: { name: 'Concrete Wall', maxHealth: 600, armor: 5, repair: { cost: { stone: 8, cement: 2 }, healthPerAction: 60, ticks: 30 } },
+      5: { name: 'Reinforced Concrete Wall', maxHealth: 1000, armor: 7, repair: { cost: { stone: 10, cement: 4 }, healthPerAction: 90, ticks: 30 } },
+    },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 5 }, healthPerAction: 25, ticks: 30 },
-    upgrade: { 2: { cost: { wood: 20, stone: 10 }, ticks: 50 } },
+    upgrade: {
+      2: { cost: { wood: 20, stone: 10 }, ticks: 50, minHq: 1 },
+      3: { cost: { wood: 30, stone: 20, cement: 10 }, ticks: 80, minHq: 2 },
+      4: { cost: { concrete_block: 12, steel_plate: 6 }, ticks: 110, minHq: 3 },
+      5: { cost: { concrete_block: 16, steel_plate: 12, boss_core: 1 }, ticks: 150, minHq: 4 },
+    },
   },
   tent: {
     name: 'Survivor Tent',
@@ -94,6 +108,15 @@ export const buildings = {
     // Z6b: level 3 (the Armory) unlocks the heavy recipes (bullets, repeating crossbow, minigun). Its upgrade is paid partly in scrap from zombie loot.
     upgrade: { 2: { cost: { wood: 25, stone: 30 }, ticks: 70 }, 3: { cost: { wood: 30, stone: 40, scrap: 12 }, ticks: 90 } },
   },
+  // P2 (docs/game/23 section 5): the SMELTER is a station of its own (not the workshop). Ruin -> repair -> upgrade like any station. Level 1 melts scrap + charcoal into steel
+  // ingots one at a time; level 2 (the Blast Smelter) adds the bulk recipe. Recipes with `minHq` stay closed until the HQ reaches that level. Powered smelting waits for P6.
+  smelter: {
+    name: 'Smelter',
+    levels: { 1: { maxHealth: 110 }, 2: { name: 'Blast Smelter', maxHealth: 160 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 6, stone: 8 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 25, stone: 35, scrap: 10 }, ticks: 80, minHq: 3 } },
+  },
   // O11 power (docs/game/16). A level's `power` table is either a PRODUCER (`output`, plus `fuel` for a generator or `solar: true` for a panel)
   // or a CONSUMER (`use`). The grid is one number per tick: produced vs demanded. Demand is met by solar first (free, but only in daylight and
   // scaled by the weather's `solar` %), then by generators in id order, which burn one `fuel.item` from base stock per `fuel.every` ticks
@@ -140,9 +163,23 @@ export const buildings = {
     name: 'Gate',
     perimeter: true,
     blocks: false, // the opening in the fence: survivors walk through it
-    levels: { 1: { maxHealth: 80 } },
+    // P3 (docs/game/23 section 2): the gate has its OWN ladder - moving parts, so hinge sets and steel plate, never cement. Level 5 (the airlock) is data only until P7
+    // (no power draw and no sortie-during-wave rule yet).
+    levels: {
+      1: { name: 'Plank Gate', maxHealth: 80, armor: 1 },
+      2: { name: 'Braced Gate', maxHealth: 130, armor: 2 },
+      3: { name: 'Iron-Banded Gate', maxHealth: 250, armor: 3, repair: { cost: { wood: 4, scrap: 2 }, healthPerAction: 30, ticks: 20 } },
+      4: { name: 'Steel Gate', maxHealth: 480, armor: 5, repair: { cost: { scrap: 4 }, healthPerAction: 50, ticks: 20 } },
+      5: { name: 'Airlock Gate', maxHealth: 800, armor: 7, repair: { cost: { scrap: 6 }, healthPerAction: 80, ticks: 20 } },
+    },
     visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
     repair: { cost: { wood: 4 }, healthPerAction: 20, ticks: 20 },
+    upgrade: {
+      2: { cost: { wood: 15, hinge_set: 4 }, ticks: 60, minHq: 1 },
+      3: { cost: { steel_plate: 6, hinge_set: 4 }, ticks: 90, minHq: 2 },
+      4: { cost: { steel_plate: 12, hinge_set: 6 }, ticks: 120, minHq: 3 },
+      5: { cost: { steel_plate: 16, hinge_set: 8, boss_core: 1 }, ticks: 160, minHq: 4 },
+    },
   },
   // O10 farming (docs/game/16). ONE building whose level is the tier: level 1 = FIELD (open ground, exposed to weather hazards),
   // level 2 = GREENHOUSE (blocks storm / heat / cold, grows faster, yields more). `farm` per level: `plots` (how many plots the farm
@@ -165,6 +202,17 @@ export const buildings = {
   },
 };
 
+// P0/P1: HQ levels 3-4 and room for the fortress materials. A level's `storage` table REPLACES the one below it (see the upgrade handler), so each higher HQ table is the
+// previous one grown by a factor plus the new goods. Level 1 holds a little of the new goods so early loot is not turned away.
+{
+  const hq = buildings.hq;
+  const grow = (t, k) => Object.fromEntries(Object.entries(t).map(([item, n]) => [item, Math.ceil(n * k)]));
+  Object.assign(hq.storage, { sand: 20, cement: 10, steel_ingot: 10, steel_plate: 6, concrete_block: 6, hinge_set: 6, sandbag: 10, lead_bar: 10, iron_bar: 10 });
+  Object.assign(hq.levels[2].storage, { sand: 60, cement: 30, steel_ingot: 30, steel_plate: 20, concrete_block: 20, hinge_set: 20, sandbag: 30, lead_bar: 30, iron_bar: 30 });
+  hq.levels[3] = { name: 'Command Post', maxHealth: 450, storage: grow(hq.levels[2].storage, 1.5) };
+  hq.levels[4] = { name: 'Fortress Headquarters', maxHealth: 650, storage: grow(hq.levels[3].storage, 1.4) };
+}
+
 const stage1 = {
   name: 'Stage 1 — The Ruined Settlement',
   map: { width: 24, height: 16 },
@@ -184,6 +232,7 @@ const stage1 = {
     { id: 'battery_1', type: 'battery', level: 1, x: 7, y: 9, health: 10 },     // ruined; stores surplus solar / generator power
     { id: 'tower_1', type: 'tower', level: 1, x: 15, y: 4, health: 8 },            // ruined watchtower inside the north-east corner; repair it, then survivor.guard(tower_1)
     { id: 'solar_1', type: 'solar_panel', level: 1, x: 7, y: 11, health: 10 },    // ruined; free power in daylight only
+    { id: 'smelter_1', type: 'smelter', level: 1, x: 11, y: 10, health: 10 },     // ruined (P2); repair it, then (HQ level 2) survivor.craft("steel_ingot", 5)
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
   // gameplay; they reach the renderer through the render projection.
@@ -255,7 +304,7 @@ outFence.x = WALL_X; outFence.y = 12;
 for (const [id, x, y] of [
   ['hq', 6, 3], ['tower_1', WALL_X - 1, 3], ['storage_1', WALL_X - 2, 4], ['gate', WALL_X, 6],   // north of the road: hq (3x3 above its door), tower and storage by the wall
   ['kitchen', 2, 1], ['field_1', 2, 4], ['tent_1', 4, 4],
-  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13],      // south of the road
+  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10],   // south of the road
   ['well', 9, 14], ['tank', WALL_X - 1, 13],                                                       // tank stays 2 east / 1 north of the well (siphon reach)
 ]) place(id, x, y);
 outpost.survivors[0].x = 6; outpost.survivors[0].y = 5;

@@ -40,6 +40,12 @@ export function createBackdropArt({ baseUrl = BACKDROP_DIR, files = BACKDROP_FIL
   return {
     files, bands,
     has: (id) => Object.hasOwn(files, id),
+    /** 'none' | 'loading' | 'ready' | 'failed' for a backdrop id (the renderer shows the map loader only while 'loading'). */
+    state(id) {
+      if (!id || !make || !Object.hasOwn(files, id)) return 'none';
+      load(files[id]); const e = cache.get(files[id]);
+      return e.failed ? 'failed' : isReady(e.img) ? 'ready' : 'loading';
+    },
     get(id) { return !id || !make || !Object.hasOwn(files, id) ? null : load(files[id]); },
     /** The loaded silhouettes of a backdrop: { top?: { img, ...spec }, bottom?: { img, ...spec } } - a band that is missing or still loading is simply absent. */
     bands(id) {

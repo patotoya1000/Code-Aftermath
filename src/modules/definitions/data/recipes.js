@@ -33,5 +33,16 @@ export const recipes = {
   bullets: { name: 'Bullets', station: 'workshop', stationLevel: 3, inputs: { scrap: 2, gland: 1 }, outputs: { bullets: 12 }, ticks: 16, skill: 'crafting', minSkill: 2, action: 'craft' },
   // Bone meal: the better fertilizer (+100 % harvest instead of +50 %); farming works without it.
   bone_meal: { name: 'Bone meal', station: 'workshop', stationLevel: 1, inputs: { bones: 2, water: 1 }, outputs: { bone_meal: 2 }, ticks: 14, skill: 'crafting', minSkill: 0, action: 'craft' },
+  // P1/P2 (docs/game/23 section 5). `minHq` (optional) = the headquarters level that opens the recipe (refused with HQ_LEVEL below it). Steel starts at the SMELTER (a separate
+  // station from the workshop): ingots from scrap + charcoal; plates are pressed from ingots at the workshop. Blast smelter (level 2) makes ingots in bulk, cheaper per ingot.
+  steel_ingot: { name: 'Steel ingot', station: 'smelter', stationLevel: 1, inputs: { scrap: 2, charcoal: 1 }, outputs: { steel_ingot: 1 }, ticks: 40, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  steel_ingot_bulk: { name: 'Steel ingots (bulk)', station: 'smelter', stationLevel: 2, inputs: { scrap: 8, charcoal: 4 }, outputs: { steel_ingot: 4 }, ticks: 100, skill: 'crafting', minSkill: 1, action: 'craft', minHq: 2 },
+  // Future materials (nothing uses them yet): lead for bullets, iron for weapon upgrades and body armor.
+  lead_bar: { name: 'Lead bar', station: 'smelter', stationLevel: 1, inputs: { scrap: 3 }, outputs: { lead_bar: 1 }, ticks: 30, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  iron_bar: { name: 'Iron bar', station: 'smelter', stationLevel: 1, inputs: { scrap: 3, charcoal: 1 }, outputs: { iron_bar: 1 }, ticks: 35, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  steel_plate: { name: 'Steel plate', station: 'workshop', stationLevel: 2, inputs: { steel_ingot: 2 }, outputs: { steel_plate: 1 }, ticks: 30, skill: 'crafting', minSkill: 1, action: 'craft' },
+  hinge_set: { name: 'Hinge set', station: 'workshop', stationLevel: 1, inputs: { scrap: 2, wood: 1 }, outputs: { hinge_set: 1 }, ticks: 20, skill: 'crafting', minSkill: 0, action: 'craft' },
+  concrete_block: { name: 'Concrete block', station: 'workshop', stationLevel: 2, inputs: { cement: 2, sand: 3, water: 1 }, outputs: { concrete_block: 1 }, ticks: 40, skill: 'crafting', minSkill: 1, action: 'craft' },
+  sandbag: { name: 'Sandbag', station: 'workshop', stationLevel: 1, inputs: { rags: 2, sand: 3 }, outputs: { sandbag: 1 }, ticks: 15, skill: 'crafting', minSkill: 0, action: 'craft' },
   glass: { name: 'Glass', station: 'workshop', stationLevel: 2, inputs: { stone: 4, wood: 2 }, outputs: { glass: 1 }, ticks: 24, skill: 'crafting', minSkill: 1, action: 'craft', power: 8 },
 };

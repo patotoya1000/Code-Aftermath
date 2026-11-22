@@ -2,7 +2,7 @@
 // really shows at the site she is away at). Placeholder flat art in the HUD palette, like the rest of the game's placeholder assets (PA-6 replaces it).
 // Hotspots are `<g class="spot" data-spot="…">`; the page delegates clicks and keys on them. Pure: no DOM.
 import { esc } from './panels.js';
-import { spotStatus } from './screens.js';
+import { spotStatus, sitesOf, ROAD_SPOTS } from './screens.js';
 
 const spot = (id, label, inner, { active, status } = {}) => `<g class="spot${active === id ? ' is-picked' : ''}" data-spot="${esc(id)}" tabindex="0" role="button" aria-label="${esc(label)}${status ? `: ${esc(status)}` : ''}">${inner}</g>`;
 const pill = (x, y, text, cls = '') => { const w = Math.max(60, text.length * 8.4 + 18); return `<g class="sc-pill ${cls}"><rect x="${x - w / 2}" y="${y - 13}" width="${w}" height="24" rx="12"/><text x="${x}" y="${y + 4}" text-anchor="middle">${esc(text)}</text></g>`; };
@@ -49,14 +49,18 @@ const SITE_ART = {
 };
 const genericSite = (x, y) => `<rect class="sc-wall-b" x="${x - 36}" y="${y - 30}" width="72" height="40"/>`;
 
+const roadSign = (r, x, y, up, view, active) => spot(r.id, r.label, `<rect class="sc-hit" x="${x - 62}" y="${y - 30}" width="124" height="64"/><rect class="sc-signpost" x="${x - 3}" y="${y - 6}" width="6" height="${up ? 34 : 24}"/><rect class="sc-sign" x="${x - 56}" y="${y - 26}" width="112" height="24" rx="4"/><text class="sc-sign-text" x="${x}" y="${y - 9}" text-anchor="middle">${up ? '▲' : '▼'} ${esc(r.to.toUpperCase())}</text>${pill(x, y + 44, spotStatus(view, r.id))}`, { active });
+/** The two road signs at the wall end of the FRONT road: the upper road goes north to the forest, the lower one south to the quarry. */
+const roadSigns = (view, active) => `${roadSign(ROAD_SPOTS[0], 100, 232, true, view, active)}${roadSign(ROAD_SPOTS[1], 100, 372, false, view, active)}`;
+
 /** MAP 3 · FRONT. The wall on the west edge, the road east, one hotspot per scavenge site (nearest first), the raid road at the far east. */
 export function frontSceneSvg(view, { active } = {}) {
-  const sv = view?.scavenge; const sites = sv?.sites ?? [];
+  const sv = view?.scavenge; const sites = sitesOf(view, 'front'); // forest and quarry sites live on their own maps
   const away = new Map((sv?.away ?? []).map((a) => [a.siteId, a]));
   const raid = view?.threats?.wave?.active;
-  const step = sites.length > 1 ? 560 / (sites.length - 1) : 0;
+  const step = sites.length > 1 ? 510 / (sites.length - 1) : 0;
   const siteSvg = sites.map((s, i) => {
-    const x = 150 + i * step; const y = 262 - (i % 2) * 8;
+    const x = 230 + i * step; const y = 262 - (i % 2) * 8;
     const art = (SITE_ART[s.id] ?? genericSite)(x, y);
     const gone = away.get(s.id);
     const bar = `<rect class="sc-bar-bg" x="${x - 34}" y="${y + 34}" width="68" height="6" rx="3"/><rect class="sc-bar" x="${x - 34}" y="${y + 34}" width="${68 * Math.max(0, Math.min(100, s.recoveryPercent)) / 100}" height="6" rx="3"/>`;
@@ -70,7 +74,41 @@ export function frontSceneSvg(view, { active } = {}) {
     ${[610, 680, 760, 820].map((x, i) => `<g class="sc-tree"><rect x="${x}" y="${150 + (i % 2) * 14}" width="8" height="40"/><circle cx="${x + 4}" cy="${140 + (i % 2) * 14}" r="26"/></g>`).join('')}
     <rect class="sc-ground-front" x="0" y="290" width="1000" height="110"/>
     <rect class="sc-road" x="40" y="298" width="960" height="40"/><line class="sc-roadline" x1="60" y1="318" x2="1000" y2="318"/>
-    ${siteSvg}${raidSpot}
+    ${siteSvg}${raidSpot}${roadSigns(view, active)}
     <g class="sc-wall" aria-hidden="true"><rect x="0" y="0" width="40" height="290"/><rect x="0" y="342" width="40" height="58"/><rect class="sc-gate" x="0" y="290" width="40" height="52"/><text x="20" y="150" text-anchor="middle" transform="rotate(-90 20 150)">◂ THE WALL · TO OUTPOST</text></g>
+  </svg>`;
+}
+
+// ---- MAP 4 FOREST and MAP 5 QUARRY: the two side roads (docs/game/24). One hotspot per site of the region; the same away marker and status pill as the FRONT. ----
+SITE_ART.forest_edge = (x, y) => `<g class="sc-tree"><rect x="${x - 30}" y="${y - 40}" width="8" height="42"/><circle cx="${x - 26}" cy="${y - 52}" r="24"/></g><g class="sc-tree"><rect x="${x + 14}" y="${y - 30}" width="8" height="32"/><circle cx="${x + 18}" cy="${y - 42}" r="20"/></g><rect class="sc-log" x="${x - 12}" y="${y - 6}" width="34" height="10" rx="4"/>`;
+SITE_ART.deep_forest = (x, y) => [-44, -14, 16, 44].map((d, i) => `<g class="sc-tree"><rect x="${x + d - 4}" y="${y - 46 + (i % 2) * 10}" width="8" height="50"/><circle cx="${x + d}" cy="${y - 58 + (i % 2) * 10}" r="${26 - (i % 2) * 4}"/></g>`).join('');
+SITE_ART.quarry = (x, y) => `<polygon class="sc-rock" points="${x - 52},${y + 8} ${x - 30},${y - 38} ${x - 6},${y - 20} ${x + 20},${y - 46} ${x + 52},${y + 8}"/><rect class="sc-cart" x="${x - 8}" y="${y - 6}" width="28" height="14" rx="3"/><circle class="sc-wheel" cx="${x - 2}" cy="${y + 10}" r="4"/><circle class="sc-wheel" cx="${x + 14}" cy="${y + 10}" r="4"/>`;
+SITE_ART.deep_quarry = (x, y) => `<polygon class="sc-rock" points="${x - 60},${y + 8} ${x - 46},${y - 30} ${x - 18},${y - 58} ${x + 14},${y - 34} ${x + 40},${y - 62} ${x + 62},${y + 8}"/><rect class="sc-door" x="${x - 12}" y="${y - 22}" width="24" height="30"/>`;
+
+const REGION_SCENE = {
+  forest: { no: 4, label: 'Map 4: the forest', title: 'FOREST · NORTH ROAD', back: '◂ BACK TO THE FRONT', sky: ['#0a1a12', '#1d3a26'], ground: 'sc-ground-forest', trees: true },
+  quarry: { no: 5, label: 'Map 5: the quarry', title: 'QUARRY · SOUTH ROAD', back: '◂ BACK TO THE FRONT', sky: ['#1a1a1f', '#3b3a40'], ground: 'sc-ground-quarry', trees: false },
+};
+export function regionSceneSvg(view, region, { active } = {}) {
+  const meta = REGION_SCENE[region]; if (!meta) return '';
+  const sv = view?.scavenge; const sites = sitesOf(view, region);
+  const away = new Map((sv?.away ?? []).map((a) => [a.siteId, a]));
+  const step = sites.length > 1 ? 500 / (sites.length - 1) : 0;
+  const siteSvg = sites.map((s, i) => {
+    const x = sites.length > 1 ? 250 + i * step : 500; const y = 262 - (i % 2) * 8; const gone = away.get(s.id);
+    const bar = `<rect class="sc-bar-bg" x="${x - 34}" y="${y + 34}" width="68" height="6" rx="3"/><rect class="sc-bar" x="${x - 34}" y="${y + 34}" width="${68 * Math.max(0, Math.min(100, s.recoveryPercent)) / 100}" height="6" rx="3"/>`;
+    return spot(s.id, s.name, `<rect class="sc-hit" x="${x - 74}" y="${y - 84}" width="148" height="${gone ? 150 : 130}"/>${(SITE_ART[s.id] ?? genericSite)(x, y)}${label(x, y - 76, s.name.toUpperCase())}${bar}${pill(x, y + 62, spotStatus(view, s.id), s.dangerToday >= 30 ? 'is-hot' : '')}${gone ? `<g class="sc-away"><circle cx="${x}" cy="${y - 100}" r="9"/><text x="${x}" y="${y - 96}" text-anchor="middle">▲</text><text x="${x + 16}" y="${y - 96}">${esc(gone.survivorId)} · ${gone.returnsInTicks}t</text></g>` : ''}`, { active });
+  }).join('');
+  const backdrop = meta.trees
+    ? [40, 130, 230, 330, 430, 540, 650, 760, 860, 950].map((x, i) => `<g class="sc-tree"><rect x="${x}" y="${120 + (i % 3) * 16}" width="9" height="46"/><circle cx="${x + 4}" cy="${108 + (i % 3) * 16}" r="${28 - (i % 2) * 5}"/></g>`).join('')
+    : `<polygon class="sc-cliff" points="0,230 90,150 180,200 300,110 420,190 540,120 680,200 800,130 920,190 1000,150 1000,290 0,290"/>`;
+  return `<svg class="scene" viewBox="0 0 1000 400" preserveAspectRatio="xMidYMid meet" role="group" aria-label="${esc(meta.label)}">
+    <defs><linearGradient id="sky-${region}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${meta.sky[0]}"/><stop offset="1" stop-color="${meta.sky[1]}"/></linearGradient></defs>
+    <rect width="1000" height="400" fill="url(#sky-${region})"/>${backdrop}
+    <rect class="${meta.ground}" x="0" y="290" width="1000" height="110"/>
+    <rect class="sc-road" x="0" y="298" width="1000" height="40"/><line class="sc-roadline" x1="20" y1="318" x2="1000" y2="318"/>
+    ${siteSvg}
+    <text class="sc-label sc-title" x="500" y="40" text-anchor="middle">${esc(meta.title)}</text>
+    ${spot('back', 'Back to the front', `<rect class="sc-hit" x="0" y="350" width="260" height="50"/><text class="sc-label" x="130" y="382" text-anchor="middle">${esc(meta.back)}</text>`, { active })}
   </svg>`;
 }

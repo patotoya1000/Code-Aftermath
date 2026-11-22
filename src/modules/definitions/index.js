@@ -8,7 +8,7 @@ import { environment } from './data/environment.js';
 import { recipes } from './data/recipes.js';
 import { crops, farming } from './data/crops.js';
 import { events, eventSchedule } from './data/events.js';
-import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables } from './data/threats.js';
+import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, wanderer } from './data/threats.js';
 import { weapons, towers, noise } from './data/arsenal.js';
 import { town } from './data/town.js';
 import { scavenge } from './data/scavenge.js';
@@ -175,6 +175,11 @@ export function validateDefinitions(d) {
   }
   const nz = d.noise;
   need(nz && ['decayPerTick', 'threshold', 'reinforceEvery', 'reinforceCap'].every((k) => whole(nz[k], 1)) && typeof nz.driftToLoudest === 'boolean' && whole(nz.suppressorPercent, 0) && nz.suppressorPercent <= 100 && whole(nz.scream, 0) && whole(nz.explosion, 0) && nz.lure && whole(nz.lure.attention, 1) && whole(nz.lure.tower, 1), 'noise: whole decayPerTick, threshold, reinforceEvery, reinforceCap >= 1, a boolean driftToLoudest, suppressorPercent 0..100, whole scream and explosion >= 0 and lure { attention, tower } >= 1');
+  const wd = d.wanderer; // the lone daytime wanderer (docs/game/24 W1); `wanderer: null` switches it off
+  if (wd) {
+    need(d.zombies?.[wd.type]?.damage >= 0 && !d.zombies[wd.type].behaviour, `wanderer: type must be a plain zombie (no special behaviour) of defs.zombies`);
+    need(['firstDay', 'spawnWindowTicks', 'maxAlive', 'stepTicks', 'chaseRange', 'attackEveryTicks'].every((k) => Number.isInteger(wd[k]) && wd[k] >= 1) && Number.isInteger(wd.chancePercent) && wd.chancePercent >= 0 && wd.chancePercent <= 100, 'wanderer: whole numbers >= 1 (chancePercent 0-100)');
+  }
   const rs = d.raidSchedule;
   need(rs && Object.keys(d.zombies ?? {}).length > 0 && ['startDay', 'warnDays', 'historyLimit', 'strengthBase'].every((k) => Number.isInteger(rs[k]) && rs[k] >= 1) && Number.isInteger(rs.strengthPerDay) && rs.strengthPerDay >= 0 && Number.isInteger(rs.chancePercent) && rs.chancePercent >= 0 && rs.chancePercent <= 100 && Number.isInteger(rs.variancePercent) && rs.variancePercent >= 0 && rs.variancePercent <= 99, 'raidSchedule: whole numbers (chancePercent 0..100, variancePercent 0..99) and at least one zombie are required');
   need(rs && Number.isInteger(rs.defense?.perLevel) && rs.defense.perLevel >= 1 && Number.isInteger(rs.defense.damagedPercent) && rs.defense.damagedPercent >= 0 && rs.defense.damagedPercent <= 100 && Number.isInteger(rs.breached?.lootPercent) && rs.breached.lootPercent >= 0 && rs.breached.lootPercent <= 100 && Array.isArray(rs.breached?.loot) && rs.breached.loot.every((i) => d.items[i]), 'raidSchedule: defense and breached tables need whole numbers and known loot items');
@@ -209,6 +214,7 @@ export function validateDefinitions(d) {
   for (const [id, st] of Object.entries(sv?.sites ?? {})) {
     need(typeof st.name === 'string' && st.name && Number.isInteger(st.ticks) && st.ticks >= 1 && Number.isInteger(st.regrowDays) && st.regrowDays >= 1, `scavenge site ${id}: needs a name, whole ticks >= 1 and whole regrowDays >= 1`);
     need(Number.isInteger(st.danger) && st.danger >= 0 && st.danger <= 100, `scavenge site ${id}: danger must be a whole percent 0-100`);
+    need(st.region === undefined || ['front', 'forest', 'quarry'].includes(st.region), `scavenge site ${id}: region must be front, forest or quarry`);
     need(Object.keys(st.yield ?? {}).length >= 1 && Object.entries(st.yield).every(([i, r]) => d.items[i] && Array.isArray(r) && r.length === 2 && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[0] <= r[1] && r[1] >= 1), `scavenge site ${id}: yield needs known items with [min, max] whole ranges`);
   }
   const fm = d.farming;
@@ -252,6 +258,17 @@ export function validateDefinitions(d) {
       need(Number.isInteger(f.x) && Number.isInteger(f.y) && Number.isInteger(f.w) && Number.isInteger(f.h) && f.w >= 1 && f.h >= 1, `building ${id}: footprint needs whole numbers x, y and w, h >= 1`);
       need(f.x <= 0 && 0 < f.x + f.w && f.y <= 0 && 0 < f.y + f.h, `building ${id}: the footprint must contain the door cell (0, 0)`);
       need(!b.perimeter, `building ${id}: a perimeter building (the gate) has no footprint`);
+    }
+    // P0/P3: upgrade tables, per-level armor and repair, and the HQ ceiling. An upgrade only reaches a level that exists, costs known items, and its `minHq` is an HQ level that exists.
+    for (const [lvl, up] of Object.entries(b.upgrade ?? {})) {
+      need(b.levels[lvl], `building ${id}: upgrade targets level ${lvl}, which does not exist`);
+      need(up.cost && Object.keys(up.cost).length > 0 && Object.entries(up.cost).every(([it, q]) => d.items[it] && Number.isInteger(q) && q >= 1), `building ${id}: upgrade to level ${lvl} needs a cost of known items with whole quantities >= 1`);
+      need(Number.isInteger(up.ticks) && up.ticks >= 1, `building ${id}: upgrade to level ${lvl} needs whole ticks >= 1`);
+      need(up.minHq === undefined || (Number.isInteger(up.minHq) && up.minHq >= 1 && d.buildings.hq?.levels?.[up.minHq]), `building ${id}: upgrade to level ${lvl}: minHq must be an hq level that exists`);
+    }
+    for (const [lvl, L] of Object.entries(b.levels)) {
+      need(L.armor === undefined || (Number.isInteger(L.armor) && L.armor >= 0), `building ${id} level ${lvl}: armor must be a whole number >= 0`);
+      if (L.repair) need(Object.keys(L.repair.cost ?? {}).length > 0 && Object.entries(L.repair.cost).every(([it, q]) => d.items[it] && Number.isInteger(q) && q >= 1) && Number.isInteger(L.repair.healthPerAction) && L.repair.healthPerAction >= 1 && Number.isInteger(L.repair.ticks) && L.repair.ticks >= 1, `building ${id} level ${lvl}: repair needs a cost of known items, healthPerAction >= 1 and ticks >= 1`);
     }
     const whole = (n) => Number.isInteger(n) && n >= 1;
     let sourceSeen = false;
@@ -297,6 +314,7 @@ export function validateDefinitions(d) {
     need(qtys(r.inputs), `recipe ${id}: inputs need known items with whole quantities >= 1`);
     need(qtys(r.outputs), `recipe ${id}: outputs need known items with whole quantities >= 1`);
     need(Number.isInteger(r.ticks) && r.ticks >= 1, `recipe ${id}: ticks must be a whole number >= 1`);
+    need(r.minHq === undefined || (Number.isInteger(r.minHq) && r.minHq >= 1 && d.buildings.hq?.levels?.[r.minHq]), `recipe ${id}: minHq must be an hq level that exists`);
     need(d.actions[r.action]?.handler === 'cook', `recipe ${id}: action "${r.action}" must be an action that uses the cook handler (cook or craft)`);
     need(d.skills[r.skill] && d.progression?.awards?.[r.action]?.skill === r.skill, `recipe ${id}: skill "${r.skill}" must be a known skill that the "${r.action}" award teaches`);
     need(r.power === undefined || (Number.isInteger(r.power) && r.power >= 1), `recipe ${id}: power must be a whole number >= 1`);
@@ -356,7 +374,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

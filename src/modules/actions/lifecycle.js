@@ -29,6 +29,7 @@ export const FailureReason = Object.freeze({
   NOTHING_TO_DEPOSIT: 'NOTHING_TO_DEPOSIT', // deposit() while carrying nothing
   MAX_LEVEL: 'MAX_LEVEL', // upgrade: no higher level exists for this building
   NEEDS_REPAIR: 'NEEDS_REPAIR', // upgrade: repair the building first
+  HQ_LEVEL: 'HQ_LEVEL', // upgrade / craft: the headquarters is below the level this needs (upgrade the hq first)
   NO_STATION: 'NO_STATION', // cook: no such station building (kitchen) exists in this world
   NO_DEPOT: 'NO_DEPOT', // nothing that still works can store what she carries
   NO_PATH: 'NO_PATH', // walls/buildings leave no way to the destination

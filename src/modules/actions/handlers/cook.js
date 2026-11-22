@@ -3,7 +3,7 @@ import { stockKey, reserve, commit, release, credit, available } from '../../res
 import { StopReason } from '../lifecycle.js';
 import { checkCapability } from '../../capability/index.js';
 import { awardSkillXp } from '../../survivors/index.js';
-import { storageRoom, stationsFor } from '../../buildings/index.js';
+import { storageRoom, stationsFor, hqLevelOf } from '../../buildings/index.js';
 import { syncStock } from '../../spoilage/index.js';
 import { ok, fail, failTick, RUNNING, approachThenWork, tooTired } from './shared.js';
 
@@ -56,6 +56,7 @@ export const cookHandler = {
     const rc = defs.recipes[recipe];
     if (rc.action !== a.actionType) return fail('INVALID_PARAMS'); // e.g. survivor.craft("bread")
     if ((state.survivors[a.actorId].skills[rc.skill] ?? 0) < rc.minSkill) return fail('CAPABILITY_INSUFFICIENT');
+    if (rc.minHq && hqLevelOf(state) < rc.minHq) return fail('HQ_LEVEL'); // P2: the recipe is still closed (docs/game/23: the smelter opens at HQ level 2)
     const stations = stationsFor(state, defs, rc);
     if (stations.all.length === 0) return fail('NO_STATION');
     const station = nearest(stations.working, state.survivors[a.actorId].position);

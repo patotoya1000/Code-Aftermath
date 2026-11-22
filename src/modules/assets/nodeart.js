@@ -51,14 +51,23 @@ export function createNodeArt({ baseUrl = NODE_ART_DIR, loadImage = null, famili
   // no DOM (Node tests, workers): no loader, so get() stays null and the placeholder art is used
   const make = loadImage ?? (typeof Image === 'undefined' ? null : (url) => { const img = new Image(); img.src = url; return img; });
   const isReady = (img) => Boolean(img && img.complete !== false && (img.naturalWidth ?? img.width) > 0);
+  const entry = (key) => {
+    if (!key || !make) return null;
+    let e = cache.get(key);
+    if (!e) { e = { img: make(`${baseUrl}${key}.png`), failed: false }; try { e.img.onerror = () => { e.failed = true; }; } catch { /* non-DOM image stand-in */ } cache.set(key, e); }
+    return e;
+  };
   return {
     families,
     key: (type, id, stage) => nodeSpriteKey(type, id, stage, families),
     get(key) {
-      if (!key || !make) return null;
-      let e = cache.get(key);
-      if (!e) { e = { img: make(`${baseUrl}${key}.png`), failed: false }; try { e.img.onerror = () => { e.failed = true; }; } catch { /* non-DOM image stand-in */ } cache.set(key, e); }
-      return !e.failed && isReady(e.img) ? e.img : null;
+      const e = entry(key);
+      return e && !e.failed && isReady(e.img) ? e.img : null;
+    },
+    /** 'none' (no key / no DOM) | 'loading' | 'ready' | 'failed': the renderer shows the loader only while 'loading' (assets/loader.js). */
+    state(key) {
+      const e = entry(key); if (!e) return 'none';
+      return e.failed ? 'failed' : isReady(e.img) ? 'ready' : 'loading';
     },
   };
 }

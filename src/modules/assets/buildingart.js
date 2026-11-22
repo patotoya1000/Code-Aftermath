@@ -80,6 +80,23 @@ export function createBuildingArt({ baseUrl = BUILDING_ART_DIR, specs = BUILDING
       }
       return null;
     },
+    /** 'none' | 'loading' | 'ready' | 'failed' for the picture `get(type, condition)` would draw. */
+    state(type, condition) {
+      const spec = Object.hasOwn(specs, type) ? specs[type] : null; if (!spec || !make) return 'none';
+      const cond = ART_CONDITIONS.includes(condition) ? condition : 'repaired';
+      const e = entry(`${spec.file}_${cond}`);
+      return e.failed ? 'failed' : isReady(e.img) ? 'ready' : 'loading';
+    },
+    /** Same for a wall / gate LEVEL picture: 'loading' while the picture for this level (or the one below it) is still on its way, 'failed' when none exists. */
+    levelState(type, level) {
+      const spec = Object.hasOwn(LEVEL_ART, type) ? LEVEL_ART[type] : null; if (!spec || !make) return 'none';
+      for (let lv = Math.min(levels.at(-1), Math.max(1, Math.trunc(Number(level) || 1))); lv >= 1; lv--) {
+        const e = entry(`${spec.file}_level${lv}`);
+        if (e.failed) continue;
+        return isReady(e.img) ? 'ready' : 'loading';
+      }
+      return 'failed';
+    },
     get(type, condition) {
       const spec = Object.hasOwn(specs, type) ? specs[type] : null; if (!spec || !make) return null;
       const cond = ART_CONDITIONS.includes(condition) ? condition : 'repaired';

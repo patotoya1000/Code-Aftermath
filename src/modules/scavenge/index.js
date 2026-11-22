@@ -129,7 +129,7 @@ function sitesView(state, defs) {
     for (const [item, [min, max]] of Object.entries(st.yield)) expected[item] = [Math.floor((min * percent) / 100), Math.floor((max * percent) / 100)];
     const rec = state.scavenge.sites[id];
     return {
-      id, name: st.name, ticks: st.ticks, danger: st.danger, dangerToday: dangerOn(defs, state.seed, id, day), regrowDays: st.regrowDays,
+      id, name: st.name, region: st.region ?? 'front', ticks: st.ticks, danger: st.danger, dangerToday: dangerOn(defs, state.seed, id, day), regrowDays: st.regrowDays,
       recoveryPercent: percent, lastLootedDay: rec ? rec.lastDay : null, yield: Object.fromEntries(Object.entries(st.yield).map(([i, r]) => [i, [...r]])), expected,
       awayNow: Object.values(state.survivors).filter((s) => s.status === 'away' && s.away?.siteId === id).length,
     };

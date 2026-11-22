@@ -42,7 +42,8 @@ test('every wave spawns on the east edge (x = 39), hits the line from the east a
   for (const seed of [1, 2, 3, 4]) { const s = sim(seed); runTo(s, dusk(6) + 12); const sp = evs(s, 'zombie.spawned'); assert.equal(sp.length, 2); for (const e of sp) { assert.equal(e.side, 'east'); assert.equal(e.x, 39); } }
   const s = sim(1, (st) => { wall(st).health = 100; wall(st).condition = 'repaired'; });
   runTo(s, dusk(6) + 160);
-  for (const z of Object.values(s.snapshot().threats.zombies)) { assert.ok(z.x > 22, `zombie at x=${z.x}`); assert.equal(z.state, 'attack'); }
+  // a daytime wanderer may already be out by now (docs/game/24 W1): only raid zombies are checked
+  for (const z of Object.values(s.snapshot().threats.zombies).filter((q) => !q.wanderer)) { assert.ok(z.x > 22, `zombie at x=${z.x}`); assert.equal(z.state, 'attack'); }
   assert.ok(evs(s, 'zombie.reached_wall').length >= 1);
 });
 

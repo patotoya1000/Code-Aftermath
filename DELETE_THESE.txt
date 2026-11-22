@@ -1,0 +1,5 @@
+DELETE these from your project (a zip cannot delete files):
+UPDATE_NOTES_REMOVE_THESE.txt
+src/modules/definitions/data/buildings.js
+src/app/ui/zones.js
+tests/zones.test.js

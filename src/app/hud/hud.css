@@ -260,11 +260,11 @@ body.hud #code-commands:empty { display:none; }
 .screen-pane { position:absolute; inset:0; z-index:12; display:flex; align-items:center; justify-content:center; gap:14px; padding:150px 72px 175px; background:radial-gradient(ellipse at 50% 45%, #121a29 0%, #070b12 78%);
   visibility:hidden; pointer-events:none; transition:transform .6s cubic-bezier(.22,.9,.28,1), visibility 0s linear .6s; will-change:transform; }
 .screen-pane-town { transform:translateX(-100%); box-shadow:12px 0 40px rgba(0,0,0,.55); }
-.screen-pane-front { transform:translateX(100%); box-shadow:-12px 0 40px rgba(0,0,0,.55); }
-#world-region[data-screen="town"] .screen-pane-town, #world-region[data-screen="front"] .screen-pane-front { transform:none; visibility:visible; pointer-events:auto; transition-delay:0s; }
+.screen-pane-front, .screen-pane-forest, .screen-pane-quarry { transform:translateX(100%); box-shadow:-12px 0 40px rgba(0,0,0,.55); }
+#world-region[data-screen="town"] .screen-pane-town, #world-region[data-screen="front"] .screen-pane-front, #world-region[data-screen="forest"] .screen-pane-forest, #world-region[data-screen="quarry"] .screen-pane-quarry { transform:none; visibility:visible; pointer-events:auto; transition-delay:0s; }
 #world-wrap { transition:transform .6s cubic-bezier(.22,.9,.28,1), filter .6s; }
 #world-region[data-screen="town"] #world-wrap { transform:translateX(14%); filter:brightness(.55); }
-#world-region[data-screen="front"] #world-wrap { transform:translateX(-14%); filter:brightness(.55); }
+#world-region[data-screen="front"] #world-wrap, #world-region[data-screen="forest"] #world-wrap, #world-region[data-screen="quarry"] #world-wrap { transform:translateX(-14%); filter:brightness(.55); }
 .scene-wrap { flex:1 1 auto; min-width:0; max-height:100%; display:flex; align-items:center; justify-content:center; }
 .scene { width:100%; height:100%; max-height:100%; filter:drop-shadow(0 10px 30px rgba(0,0,0,.6)); border-radius:12px; border:1px solid var(--card-line); background:#0a1020; }
 .scene text { font-family:var(--font-mono); }
@@ -312,3 +312,27 @@ body.hud.card-open .screen-arrow-east { right:380px; }
 @keyframes sa-shamble { from { transform:translateX(0) rotate(-1.5deg); } to { transform:translateX(-4px) rotate(1.5deg); } }
 @media (prefers-reduced-motion: reduce) { .screen-pane, #world-wrap { transition:none !important; } .screen-arrow, .scene .sc-pill, .scene .sc-zombie, .screen-badge .sb-name::after { animation:none !important; } }
 @media (max-width:900px) { .screen-pane { padding:150px 40px 190px; flex-direction:column; } .scene-detail { flex:0 0 auto; width:100%; align-self:stretch; max-height:40%; } .screen-arrow { width:36px; } .screen-arrow .sa-label { display:none; } }
+
+/* P3: wall / gate card tabs (INFO | UPGRADE | CODE) */
+.wall-tabs { display:flex; gap:4px; margin:4px 0 8px; }
+.wall-tab { flex:1; font:600 10px var(--font-mono); letter-spacing:.06em; padding:5px 0; border-radius:6px; border:1px solid rgba(148,163,184,.3); background:transparent; color:var(--muted, #94a3b8); cursor:pointer; }
+.wall-tab.on { background:rgba(34,211,238,.14); border-color:var(--accent-dark, #0e7490); color:var(--accent, #22d3ee); }
+.wall-body { font-size:11px; display:flex; flex-direction:column; gap:6px; }
+.wall-line { line-height:1.4; }
+.wall-muted { color:var(--muted, #94a3b8); }
+.wall-lock { color:#f59e0b; }
+.wall-ok { color:#10b981; }
+.wall-hp { height:8px; background:rgba(148,163,184,.2); border-radius:4px; overflow:hidden; }
+.wall-hp i { display:block; height:100%; }
+.wall-hp i.good { background:#10b981; } .wall-hp i.warn { background:#f59e0b; } .wall-hp i.bad { background:#ef4444; }
+.wall-cost { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+.wall-cost li { display:flex; justify-content:space-between; font-family:var(--font-mono); }
+.wall-cost li.ok { color:#10b981; } .wall-cost li.short { color:#f59e0b; }
+
+/* MAP 4 FOREST and MAP 5 QUARRY (docs/game/24) */
+.screen-badge[data-screen="forest"] { border-color:rgba(74,222,128,.75); } .screen-badge[data-screen="forest"] .sb-dots i.on { background:#4ade80; }
+.screen-badge[data-screen="quarry"] { border-color:rgba(167,139,250,.75); } .screen-badge[data-screen="quarry"] .sb-dots i.on { background:#a78bfa; }
+.scene .sc-ground-forest { fill:#1a2a1a; } .scene .sc-ground-quarry { fill:#2b2a2e; }
+.scene .sc-cliff { fill:#2a292e; } .scene .sc-rock { fill:#52505a; stroke:#34323a; stroke-width:2; } .scene .sc-cart { fill:#6b5a3a; }
+.scene .sc-log { fill:#6b4a2a; } .scene .sc-title { font-size:20px; letter-spacing:.12em; opacity:.8; }
+.scene .sc-sign { fill:#3a2f1f; stroke:#8a7556; stroke-width:2; } .scene .sc-signpost { fill:#6b5a3a; } .scene .sc-sign-text { fill:#f3e3c3; font:700 12px system-ui; letter-spacing:.06em; }

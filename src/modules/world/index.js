@@ -20,7 +20,7 @@ export function createInitialState({ defs, scenarioId, seed }) {
     actions: {}, activeActions: [], hooks: {},
     perishables: {}, // spoilage batches per perishable item: [{ qty, age }], oldest first (see the spoilage module)
     power: { produced: 0, demand: 0 }, // the grid totals of the last tick (see the power module)
-    threats: { history: [], wave: null, zombies: {}, counter: 0, loot: {}, lootCounter: 0, attention: 0, towerNoise: {} }, // night raids resolved (newest last), the wave in progress and its zombies (see the threats module)
+    threats: { history: [], wave: null, zombies: {}, counter: 0, wanderCounter: 0, loot: {}, lootCounter: 0, attention: 0, towerNoise: {} }, // night raids resolved (newest last), the wave in progress and its zombies (see the threats module)
     events: { history: [] }, // risk events that have happened (see the events module), newest last
     scavenge: { sites: {}, lost: [], history: [] }, // W3: per-site last-looted day, survivors lost outside the wall, recent returns (see the scavenge module)
     town: { hired: {}, bought: {}, history: [] }, // offers already hired (offerId -> survivorId) and a short hire history (see the town module)
