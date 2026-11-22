@@ -54,7 +54,7 @@ test('excess attention brings reinforcement walkers, one per reinforceEvery poin
 test('a mounted minigun is loud and marks its tower as the loudest; a ballista is quiet', () => {
   const run = (weapon, ammo) => newSim('stage1', 1, (st) => {
     Object.assign(st.survivors.survivor_1.needs, { hunger: 100, thirst: 100, energy: 100, health: 100 });
-    fix(st, 'tower_1', 3); st.buildings.tower_1.mounts = [mounted(weapon, 50)]; at(st, 'survivor_1', 14, 4); fix(st, 'battery_1'); st.buildings.battery_1.power.charge = 200;
+    fix(st, 'tower_1', 4); st.buildings.tower_1.mounts = [mounted(weapon, 50)]; at(st, 'survivor_1', 14, 4); fix(st, 'battery_1'); st.buildings.battery_1.power.charge = 200;
     st.threats.wave = wave(); zombie(st, 'zombie_1', 'brute', 20, 4, 900);
   });
   const mg = run('minigun'); mg.step(6);

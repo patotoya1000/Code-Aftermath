@@ -5,7 +5,7 @@ import { canMount } from '../../threats/index.js';
 import { ok, fail, RUNNING, DONE, failTick, walkStep, tooTired } from './shared.js';
 
 /**
- * mount (Z6b): install a crafted MOUNTED weapon (ballista, repeating_crossbow, minigun) on a tower. Three stages: she walks to the nearest working storage
+ * mount (Z6b): install a crafted MOUNTED weapon (ballista, machine_gun, minigun, dual_minigun) on a tower. Three stages: she walks to the nearest working storage
  * building that holds it and picks it up (`ticks`), hauls it to the tower (a haul needs no carry capacity), and fits it (`installTicks`). The unit is reserved
  * in the ledger when the job is accepted (cancel gives it back) and leaves stock when the weapon is installed. A mount takes one of the tower's `slots`
  * and the tower level must be able to hold it (`towers[level].mounts`); `weapons.<id>.minCombat` Combat skill is needed. The new mount starts with an

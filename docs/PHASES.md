@@ -38,5 +38,9 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [ ] Step/inspect mode UI · training buildings and specialization · encumbrance/equipment effects · research system
 - [ ] Pruning of finished actions (O1) · offline/release packaging · instructor tools
 
+## Towers (docs/game/25)
+- [x] **T1** (2026-11-22) watchtower ladder levels 1-5 (range grows every level), `machine_gun` replaces `repeating_crossbow`, `dual_minigun` (`shots: 2`), `mountTarget` + `aim` in the projections, painted tower level pictures and mounts that turn toward their target (`SIM_VERSION` 0.44.0)
+- [ ] Tower add-ons: searchlight, armor-piercing / incendiary rounds, reinforced base, auto-loader, targeting priority (docs/game/25 section 3)
+
 ## Open design items
 Attribute and skill lists · formula coefficients · event curves · XP thresholds · trait catalog · final atlas size and frame counts · first-release language.

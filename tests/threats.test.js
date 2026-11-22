@@ -123,7 +123,7 @@ test('boss: a fixed milestone (pure, same every run), first on firstDay then eve
 
 test('weapons: starters are melee, the ladder has the right tiers, melee never gets a tower bonus, mounted weapons need their tower level', () => {
   assert.deepEqual(Object.keys(weapons).filter((w) => weapons[w].starter).sort(), ['knife', 'spear']);
-  for (const w of ['advanced_spear', 'bow', 'crossbow', 'rifle', 'ballista', 'repeating_crossbow', 'minigun']) assert.ok(weapons[w].craft && !weapons[w].starter);
+  for (const w of ['advanced_spear', 'bow', 'crossbow', 'rifle', 'ballista', 'machine_gun', 'minigun', 'dual_minigun']) assert.ok(weapons[w].craft && !weapons[w].starter);
   assert.ok(weapons.spear.reach > weapons.knife.reach, 'the spear reaches further across the fence');
   assert.ok(weapons.rifle.noise > weapons.crossbow.noise && weapons.minigun.noise > weapons.rifle.noise, 'loud weapons');
   assert.ok(weapons.crossbow.pierce >= zombies.boomer.armor, 'the crossbow answers the boomer armor');
@@ -132,15 +132,19 @@ test('weapons: starters are melee, the ladder has the right tiers, melee never g
   assert.equal(effectiveRange(real, 'bow', 0), weapons.bow.range);
   assert.equal(effectiveRange(real, 'rifle', 3), weapons.rifle.range + towers[3].rangeBonus);
   assert.ok(effectiveRange(real, 'rifle', 3) > zombies.thrower.behaviour.range, 'a tower rifle outranges the thrower');
-  assert.equal(effectiveRange(real, 'minigun', 2), 0, 'level 2 cannot use the minigun'); assert.equal(effectiveRange(real, 'minigun', 3), weapons.minigun.range);
+  assert.equal(effectiveRange(real, 'minigun', 3), 0, 'level 3 cannot use the minigun'); assert.equal(effectiveRange(real, 'minigun', 4), weapons.minigun.range);
   assert.equal(effectiveRange(real, 'nope', 1), 0);
 });
 
-test('towers: three levels, range bonus grows, mounts follow the level (level 1 mounts nothing, only level 3 holds the minigun)', () => {
-  assert.deepEqual(Object.keys(towers), ['1', '2', '3']);
-  assert.ok(towers[1].rangeBonus < towers[2].rangeBonus && towers[2].rangeBonus < towers[3].rangeBonus);
+test('towers: five levels, the range grows EVERY level, mounts follow the level (L1 mounts nothing, L2 ballista, L3 machine gun, L4 minigun, L5 dual minigun)', () => {
+  assert.deepEqual(Object.keys(towers), ['1', '2', '3', '4', '5']);
+  for (let lv = 2; lv <= 5; lv++) assert.ok(towers[lv - 1].rangeBonus < towers[lv].rangeBonus && towers[lv - 1].maxHealth < towers[lv].maxHealth, `level ${lv} reaches further and is tougher`);
   assert.deepEqual(towers[1].mounts, []);
-  assert.ok(canMount(real, 'ballista', 2) && !canMount(real, 'minigun', 2) && canMount(real, 'minigun', 3) && !canMount(real, 'bow', 3));
+  const top = (lv) => Math.max(...towers[lv].mounts.map((id) => weapons[id].range));
+  for (let lv = 3; lv <= 5; lv++) assert.ok(top(lv) > top(lv - 1), `the mount unlocked at level ${lv} outranges the one before it`);
+  assert.deepEqual([2, 3, 4, 5].map((lv) => towers[lv].mounts.at(-1)), ['ballista', 'machine_gun', 'minigun', 'dual_minigun']);
+  assert.ok(canMount(real, 'ballista', 2) && !canMount(real, 'machine_gun', 2) && canMount(real, 'machine_gun', 3) && !canMount(real, 'minigun', 3) && canMount(real, 'minigun', 4) && !canMount(real, 'dual_minigun', 4) && canMount(real, 'dual_minigun', 5) && !canMount(real, 'bow', 5));
+  assert.equal(weapons.dual_minigun.shots, 2, 'twin-linked: 2 projectiles per trigger pull');
 });
 
 test('noise: loud weapons add more; a suppressor cuts personal weapons but not mounted ones', () => {
@@ -153,7 +157,7 @@ test('noise: loud weapons add more; a suppressor cuts personal weapons but not m
 
 test('the learner reads the arsenal (read-only) and the world still has no zombie on the map', async () => {
   const s = sim();
-  const r = await sandbox.run({ code: 'console.log(Object.keys(threats.zombies).length, threats.weapons.minigun.kind, threats.towers[3].mounts.length, threats.noise.threshold, threats.waveRules.recall, Array.isArray(threats.bosses), threats.zombies.boomer.armor);', view: s.studentView(), seed: 1 });
+  const r = await sandbox.run({ code: 'console.log(Object.keys(threats.zombies).length, threats.weapons.minigun.kind, threats.towers[4].mounts.length, threats.noise.threshold, threats.waveRules.recall, Array.isArray(threats.bosses), threats.zombies.boomer.armor);', view: s.studentView(), seed: 1 });
   assert.match(r.logs.join(' '), /^6 mounted 3 40 learner true 3/);
   const w = await sandbox.run({ code: 'threats.weapons.knife.damage = 99;', view: s.studentView(), seed: 1 });
   assert.ok(w.error, 'read-only');

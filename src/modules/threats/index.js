@@ -104,7 +104,8 @@ export function towerInfoFor(state, defs, b) {
   const crew = crewOf(state, defs, b);
   const installed = (b.mounts ?? []).map((m, i) => {
     const w = defs.weapons[m.weapon];
-    return { weapon: m.weapon, name: w.name, ammo: w.ammo, hopper: m.hopper, hopperMax: w.hopper, range: w.range, damage: w.damage, reload: w.reload, ...(w.power ? { power: w.power } : {}), status: m.status, operator: crew[i] ?? null };
+    const aim = mountTarget(state, defs, b, m.weapon); // what the picture turns to face (presentation); null = nothing in range
+    return { weapon: m.weapon, name: w.name, ammo: w.ammo, hopper: m.hopper, hopperMax: w.hopper, range: w.range, damage: w.damage, reload: w.reload, ...(w.shots > 1 ? { shots: w.shots } : {}), ...(w.power ? { power: w.power } : {}), status: m.status, operator: crew[i] ?? null, aim: aim ? { zombieId: aim.id, x: aim.x, y: aim.y } : null };
   });
   return { level: b.level, name: t.name, slots: t.slots, freeSlots: Math.max(0, t.slots - installed.length), rangeBonus: t.rangeBonus, mounts: [...t.mounts], installed, working: b.condition !== 'ruined', posted: crew };
 }
@@ -177,6 +178,17 @@ export function shotNoise(defs, weaponId, suppressed = false) {
 /** Is this zombie alive and on the map? */
 const alive = (z) => z.health > 0 && z.state !== 'dead';
 
+/** The nearest zombie (ties by id, `zs` is id-sorted) within `range` cells of the tower, or null. */
+function nearestInRange(zs, tower, range) {
+  return zs.reduce((best, z) => (chebyshev(tower, z) <= range && (!best || chebyshev(tower, z) < chebyshev(tower, best)) ? z : best), null);
+}
+
+/** The zombie a mounted weapon would shoot at right now (the nearest in its range), or null. Also what the picture aims at. */
+export function mountTarget(state, defs, tower, weaponId) {
+  const zs = Object.values(state.threats?.zombies ?? {}).filter(alive).sort(byIdAsc);
+  return nearestInRange(zs, tower, effectiveRange(defs, weaponId, tower.level));
+}
+
 /** One entry per installed mount (towers by id, mounts in install order): everything needed to decide whether it fires this tick. Pure: reads state only. */
 function mountPlan(state, defs) {
   const out = [];
@@ -187,7 +199,7 @@ function mountPlan(state, defs) {
       const w = defs.weapons[m.weapon];
       const operatorId = crew[i] ?? null;
       const range = effectiveRange(defs, m.weapon, tower.level);
-      const target = zs.reduce((best, z) => (chebyshev(tower, z) <= range && (!best || chebyshev(tower, z) < chebyshev(tower, best)) ? z : best), null);
+      const target = nearestInRange(zs, tower, range);
       let status;
       if (tower.condition === 'ruined') status = 'BROKEN';
       else if (!operatorId) status = 'NO_OPERATOR';
@@ -228,17 +240,20 @@ export function tickMounts(ctx) {
       m.status = p.status;
     }
     if (p.status === 'READY') {
-      const z = p.target;
-      m.hopper -= 1;
+      // One trigger pull fires `shots` projectiles (the dual minigun: 2) at the nearest zombie, then at the next one if the first dies; each spends one hopper unit.
       m.cooldown = w.reload;
-      const reduction = Math.max(0, (statsOf(defs, z.type).armor ?? 0) - w.pierce);
-      const damage = Math.max(0, w.damage - reduction);
-      z.health = Math.max(0, z.health - damage);
-      z.state = 'hurt';
-      ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: p.operatorId, weapon: m.weapon, towerId: p.tower.id, damage, health: z.health });
-      awardSkillXp(ctx, state.survivors[p.operatorId], 'combat', 1);
-      makeNoise(ctx, m.weapon, p.tower.id);
-      if (z.health <= 0) killZombie(ctx, z, p.operatorId, m.weapon);
+      let z = p.target;
+      for (let n = 0; n < (w.shots ?? 1) && m.hopper > 0 && z; n++) {
+        m.hopper -= 1;
+        const reduction = Math.max(0, (statsOf(defs, z.type).armor ?? 0) - w.pierce);
+        const damage = Math.max(0, w.damage - reduction);
+        z.health = Math.max(0, z.health - damage);
+        z.state = 'hurt';
+        ctx.emit('zombie.hurt', { zombieId: z.id, survivorId: p.operatorId, weapon: m.weapon, towerId: p.tower.id, damage, health: z.health });
+        awardSkillXp(ctx, state.survivors[p.operatorId], 'combat', 1);
+        makeNoise(ctx, m.weapon, p.tower.id);
+        if (z.health <= 0) { killZombie(ctx, z, p.operatorId, m.weapon); z = mountTarget(state, defs, p.tower, m.weapon); }
+      }
     }
     if (m.cooldown > 0) m.cooldown -= 1;
   }

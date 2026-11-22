@@ -40,8 +40,9 @@ export const items = {
   suppressor: { name: 'Suppressor', unitWeight: 1 }, // Z8: fitted for good to a survivor (survivor.equip("suppressor")): her personal weapon makes less noise
   // Z6b: mounted weapons are items in base stock until a survivor installs one on a tower (survivor.mount); they are hauled, not carried (no weight rule).
   ballista: { name: 'Ballista', unitWeight: 10 },
-  repeating_crossbow: { name: 'Repeating crossbow', unitWeight: 8 },
+  machine_gun: { name: 'Machine gun', unitWeight: 10 },
   minigun: { name: 'Minigun', unitWeight: 12 },
+  dual_minigun: { name: 'Dual minigun', unitWeight: 20 },
   // Ammo (doc 20 section 9): carried by the survivor, spent per shot; mounted weapons are stocked into a hopper from it.
   arrows: { name: 'Arrows', unitWeight: 1 },
   bolts: { name: 'Bolts', unitWeight: 1 },

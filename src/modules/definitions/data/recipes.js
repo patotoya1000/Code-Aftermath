@@ -26,8 +26,9 @@ export const recipes = {
   bolts: { name: 'Bolts', station: 'workshop', stationLevel: 2, inputs: { wood: 1, scrap: 2 }, outputs: { bolts: 6 }, ticks: 14, skill: 'crafting', minSkill: 1, action: 'craft' },
   // Z6b: the mounted weapons (installed on a tower with survivor.mount) mirror their `craft` blocks too; bullets (gland = gunpowder) are the minigun's ammo.
   ballista: { name: 'Ballista', station: 'workshop', stationLevel: 2, inputs: { wood: 6, scrap: 4 }, outputs: { ballista: 1 }, ticks: 40, skill: 'crafting', minSkill: 2, action: 'craft' },
-  repeating_crossbow: { name: 'Repeating crossbow', station: 'workshop', stationLevel: 3, inputs: { wood: 4, scrap: 8 }, outputs: { repeating_crossbow: 1 }, ticks: 50, skill: 'crafting', minSkill: 3, action: 'craft' },
+  machine_gun: { name: 'Machine gun', station: 'workshop', stationLevel: 3, inputs: { scrap: 10, gland: 1 }, outputs: { machine_gun: 1 }, ticks: 55, skill: 'crafting', minSkill: 3, action: 'craft' },
   minigun: { name: 'Minigun', station: 'workshop', stationLevel: 3, inputs: { scrap: 16, gland: 2 }, outputs: { minigun: 1 }, ticks: 70, skill: 'crafting', minSkill: 4, action: 'craft' },
+  dual_minigun: { name: 'Dual minigun', station: 'workshop', stationLevel: 3, inputs: { scrap: 30, gland: 4 }, outputs: { dual_minigun: 1 }, ticks: 100, skill: 'crafting', minSkill: 5, action: 'craft' },
   rifle: { name: 'Rifle', station: 'workshop', stationLevel: 3, inputs: { scrap: 6, gland: 1 }, outputs: { rifle: 1 }, ticks: 40, skill: 'crafting', minSkill: 3, action: 'craft' },
   suppressor: { name: 'Suppressor', station: 'workshop', stationLevel: 2, inputs: { scrap: 3, rags: 2 }, outputs: { suppressor: 1 }, ticks: 30, skill: 'crafting', minSkill: 2, action: 'craft' },
   bullets: { name: 'Bullets', station: 'workshop', stationLevel: 3, inputs: { scrap: 2, gland: 1 }, outputs: { bullets: 12 }, ticks: 16, skill: 'crafting', minSkill: 2, action: 'craft' },

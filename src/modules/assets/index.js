@@ -5,6 +5,7 @@ import { paintFencePiece, fencePieceKey } from './objects.js';
 export { NODE_ART_DIR, REF_W, WORN_BELOW, NODE_FAMILIES, TREE_FAMILIES, NODE_VARIANTS, nodeStage, nodeSpriteKey, createNodeArt } from './nodeart.js';
 export { NPC_ART_DIR, NPC_REF_H, NPC_CELLS, NPC_POSES, NPC_ANCHORS, VIEW_OF, npcPose, toolPoseFor, walkFrameAt, createNpcArt, isStoneWork, workSwing, facingVector, WORK_SWING_MS, WORK_LUNGE_CELLS, WORK_TILT_RAD } from './npcart.js';
 export { BUILDING_ART_DIR, BUILDING_ART, ART_CONDITIONS, LEVEL_ART, LEVEL_TINT, createBuildingArt } from './buildingart.js';
+export { TOWER_ART_LEVELS, TOWER_PX_PER_CELL, TOWER_SEATS, MOUNT_ART, MOUNT_FILES, MAX_ELEVATION, TURN_RAD_PER_MS, FLIP_MS, mountSeats, aimAt, stepAim, restingAim, drawMount, towerArtKey } from './towerart.js';
 export { WALL_SECTION_CELLS, WALL_ART_LEVELS, wallSections, artLevel } from './wallart.js';
 export { LOADER, loaderPulse, shimmerX, isLoading, drawLoaderMap, drawLoaderSpot } from './loader.js';
 export { BACKDROP_DIR, BACKDROP_FILES, BACKDROP_BANDS, BAND_TUNING, createBackdropArt, bandLayout } from './backdrops.js';

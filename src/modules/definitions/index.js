@@ -154,7 +154,8 @@ export function validateDefinitions(d) {
     need(typeof w.name === 'string' && WK.includes(w.kind) && whole(w.tier, 0) && whole(w.minCombat, 0) && whole(w.damage, 1) && whole(w.pierce, 0) && whole(w.noise, 0) && whole(w.reload, 1), `weapon ${id}: needs a name, a kind (${WK.join('/')}) and whole tier, damage >= 1, pierce, noise >= 0, reload >= 1`);
     need(w.kind === 'melee' ? whole(w.reach, 2) && w.ammo === null : whole(w.range, 1) && d.items[w.ammo], `weapon ${id}: melee needs reach >= 2 (the fence cell counts) and no ammo; ranged/mounted need a range and a known ammo item`);
     if (w.kind === 'mounted') need(whole(w.minTowerLevel, 2) && whole(w.hopper, 1) && (w.power === undefined || whole(w.power, 1)), `weapon ${id}: mounted needs minTowerLevel >= 2 (level 1 mounts nothing), hopper >= 1 and a whole power >= 1 if it uses the grid`);
-    else need(w.power === undefined && w.hopper === undefined && w.minTowerLevel === undefined, `weapon ${id}: only mounted weapons have power, hopper or minTowerLevel`);
+    if (w.kind === 'mounted') need(w.shots === undefined || whole(w.shots, 1), `weapon ${id}: shots (projectiles per trigger pull) must be a whole number >= 1`);
+    else need(w.power === undefined && w.hopper === undefined && w.minTowerLevel === undefined && w.shots === undefined, `weapon ${id}: only mounted weapons have power, hopper or minTowerLevel`);
     if (w.craft) need(whole(w.craft.stationLevel, 1) && whole(w.craft.minSkill, 0) && Object.keys(w.craft.materials ?? {}).length > 0 && Object.entries(w.craft.materials).every(([i, n]) => d.items[i] && whole(n, 1)), `weapon ${id}: craft needs a station level, a minSkill and known materials with whole counts >= 1`);
     else need(w.starter === true, `weapon ${id}: only a starter weapon may have no craft recipe`);
   }

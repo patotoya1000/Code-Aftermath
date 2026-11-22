@@ -1,5 +1,5 @@
 import { wallCellsOf } from '../../kernel/index.js';
-import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, wallSections, artLevel, bandLayout, BAND_TUNING, REF_W, NPC_REF_H, NPC_CELLS, npcPose, walkFrameAt, workSwing, facingVector, isStoneWork, WORK_LUNGE_CELLS, WORK_TILT_RAD } from '../assets/index.js';
+import { createAssetResolver, paintPlaceholderAtlas, frameIndexAt, buildPlaceholderManifest, groundGrid, tileKeyAt, pathCells, fenceCells, objectSpec, buildingRect, buildingPlacement, nodeStage, wallSections, artLevel, mountSeats, aimAt, stepAim, restingAim, drawMount, bandLayout, BAND_TUNING, REF_W, NPC_REF_H, NPC_CELLS, npcPose, walkFrameAt, workSwing, facingVector, isStoneWork, WORK_LUNGE_CELLS, WORK_TILT_RAD } from '../assets/index.js';
 import { isLoading, drawLoaderMap, drawLoaderSpot } from '../assets/index.js'; // loader animation while a painted picture is still on its way
 import { createViewport, withView, gridToScreen, cellRect, cellRectCovering, visibleCells, cellCenter, cellFoot, screenToGrid, panBy, panByPixels, zoomAt, setZoom, centerOn, resetCamera } from '../viewport/index.js';
 
@@ -31,6 +31,7 @@ export function mountRenderer(canvas, {
   const ctx = canvas.getContext('2d');
   const resolver = createAssetResolver(manifest);
   buildingArt?.preload?.(); // the wall and gate level pictures too, so the first frame already shows them
+  buildingArt?.preloadTowers?.(); // and the five tower pictures + the four mounted weapons
   npcArt?.preload?.(); // load every painted survivor pose now, so no pose waits for its first use (the placeholder survivor must not flash)
   let atlas = atlasImage;
   if (!atlas) {
@@ -45,6 +46,7 @@ export function mountRenderer(canvas, {
   const nodePeak = new Map(); let lastTick = -1; let selNode = null; let tagBtn = null; let worldW = 0; const nodeGeo = new Map(); const npcGeo = new Map(); const bldGeo = new Map(); const gateBoxes = new Map(); // nodePeak: highest amount seen per node, the full mark of its resource bar (presentation only)
   let debugOn = debug;
   let drawList = [];
+  const mountAim = new Map(); let lastMountTime = null; // tower id + mount index -> { facing, angle, tick, flashUntil }: where each mounted weapon's head points now (presentation only; the aim itself comes from the simulation)
   const lastPose = new Map(); // survivor id -> the last painted pose that was actually drawn for her (the stand-in while a new pose is still loading)
   let pathList = []; // PA-3: road pieces drawn
   let lootList = []; // Z4: loot piles drawn (presentation only)
@@ -129,6 +131,7 @@ export function mountRenderer(canvas, {
     const t = vp.cell;
     const world = cellRect(vp, 0, 0, mw, mh); worldW = world.w;
     const time = now();
+    const mountDt = lastMountTime === null ? 0 : time - lastMountTime; lastMountTime = time;
     if ((frame.tick ?? 0) < lastTick) nodePeak.clear(); lastTick = frame.tick ?? 0; selNode = null; nodeGeo.clear(); npcGeo.clear(); bldGeo.clear(); gateBoxes.clear(); // a restart / load rewinds the clock: forget old peaks
     for (const n of frame.nodes || []) if ((n.amount ?? 0) > (nodePeak.get(n.id) ?? 0)) nodePeak.set(n.id, n.amount);
 
@@ -176,10 +179,44 @@ export function mountRenderer(canvas, {
     /** Run a draw call with a green glow around whatever it paints (the "this is picked" cue for survivors, buildings, trees and rocks). */
     const glowed = (draw, passes = 2) => { ctx.save(); ctx.shadowColor = COLORS.glow; ctx.shadowBlur = Math.max(10, vp.cell * 0.6); for (let k = 0; k < passes; k++) draw(); ctx.restore(); };
     const gateDraws = new Map(); // gate id -> draw call (filled with the line walls below, used when the gate itself is drawn)
+    /** A painted watchtower (level picture) with its mounted weapons on the roof, each turned to face what the simulation says it is shooting at. */
+    const drawTower = (b, ta) => {
+      const pl = buildingPlacement(b); const w = vp.cell * ta.w; const h = w * (ta.srcH / ta.srcW);
+      const ax = cellCenter(vp, pl.gx, 0).x - w / 2; const ay = gridToScreen(vp, 0, pl.gy + 1).y - h + vp.cell * 0.04;
+      bldGeo.set(b.id, { b, cx: ax + w / 2, top: ay });
+      smoothly(() => {
+        ctx.globalAlpha = ta.alpha;
+        if (selected.kind === 'building' && selected.id === b.id) glowed(() => ctx.drawImage(ta.img, ax, ay, w, h), 1);
+        ctx.drawImage(ta.img, ax, ay, w, h);
+      });
+      const mounts = b.mounts ?? []; if (!mounts.length) return;
+      const sc = w / ta.srcW; const seats = mountSeats(ta.level, mounts.length);
+      const order = seats.map((seat, i) => i).sort((p, q) => seats[p].y - seats[q].y || p - q); // the seat further back is drawn first
+      for (const i of order) {
+        const m = mounts[i]; const seat = seats[i]; const mt = buildingArt.getMount(m.weapon); if (!mt) continue;
+        const at = { x: ax + seat.x * sc, y: ay + seat.y * sc }; const key = `${b.id}:${i}`;
+        const st = mountAim.get(key) ?? { ...restingAim(), tick: null, flashUntil: 0 };
+        const goal = m.aim ? aimAt({ x: at.x, y: at.y - vp.cell * 0.35 }, { x: tileCenterX(m.aim.x), y: tileFootY(m.aim.y) - vp.cell * 0.5 }, st.facing < 0 ? -1 : 1) : null;
+        Object.assign(st, stepAim(st, goal, mountDt));
+        if ((frame.tick ?? 0) !== st.tick) { st.tick = frame.tick ?? 0; if (m.status === 'READY') st.flashUntil = time + 90; } // READY = it fired on the last tick
+        mountAim.set(key, st);
+        let muzzles = [];
+        smoothly(() => { ctx.globalAlpha = ta.alpha; muzzles = drawMount(ctx, mt.img, mt.art, at, (seat.w / mt.art.base.w) * sc, st); });
+        if (time < st.flashUntil && m.weapon !== 'ballista') for (const mz of muzzles) { // a short muzzle flash (guns only)
+          const r = vp.cell * 0.13 * (0.7 + 0.6 * ((time * 0.05) % 1)); const g = ctx.createRadialGradient?.(mz.x, mz.y, 0, mz.x, mz.y, r);
+          if (g?.addColorStop) { g.addColorStop(0, 'rgba(255,248,200,0.95)'); g.addColorStop(0.5, 'rgba(255,190,70,0.6)'); g.addColorStop(1, 'rgba(255,120,30,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(mz.x, mz.y, r, 0, Math.PI * 2); ctx.fill(); }
+        }
+      }
+    };
     const drawBuilding = (b, x, y, layer) => {
       const e = resolver.resolveBuilding({ type: b.type, level: b.level, condition: b.condition });
       note(layer, 'building', b.id, e, { x, y, condition: b.condition, ...(b.footprint ? { footprint: { ...b.footprint } } : {}) });
       if (layer === 'building' && gateDraws.has(b.id)) { gateDraws.get(b.id)(); return; } // a gate standing in a line wall is drawn with its level picture
+      if (layer === 'building' && b.type === 'tower' && b.condition !== 'ruined' && buildingArt?.towerState) { // the level pictures: 5 towers (a ruin keeps its own ruin picture below)
+        const ts = buildingArt.towerState(b.level); const ta = ts === 'ready' ? buildingArt.getTower(b.level, b.condition) : null;
+        if (ta) { drawTower(b, ta); return; }
+        if (ts === 'loading') { const fr = buildingRect(b); const box = cellRect(vp, fr.x1, fr.y1, fr.x2 - fr.x1 + 1, fr.y2 - fr.y1 + 1); bldGeo.set(b.id, { b, cx: box.x + box.w / 2, top: box.y }); drawLoaderSpot(ctx, box, time, stagger(b.id)); return; }
+      }
       const art = layer === 'building' && buildingArt ? buildingArt.get(b.type, b.condition) : null;
       if (art) { // painted picture: horizontally centred on the footprint, standing on the bottom edge of its lowest row
         const pl = buildingPlacement(b); const w = vp.cell * art.cells; const h = w * (art.img.naturalHeight / art.img.naturalWidth);

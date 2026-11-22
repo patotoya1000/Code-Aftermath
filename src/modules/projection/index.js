@@ -9,7 +9,7 @@ import { farmInfoFor, cropBook } from '../farming/index.js';
 import { eventsView } from '../events/index.js';
 import { townView } from '../town/index.js';
 import { scavengeView, boardView } from '../scavenge/index.js';
-import { threatsView, zombieProjection, lootPiles, towerInfoFor } from '../threats/index.js';
+import { threatsView, zombieProjection, lootPiles, towerInfoFor, mountTarget } from '../threats/index.js';
 import { powerInfoFor, gridView } from '../power/index.js';
 
 // Read-only projections of GameState. Everything returned is deep-frozen plain data: the student API,
@@ -188,6 +188,7 @@ export function renderProjection(state, defs) {
         ...(b.footprint ? { footprint: { ...b.footprint } } : {}),
         storageInfo: storageInfoFor(state, defs, b.type),
         ...(w ? { water: { amount: w.amount, capacity: w.capacity, working: w.working } } : {}), // the renderer draws a reservoir gauge from this
+        ...(b.type === 'tower' ? { mounts: (b.mounts ?? []).map((m) => { const z = mountTarget(state, defs, b, m.weapon); return { weapon: m.weapon, status: m.status, aim: z ? { x: z.x, y: z.y } : null }; }) } : {}), // the mounted weapons on this tower and where each is aimed (null = nothing in range): the renderer turns the picture to face it
       };
     }),
     terrain: terrainOf(state, defs),

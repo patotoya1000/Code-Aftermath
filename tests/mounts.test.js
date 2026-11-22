@@ -32,7 +32,7 @@ function armed(level, mounts, { zombieAt = [20, 4], type = 'walker', health, ext
 }
 
 test('data: mounted weapons have items, recipes that mirror their craft block, HQ storage, and the workshop has an Armory level 3', () => {
-  for (const id of ['ballista', 'repeating_crossbow', 'minigun']) {
+  for (const id of ['ballista', 'machine_gun', 'minigun', 'dual_minigun']) {
     const rc = defs.recipes[id], w = defs.weapons[id];
     assert.deepEqual(rc.inputs, w.craft.materials, `${id} materials`);
     assert.equal(rc.stationLevel, w.craft.stationLevel); assert.equal(rc.minSkill, w.craft.minSkill); assert.deepEqual(rc.outputs, { [id]: 1 });
@@ -45,7 +45,7 @@ test('data: mounted weapons have items, recipes that mirror their craft block, H
 });
 
 test('definitions validation: a mounted weapon nobody can mount or craft is refused', () => {
-  assert.throws(() => createDefinitions({ towers: { ...towers, 3: { ...towers[3], mounts: ['ballista', 'repeating_crossbow'] } } }), /minigun/);
+  assert.throws(() => createDefinitions({ towers: { ...towers, 4: { ...towers[4], mounts: ['ballista', 'machine_gun'] }, 5: { ...towers[5], mounts: ['ballista', 'machine_gun'] } } }), /minigun/);
   const { minigun, ...rest } = defs.recipes;
   assert.throws(() => createDefinitions({ recipes: rest }), /minigun/);
   assert.throws(() => createDefinitions({ actions: { ...defs.actions, mount: { ...defs.actions.mount, installTicks: 0 } } }), /installTicks/);
@@ -146,8 +146,8 @@ test('a mounted weapon outranges an ordinary posted survivor: the ballista hits 
 });
 
 test('minigun: needs power only while firing - no grid = NO_POWER and silence; with a fuelled generator it fires every tick and the grid demand appears only then', () => {
-  const mini = (mut) => armed(3, [mounted('minigun', 50)], { type: 'brute', health: 500, extra: (st) => { fix(st, 'generator_1'); give(st, { wood: 30 }); mut?.(st); } });
-  const dark = armed(3, [mounted('minigun', 50)], { type: 'brute', health: 500 }); dark.step(3);
+  const mini = (mut) => armed(4, [mounted('minigun', 50)], { type: 'brute', health: 500, extra: (st) => { fix(st, 'generator_1'); give(st, { wood: 30 }); mut?.(st); } });
+  const dark = armed(4, [mounted('minigun', 50)], { type: 'brute', health: 500 }); dark.step(3);
   assert.equal(types(dark).includes('zombie.hurt'), false); assert.equal(view(dark, 'tower_1').tower.installed[0].status, 'NO_POWER'); assert.equal(dark.snapshot().buildings.tower_1.mounts[0].hopper, 50);
   const lit = mini(); lit.step(1);
   const before = lit.snapshot().power.demand; lit.step(10);
@@ -155,22 +155,44 @@ test('minigun: needs power only while firing - no grid = NO_POWER and silence; w
   assert.ok(shots.length >= 8, `fires about every tick (${shots.length})`);
   assert.equal(lit.snapshot().power.demand, weapons.minigun.power); assert.ok(before === weapons.minigun.power || before === 0);
   assert.ok(lit.snapshot().buildings.generator_1.power.burn > 0, 'the generator burns fuel for it');
-  const none = armed(3, [mounted('minigun', 50)], { zombieAt: null, extra: (st) => { fix(st, 'generator_1'); give(st, { wood: 30 }); } }); none.step(10);
+  const none = armed(4, [mounted('minigun', 50)], { zombieAt: null, extra: (st) => { fix(st, 'generator_1'); give(st, { wood: 30 }); } }); none.step(10);
   assert.equal(none.snapshot().power.demand, 0, 'a minigun with nothing to shoot draws nothing'); assert.equal(stock(none, 'wood'), 30, 'and burns no fuel');
 });
 
 test('minigun: a charged battery alone powers it (batteries matter at night)', () => {
-  const sim = armed(3, [mounted('minigun', 30)], { type: 'brute', health: 500, extra: (st) => { fix(st, 'battery_1'); st.buildings.battery_1.power.charge = 100; } });
+  const sim = armed(4, [mounted('minigun', 30)], { type: 'brute', health: 500, extra: (st) => { fix(st, 'battery_1'); st.buildings.battery_1.power.charge = 100; } });
   sim.step(8);
   assert.ok(sim.log.all().filter((e) => e.weapon === 'minigun').length >= 6);
   assert.ok(sim.snapshot().buildings.battery_1.power.charge < 100);
 });
 
+test('dual minigun: one trigger pull fires 2 projectiles (2 hits, 2 ammo, power drawn once); the mount reports what it is aimed at', () => {
+  const sim = armed(5, [mounted('dual_minigun', 50)], { type: 'brute', health: 900, extra: (st) => { fix(st, 'generator_1'); give(st, { wood: 30 }); } });
+  const idle = armed(5, [mounted('dual_minigun', 50)], { zombieAt: null });
+  assert.equal(view(idle, 'tower_1').tower.installed[0].aim, null, 'nothing in range: no aim');
+  sim.step(1);
+  const first = sim.log.all().filter((e) => e.type === 'zombie.hurt' && e.weapon === 'dual_minigun');
+  assert.equal(first.length, 2, 'two projectiles on the first pull');
+  assert.equal(sim.snapshot().buildings.tower_1.mounts[0].hopper, 48, 'two ammo spent');
+  assert.equal(sim.snapshot().power.demand, weapons.dual_minigun.power, 'the grid is asked once, not once per projectile');
+  const inst = view(sim, 'tower_1').tower.installed[0];
+  assert.equal(inst.shots, 2); assert.deepEqual(inst.aim, { zombieId: 'zombie_1', x: sim.snapshot().threats.zombies.zombie_1.x, y: sim.snapshot().threats.zombies.zombie_1.y });
+});
+
+test('dual minigun: with one round left it fires one projectile, and a level 4 tower cannot hold it', () => {
+  const sim = armed(5, [mounted('dual_minigun', 1)], { type: 'brute', health: 900, extra: (st) => { fix(st, 'generator_1'); give(st, { wood: 30 }); } });
+  sim.step(1);
+  assert.equal(sim.log.all().filter((e) => e.type === 'zombie.hurt' && e.weapon === 'dual_minigun').length, 1);
+  const hq = newSim('stage1', 1, (st) => { fresh(st); fix(st, 'hq', 2); fix(st, 'tower_1', 4); st.survivors.survivor_1.skills.combat = 5; give(st, { dual_minigun: 1 }); });
+  call(hq, 'mount', 'tower_1', 'dual_minigun'); hq.step(2);
+  assert.equal(last(hq).reason, 'TOWER_TOO_LOW');
+});
+
 test('the learner read: tower.installed lists weapon, hopper, status, operator; commands validate their arguments; the sandbox can call both', async () => {
-  const sim = armed(3, [mounted('repeating_crossbow', 4)], { zombieAt: null });
+  const sim = armed(3, [mounted('machine_gun', 4)], { zombieAt: null });
   const t = view(sim, 'tower_1').tower;
-  assert.equal(t.freeSlots, 1); assert.deepEqual(t.mounts, ['ballista', 'repeating_crossbow', 'minigun']);
-  assert.deepEqual(Object.keys(t.installed[0]).sort(), ['ammo', 'damage', 'hopper', 'hopperMax', 'name', 'operator', 'range', 'reload', 'status', 'weapon']);
+  assert.equal(t.freeSlots, 1); assert.deepEqual(t.mounts, ['ballista', 'machine_gun']);
+  assert.deepEqual(Object.keys(t.installed[0]).sort(), ['aim', 'ammo', 'damage', 'hopper', 'hopperMax', 'name', 'operator', 'range', 'reload', 'status', 'weapon']);
   assert.throws(() => buildCommand('survivor_1', { name: 'mount', args: ['tower_1'] }), /mount\(\)/);
   assert.throws(() => buildCommand('survivor_1', { name: 'reload', args: ['tower_1'] }), /reload\(\)/);
   assert.throws(() => buildCommand('survivor_1', { name: 'reload', args: ['tower_1', 'bolts', 0] }), /amount/);
@@ -190,7 +212,7 @@ test('Armory: the workshop upgrade to level 3 costs scrap and unlocks bullets; t
 });
 
 test('determinism: the same armed wave replays to the same hash, and the ledger stays balanced', () => {
-  const run = () => { const s = armed(3, [mounted('minigun', 40), mounted('ballista', 10)], { type: 'brute', health: 120, extra: (st) => { fix(st, 'battery_1'); st.buildings.battery_1.power.charge = 200; addSurvivor(st, 'survivor_2', 14, 5); } }); s.step(120); return s; };
+  const run = () => { const s = armed(4, [mounted('minigun', 40), mounted('ballista', 10)], { type: 'brute', health: 120, extra: (st) => { fix(st, 'battery_1'); st.buildings.battery_1.power.charge = 200; addSurvivor(st, 'survivor_2', 14, 5); } }); s.step(120); return s; };
   const a = run(), b = run();
   assert.equal(a.stateHash(), b.stateHash()); assert.deepEqual(ledgerViolations(a.snapshot()), []);
 });

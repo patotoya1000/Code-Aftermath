@@ -1,12 +1,15 @@
 // Building art: painted-style sprites for buildings, the gate and the wall (assets/sprites/buildings/<name>_<condition>.png, transparent background, drawn by
 // scripts/make-building-sprites.mjs). Presentation only: a building still owns exactly its logical footprint; how big its picture is drawn never changes interaction.
 //
+// TOWERS have their own pictures per LEVEL (tower_level_<1-5>.png) and four mounted-weapon pictures (tower_mount_*.png); see towerart.js for the layout and the aiming maths.
+//
 // One picture per (type, condition): 'repaired' | 'damaged' | 'ruined' (the same three conditions the world already derives from health). Levels share the picture for now.
 // `cells` = how wide the REPAIRED picture is drawn, in grid cells; `refW` = that picture's width in pixels. The damaged / ruined pictures use the same pixels-per-cell,
 // so a ruin is smaller than the finished building instead of being stretched to the same width.
 // Until a picture has loaded (or when it is missing, or there is no DOM) `get()` answers null and the renderer draws its placeholder instead.
 
 import { WALL_SECTION_CELLS, WALL_ART_LEVELS } from './wallart.js';
+import { TOWER_ART_LEVELS, TOWER_PX_PER_CELL, MOUNT_ART, towerArtKey } from './towerart.js';
 
 export const BUILDING_ART_DIR = 'assets/sprites/buildings/';
 export const BUILDING_ART = Object.freeze({
@@ -79,6 +82,40 @@ export function createBuildingArt({ baseUrl = BUILDING_ART_DIR, specs = BUILDING
         return { img: s.img, alpha: s.alpha, level: lv, w: (e.img.naturalWidth ?? e.img.width) / (spec.refH / sectionCells) };
       }
       return null;
+    },
+    /** Start loading the five tower pictures and the four mounted weapons now (a tower must never flash its old picture first). */
+    preloadTowers() { if (!make) return; for (const lv of TOWER_ART_LEVELS) entry(`tower_level_${lv}`); for (const m of Object.values(MOUNT_ART)) entry(m.file); },
+    /**
+     * The painted tower for a LEVEL: { img, alpha, w, level, srcW, srcH } or null. `w` = its drawn width in grid cells. A ruined tower keeps its own ruin picture (tower_ruined, handled by
+     * `get`), so this answers null for 'ruined'; a damaged one is the level picture darkened. A missing level picture falls back to the next lower one.
+     */
+    getTower(level, condition) {
+      if (!make || condition === 'ruined') return null;
+      for (let lv = Math.min(TOWER_ART_LEVELS.at(-1), Math.max(1, Math.trunc(Number(level) || 1))); lv >= 1; lv--) {
+        const e = entry(towerArtKey(lv));
+        if (e.failed) continue;
+        if (!isReady(e.img)) return null;
+        const s = shaded(e, condition);
+        const sw = e.img.naturalWidth ?? e.img.width; const sh = e.img.naturalHeight ?? e.img.height;
+        return { img: s.img, alpha: s.alpha, level: lv, w: sw / TOWER_PX_PER_CELL, srcW: sw, srcH: sh }; // srcW/srcH: the picture's own size (a darkened copy is a canvas, which has no natural size)
+      }
+      return null;
+    },
+    /** 'none' | 'loading' | 'ready' | 'failed' for the tower picture of this level (or the nearest lower one): 'loading' means wait (show the loader), 'failed' means use the old picture. */
+    towerState(level) {
+      if (!make) return 'none';
+      for (let lv = Math.min(TOWER_ART_LEVELS.at(-1), Math.max(1, Math.trunc(Number(level) || 1))); lv >= 1; lv--) {
+        const e = entry(towerArtKey(lv));
+        if (e.failed) continue;
+        return isReady(e.img) ? 'ready' : 'loading';
+      }
+      return 'failed';
+    },
+    /** The picture of a mounted weapon (arsenal id): { img, art } or null while loading / unknown / failed. */
+    getMount(weaponId) {
+      const art = Object.hasOwn(MOUNT_ART, weaponId) ? MOUNT_ART[weaponId] : null; if (!art || !make) return null;
+      const e = entry(art.file);
+      return e.failed || !isReady(e.img) ? null : { img: e.img, art };
     },
     /** 'none' | 'loading' | 'ready' | 'failed' for the picture `get(type, condition)` would draw. */
     state(type, condition) {

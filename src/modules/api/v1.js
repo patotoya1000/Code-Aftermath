@@ -179,7 +179,7 @@ export const COMMANDS = {
   },
   mount: {
     type: 'mount', signature: 'survivor.mount(tower, weapon)',
-    doc: 'Install a crafted mounted weapon (\"ballista\", \"repeating_crossbow\", \"minigun\") on a repaired tower: she fetches it from base stock, hauls it to the tower and fits it. It takes one of the tower\'s slots (tower_1.tower.freeSlots), the tower level must be able to hold it (tower_1.tower.mounts) and she needs the weapon\'s minCombat Combat skill. A new mount has an empty hopper: fill it with reload(). A posted survivor crews it and it fires by itself at zombies in range.',
+    doc: 'Install a crafted mounted weapon (\"ballista\", \"machine_gun\", \"minigun\", \"dual_minigun\") on a repaired tower: she fetches it from base stock, hauls it to the tower and fits it. It takes one of the tower\'s slots (tower_1.tower.freeSlots), the tower level must be able to hold it (tower_1.tower.mounts) and she needs the weapon\'s minCombat Combat skill. A new mount has an empty hopper: fill it with reload(). A posted survivor crews it and it fires by itself at zombies in range.',
     params(args) {
       if (args.length !== 2 || !entityId(args[0]) || typeof args[1] !== 'string' || !args[1]) throw bad('mount', 'use mount(tower_1, \"ballista\")');
       return { targetId: args[0], weapon: args[1] };

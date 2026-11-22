@@ -8,6 +8,7 @@
 //   minCombat the lowest Combat skill level that may EQUIP it (survivor.equip); starters need none
 //   noise     added to the wave's attention meter per shot (see `noise`); the rifle and the minigun are LOUD
 //   ammo      item id spent per shot (null = none). Ammo is CARRIED by the survivor; a mounted weapon has a `hopper` that survivors stock
+//   shots     mounted only (default 1): projectiles fired per trigger pull (the dual minigun fires 2 at once, spending 2 ammo)
 //   reload    ticks between shots; `power` (mounted only) = grid power drawn only WHILE firing (so batteries matter)
 //   minTowerLevel  mounted only: the lowest tower level that can mount it
 //   craft     what making it will need (workshop level, combat skill, materials) - the recipes come with the crafting phase
@@ -24,19 +25,24 @@ export const weapons = {
     craft: { station: 'workshop', stationLevel: 3, minSkill: 3, materials: { scrap: 6, gland: 1 } } },
   ballista:           { name: 'Ballista', kind: 'mounted', tier: 3, minCombat: 2, minTowerLevel: 2, range: 8, damage: 16, pierce: 8, noise: 2, ammo: 'bolts', hopper: 20, reload: 10,
     craft: { station: 'workshop', stationLevel: 2, minSkill: 2, materials: { wood: 6, scrap: 4 } } },
-  repeating_crossbow: { name: 'Repeating crossbow', kind: 'mounted', tier: 4, minCombat: 3, minTowerLevel: 3, range: 8, damage: 8, pierce: 5, noise: 2, ammo: 'bolts', hopper: 40, reload: 2,
-    craft: { station: 'workshop', stationLevel: 3, minSkill: 3, materials: { wood: 4, scrap: 8 } } },
-  minigun:            { name: 'Minigun', kind: 'mounted', tier: 5, minCombat: 4, minTowerLevel: 3, range: 9, damage: 6, pierce: 3, noise: 12, ammo: 'bullets', hopper: 200, reload: 1, power: 6,
+  machine_gun:        { name: 'Machine gun', kind: 'mounted', tier: 4, minCombat: 3, minTowerLevel: 3, range: 9, damage: 8, pierce: 4, noise: 9, ammo: 'bullets', hopper: 120, reload: 2,
+    craft: { station: 'workshop', stationLevel: 3, minSkill: 3, materials: { scrap: 10, gland: 1 } } },
+  minigun:            { name: 'Minigun', kind: 'mounted', tier: 5, minCombat: 4, minTowerLevel: 4, range: 10, damage: 6, pierce: 3, noise: 12, ammo: 'bullets', hopper: 200, reload: 1, power: 6,
     craft: { station: 'workshop', stationLevel: 3, minSkill: 4, materials: { scrap: 16, gland: 2 } } },
+  // `shots` (mounted only, default 1): projectiles per trigger pull - the twin-linked miniguns fire 2 at once, spending 2 ammo and drawing power once.
+  dual_minigun:       { name: 'Dual minigun', kind: 'mounted', tier: 6, minCombat: 5, minTowerLevel: 5, range: 11, damage: 6, pierce: 3, shots: 2, noise: 18, ammo: 'bullets', hopper: 300, reload: 1, power: 10,
+    craft: { station: 'workshop', stationLevel: 3, minSkill: 5, materials: { scrap: 30, gland: 4 } } },
 };
 
-// Towers (doc 20 section 10): separate defensive posts on the fence line (like the gate); the fence keeps its own level. Placement, repair and upgrade
+// Towers (doc 20 section 10; the 5-level ladder is the user's Watchtower spec, doc 25 - the range grows EVERY level, for posted shooters (`rangeBonus`) and for the mount each level unlocks): separate defensive posts on the fence line (like the gate); the fence keeps its own level. Placement, repair and upgrade
 // come in a later phase (they start as ruins, like every building). Each slot holds EITHER one posted survivor OR one mounted weapon (operated by a
 // posted survivor). `rangeBonus` is added to a posted survivor's RANGED weapon; `mounts` lists the mounted weapons the level can hold.
 export const towers = {
-  1: { name: 'Lookout', maxHealth: 60, slots: 1, rangeBonus: 1, mounts: [] },
-  2: { name: 'Guard tower', maxHealth: 100, slots: 2, rangeBonus: 2, mounts: ['ballista'] },
-  3: { name: 'Fortified tower', maxHealth: 160, slots: 2, rangeBonus: 3, mounts: ['ballista', 'repeating_crossbow', 'minigun'] },
+  1: { name: 'Survivor Lookout', maxHealth: 60, slots: 1, rangeBonus: 1, mounts: [] },
+  2: { name: 'Repeater Ballista Tower', maxHealth: 100, slots: 2, rangeBonus: 2, mounts: ['ballista'] },
+  3: { name: 'Machine Gun Tower', maxHealth: 160, slots: 2, rangeBonus: 3, mounts: ['ballista', 'machine_gun'] },
+  4: { name: 'Minigun Tower', maxHealth: 240, slots: 2, rangeBonus: 4, mounts: ['ballista', 'machine_gun', 'minigun'] },
+  5: { name: 'Dual Minigun Fortress', maxHealth: 360, slots: 3, rangeBonus: 5, mounts: ['ballista', 'machine_gun', 'minigun', 'dual_minigun'] },
 };
 
 // Noise (doc 20 section 13.3): every shot adds the weapon's `noise` to the wave's ATTENTION meter, which falls by `decayPerTick`. Above `threshold`, one

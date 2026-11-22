@@ -89,7 +89,7 @@ export const actions = {
   take: { handler: 'take', range: 1, ticksPerTile: 1, ticks: 2, maxAmount: 100,
     capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
   },
-  // mount (Z6b, docs/game/20 section 20): install a crafted MOUNTED weapon (ballista, repeating crossbow, minigun) on a repaired tower. She walks to the storage that
+  // mount (Z6b, docs/game/20 section 20): install a crafted MOUNTED weapon (ballista, machine gun, minigun, dual minigun) on a repaired tower. She walks to the storage that
   // holds it, picks it up (`ticks`), hauls it to the tower (hauling needs no carry capacity) and fits it (`installTicks`). The unit is reserved from stock when the job is
   // accepted and leaves stock only when it is installed. A mount takes one of the tower's slots and needs Combat skill `weapons.<id>.minCombat`.
   mount: { handler: 'mount', range: 1, ticksPerTile: 1, ticks: 3, installTicks: 6,
