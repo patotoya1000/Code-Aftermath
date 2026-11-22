@@ -38,12 +38,12 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
   - [x] UI-C1D node, loot, zombie, mount and offer cards
   - [x] UI-C1E Town/Train/Expedition/Power/Water panel consistency
   - [x] UI-C1F drift, mobile, keyboard, accessibility and state tests
-- [ ] **UI-7 contextual inspector + outpost road navigation** (`docs/game/27-contextual-ui-and-map-navigation.md`)
-  - [ ] UI-7A context-aware survivor/building navigation, with honest empty states
-  - [ ] UI-7B survivor INFO / ATTRIBUTES / EQUIPMENT / BAG / COMMANDS tabs
-  - [ ] UI-7C building INFO / DEFENCE / UPGRADE / STORAGE / COMMANDS variants
-  - [ ] UI-7D top-road OUTPOST button to FOREST and bottom-road OUTPOST button to QUARRY
-  - [ ] UI-7E responsive, keyboard, reduced-motion and projection/drift tests
+- [x] **UI-7 contextual inspector + outpost road navigation** (`docs/game/27-contextual-ui-and-map-navigation.md`)
+  - [x] UI-7A context-aware survivor/building navigation, with honest empty states
+  - [x] UI-7B survivor INFO / ATTRIBUTES / EQUIPMENT / BAG / COMMANDS tabs
+  - [x] UI-7C building INFO / DEFENCE / UPGRADE / STORAGE / COMMANDS variants
+  - [x] UI-7D top-road OUTPOST button to FOREST and bottom-road OUTPOST button to QUARRY
+  - [x] UI-7E responsive, keyboard, reduced-motion and projection/drift tests
 - [ ] **I1 final art / real sprite sheets** (after the contextual UI and the UI are accepted)
 
 ## Still to do

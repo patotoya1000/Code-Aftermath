@@ -359,3 +359,18 @@ body.hud.card-open .screen-arrow-east { right:380px; }
     animation: none !important;
   }
 }
+
+/* UI-7: Outpost top/bottom road buttons (FOREST / QUARRY) and return button */
+.screen-road { position:absolute; z-index:22; left:50%; transform:translateX(-50%); min-width:132px; min-height:44px; display:flex; align-items:center; justify-content:center; gap:8px; padding:6px 14px; cursor:pointer; background:var(--card); border:1px solid var(--line); color:var(--fg); font:inherit; }
+.screen-road[hidden] { display:none; }
+.screen-road-north { top:98px; border-top:0; border-radius:0 0 14px 14px; }
+.screen-road-south { bottom:172px; border-bottom:0; border-radius:14px 14px 0 0; }
+.screen-road .sa-glyph { font-size:18px; line-height:1; }
+.screen-road .sa-label { font-size:10px; font-weight:800; letter-spacing:.1em; }
+.screen-road .sa-meta { font-size:10px; color:var(--muted); }
+.screen-road:hover, .screen-road:focus-visible { background:rgba(56,189,248,.16); border-color:rgba(56,189,248,.75); outline:none; }
+.screen-return-outpost { position:absolute; z-index:24; top:104px; left:72px; min-height:44px; padding:8px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--fg); font-size:11px; font-weight:700; letter-spacing:.08em; cursor:pointer; }
+.screen-return-outpost:hover, .screen-return-outpost:focus-visible { background:rgba(56,189,248,.16); border-color:rgba(56,189,248,.75); outline:none; }
+.equip-slot.is-empty { opacity:.65; }
+@media (max-width:900px) { .screen-road { min-width:108px; padding:6px 10px; } .screen-road-north { top:136px; } .screen-road-south { bottom:188px; } .screen-road .sa-meta { display:none; } .screen-return-outpost { top:140px; left:48px; } }
+@media (prefers-reduced-motion: reduce) { .screen-road, .screen-return-outpost { transition:none !important; animation:none !important; } }

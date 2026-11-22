@@ -13,7 +13,7 @@ import { createApp } from './index.js';
 import { renderCompactList, renderNav, renderEntry } from './ui/codebook.js';
 import { buildingActionList, survivorActionList, actionButtons, addressSurvivor } from './ui/actions.js'; // buttons that mirror the real command rules
 import { renderSurvivorCard, renderBuildingCard, renderNodeCard, renderLootCard, renderZombieCard, emptyCardView, renderCardShell, nextTabFromKey } from './ui/cards/index.js';
-import { SCREENS, screenOf, arrowState, alertLevel, ROAD_SPOTS } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
+import { SCREENS, screenOf, arrowState, alertLevel, ROAD_SPOTS, outpostRoadState } from './ui/screens.js'; // MAP 1 TOWN / MAP 2 OUTPOST / MAP 3 FRONT (presentation only)
 import { townSceneSvg, frontSceneSvg, regionSceneSvg } from './ui/scenes.js';
 import { recruitHtml, trainHtml, housingHtml, scavengeHeadHtml, scavengeRowsHtml, scavengeLostHtml, raidHtml } from './ui/panels.js';
 import { bindMapGestures } from './ui/gestures.js'; // drag to pan, wheel / pinch to zoom, click to pick
@@ -772,6 +772,14 @@ function paintScreens(force = false) {
     if (b.dataset) b.dataset.alert = dir === 'east' && !a.disabled && a.to === 'front' ? alert : 'none';
     if ($(`screen-${dir}-label`)) $(`screen-${dir}-label`).textContent = a.disabled ? '' : (dir === 'east' && alert === 'raid' ? 'RAID!' : a.label);
   }
+  const roads = outpostRoadState(view);
+  for (const dir of ['north', 'south']) {
+    const b = $(`screen-${dir}`); if (!b) continue;
+    b.hidden = screenId !== 'outpost';
+    const r = roads[dir];
+    if ($(`screen-${dir}-label`)) $(`screen-${dir}-label`).textContent = r.label;
+    if ($(`screen-${dir}-meta`)) $(`screen-${dir}-meta`).textContent = r.status;
+  }
   for (const [kind, build] of [['town', townSceneSvg], ['front', frontSceneSvg], ['forest', (v, o) => regionSceneSvg(v, 'forest', o)], ['quarry', (v, o) => regionSceneSvg(v, 'quarry', o)]]) {
     const pane = $(`screen-${kind}`); if (!pane) continue;
     pane.setAttribute?.('aria-hidden', String(screenId !== kind));
@@ -803,11 +811,14 @@ function pickSpot(kind, id) {
 function bindScreens() {
   $('screen-west')?.addEventListener('click', () => stepScreen(-1));
   $('screen-east')?.addEventListener('click', () => stepScreen(1));
+  $('screen-north')?.addEventListener('click', () => setScreen('forest'));
+  $('screen-south')?.addEventListener('click', () => setScreen('quarry'));
   for (const kind of ['town', 'front', 'forest', 'quarry']) {
     const pane = $(`screen-${kind}`); if (!pane) continue;
     pane.addEventListener('pointerdown', () => { pressing = true; });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) pane.addEventListener(ev, () => { pressing = false; });
     pane.addEventListener('click', (e) => {
+      const go = e.target?.closest?.('[data-screen-to]'); if (go) { setScreen(go.dataset.screenTo); return; }
       const close = e.target?.closest?.('[data-detail-close]'); if (close) { picked[kind] = null; paintScreens(true); return; }
       const spot = e.target?.closest?.('[data-spot]'); if (spot) pickSpot(kind, spot.dataset.spot);
     });

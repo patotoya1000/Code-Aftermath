@@ -65,3 +65,22 @@ export function spotStatus(view, id) {
   const s = (sv?.sites ?? []).find((q) => q.id === id);
   return s ? `${s.ticks}t · ${s.dangerToday}% danger` : '';
 }
+
+/** Direct road buttons on the live OUTPOST map (UI-7D): top road -> FOREST, bottom road -> QUARRY. */
+export const OUTPOST_ROADS = Object.freeze([
+  Object.freeze({ id: 'north', to: 'forest', label: 'FOREST', spotId: 'road_forest', aria: 'Go to the forest map (north road)' }),
+  Object.freeze({ id: 'south', to: 'quarry', label: 'QUARRY', spotId: 'road_quarry', aria: 'Go to the quarry map (south road)' }),
+]);
+
+/** Pure presentation state for the OUTPOST north/south road buttons from the student view. */
+export function outpostRoadState(view) {
+  const away = view?.scavenge?.away ?? [];
+  const one = (r) => {
+    const regionSites = new Set(sitesOf(view, r.to).map((s) => s.id));
+    const awayCount = away.filter((a) => regionSites.has(a.siteId)).length;
+    const base = spotStatus(view, r.spotId);
+    const status = awayCount > 0 ? `${base} · ${awayCount} away` : base;
+    return { id: r.id, to: r.to, label: r.label, status, awayCount };
+  };
+  return { north: one(OUTPOST_ROADS[0]), south: one(OUTPOST_ROADS[1]) };
+}

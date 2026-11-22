@@ -12,7 +12,16 @@ import { townPanelHtml, scavengePanelHtml, powerPanelHtml, waterPanelHtml, resou
 const STORE_KEY = 'aftermath.hud.v1';
 const CORE_RESOURCES = new Set(['wood', 'stone', 'food', 'water', 'survivor', 'base']);
 // Which inspector tab each section (by its heading) belongs to; anything not listed stays on Info so nothing is ever hidden for good.
-const TAB_OF = [[/^(needs|conditions|attributes|skills|traits|occupation)/i, 'stats'], [/^equipment/i, 'equipment'], [/^(inventory|storage|cold storage)/i, 'bag'], [/^(policies|hooks|actions|commands|combat|reload)/i, 'command']];
+const TAB_OF = [
+  [/^(needs|conditions)/i, 'info'],
+  [/^(attributes|skills|traits|occupation)/i, 'attributes'],
+  [/^equipment/i, 'equipment'],
+  [/^inventory/i, 'bag'],
+  [/^(defence|defense)/i, 'defence'],
+  [/^upgrade/i, 'upgrade'],
+  [/^(storage|cold storage|production|plots|reservoir|power output)/i, 'storage'],
+  [/^(policies|hooks|actions|commands|combat|reload)/i, 'commands'],
+];
 const KEY_ORDER = ['hq', 'tower', 'gate', 'workshop', 'kitchen', 'field', 'well', 'storage'];
 
 const noop = { frame() {}, foldAll() {}, get state() { return {}; } };
@@ -66,14 +75,48 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
 
   // ---------- inspector tabs + section folds ----------
   const card = $('inspector-card');
+  const tabsNav = $('inspector-tabs');
+  let tabsSig = '';
+  function syncInspectorTabs() {
+    if (!card || !tabsNav) return;
+    const raw = card.querySelector('.uc-card')?.dataset?.cardTabs;
+    let tabs = null;
+    if (raw) { try { tabs = JSON.parse(raw); } catch { tabs = null; } }
+    if (!Array.isArray(tabs) || !tabs.length) {
+      tabs = [{ id: 'info', label: 'Info' }];
+    }
+    const sig = tabs.map((t) => `${t.id}:${t.label}`).join('|');
+    if (sig !== tabsSig) {
+      tabsSig = sig;
+      for (const old of [...tabsNav.querySelectorAll('.inspector-tab')]) old.remove();
+      for (const t of tabs) {
+        const btn = doc.createElement('button');
+        btn.type = 'button';
+        btn.className = 'inspector-tab';
+        btn.setAttribute('role', 'tab');
+        btn.dataset.tab = t.id;
+        btn.textContent = t.label;
+        tabsNav.appendChild(btn);
+      }
+    }
+    if (!tabs.some((t) => t.id === state.tab)) state.tab = tabs[0].id;
+    for (const b of tabsNav.querySelectorAll('.inspector-tab')) {
+      const on = b.dataset.tab === state.tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', String(on));
+      b.setAttribute('tabindex', on ? '0' : '-1');
+    }
+  }
   function decorateInspector() {
     if (!card) return;
+    syncInspectorTabs();
+    card.querySelector('.hud-empty')?.remove();
     const secs = [...card.querySelectorAll('.section')];
     let shown = 0;
     for (const sec of secs) {
       const h3 = sec.querySelector('h3'); if (!h3) continue;
       const title = h3.textContent.replace(h3.querySelector('.icon')?.textContent ?? '', '').trim();
-      const tab = (TAB_OF.find(([re]) => re.test(title)) ?? [null, 'info'])[1];
+      const tab = sec.dataset.tab || (TAB_OF.find(([re]) => re.test(title)) ?? [null, 'info'])[1];
       sec.dataset.tab = tab; sec.dataset.key = `sec:${title}`;
       if (!h3.querySelector('.hud-fold')) {
         const btn = doc.createElement('button'); btn.type = 'button'; btn.className = 'hud-fold';
@@ -87,16 +130,15 @@ function build(doc, { renderer, getView, select, getSelected, getCommands }) {
       if (!sec.hidden) shown++;
     }
     const header = card.querySelector('.header'); if (header) header.hidden = false;
-    if (!shown && !card.querySelector('.hud-empty') && state.tab !== 'info') {
+    if (!shown && state.tab !== 'info') {
       const empty = doc.createElement('div'); empty.className = 'hud-empty'; empty.textContent = 'Nothing to show on this tab for the current selection.'; card.appendChild(empty);
     }
   }
   function setTab(tab) {
     state.tab = tab;
-    for (const b of doc.querySelectorAll('.inspector-tab')) { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); }
     decorateInspector(); save();
   }
-  for (const b of doc.querySelectorAll('.inspector-tab')) b.addEventListener('click', () => setTab(b.dataset.tab));
+  tabsNav?.addEventListener('click', (e) => { const b = e.target?.closest?.('.inspector-tab'); if (b) setTab(b.dataset.tab); });
   if (card) new MutationObserver(decorateInspector).observe(card, { childList: true });
 
   // ---------- resources: hide items at zero (ALL shows them) ----------

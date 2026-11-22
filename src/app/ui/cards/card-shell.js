@@ -67,9 +67,10 @@ export function loadingCardView(label = 'Loading…') {
   });
 }
 
-export function sectionHtml(icon, title, body, { key = '' } = {}) {
+export function sectionHtml(icon, title, body, { key = '', tab = '' } = {}) {
   const dataKey = key ? ` data-key="${esc(key)}"` : '';
-  return `<div class="section"${dataKey}><h3><span class="icon">${icon}</span>${esc(title)}</h3>${body}</div>`;
+  const dataTab = tab ? ` data-tab="${esc(tab)}"` : '';
+  return `<div class="section"${dataKey}${dataTab}><h3><span class="icon">${icon}</span>${esc(title)}</h3>${body}</div>`;
 }
 
 export function renderCardHeader(cardView) {
@@ -86,14 +87,17 @@ export function renderCardBody(cardView, { activeTab = '', showTabs = false, vie
   const tabHtml = showTabs && cardView.tabs.length ? renderTabBar(cardView.tabs, activeTab) : '';
   const visibleSections = showTabs && cardView.tabs.length ? sectionsForTab(cardView.sections, activeTab, cardView.tabs) : cardView.sections;
   const sectionsMarkup = visibleSections.map((s) =>
-    s.raw ? s.html : sectionHtml(s.icon ?? '•', s.title ?? '', s.html ?? '', { key: s.id ?? '' })
+    s.raw ? s.html : sectionHtml(s.icon ?? '•', s.title ?? '', s.html ?? '', { key: s.id ?? '', tab: s.tab ?? '' })
   ).join('');
 
   let fallback = '';
-  if (!sectionsMarkup && cardView.metrics.length) {
+  if (showTabs && cardView.tabs.length && !sectionsMarkup) {
+    fallback = '<div class="uc-empty">Nothing to show on this tab for the current selection.</div>';
+  }
+  if (!sectionsMarkup && !fallback && cardView.metrics.length) {
     fallback += sectionHtml('📊', 'Metrics', `<div class="needs-grid">${cardView.metrics.map((m) => metricBarHtml(m)).join('')}</div>`);
   }
-  if (!sectionsMarkup && cardView.actions.length) {
+  if (!sectionsMarkup && !fallback && cardView.actions.length) {
     fallback += sectionHtml('🔧', 'Actions', `${renderCardActions(cardView.actions, { view, survivorId, showDisabledReasons: true })}${mutedHtml('Buttons add a command to the editor; nothing runs until you press Run.')}`);
   }
   if (!sectionsMarkup && !fallback && cardView.codeExamples.length) {
@@ -108,5 +112,6 @@ export function renderCardBody(cardView, { activeTab = '', showTabs = false, vie
 export function renderCardShell(cardView, opts = {}) {
   const header = opts.showHeader === false ? '' : renderCardHeader(cardView);
   const body = renderCardBody(cardView, opts);
-  return `<div class="uc-card uc-kind-${esc(cardView.kind)} uc-state-${esc(cardView.severity)}" data-card-kind="${esc(cardView.kind)}" data-card-id="${esc(cardView.id)}">${header}${body}</div>`;
+  const tabsAttr = cardView.tabs.length ? ` data-card-tabs="${esc(JSON.stringify(cardView.tabs))}"` : '';
+  return `<div class="uc-card uc-kind-${esc(cardView.kind)} uc-state-${esc(cardView.severity)}" data-card-kind="${esc(cardView.kind)}" data-card-id="${esc(cardView.id)}"${tabsAttr}>${header}${body}</div>`;
 }

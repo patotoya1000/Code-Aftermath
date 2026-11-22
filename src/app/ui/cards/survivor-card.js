@@ -1,4 +1,4 @@
-// Survivor & personal inventory card adapter (UI-C1B, presentation only).
+// Survivor & personal inventory card adapter (UI-7B, presentation only).
 // Reads inspectorCard() + studentView() projections without inventing numbers.
 import { iconUrl } from '../../../modules/assets/icons.js';
 import { esc, cap, cardStateOf, isActionAllowedInState } from './card-state.js';
@@ -7,6 +7,15 @@ import { renderCardActions } from './card-actions.js';
 import { createCardView, renderCardShell, emptyCardView } from './card-shell.js';
 import { survivorActionList } from '../actions.js';
 
+export const SURVIVOR_TABS = Object.freeze([
+  Object.freeze({ id: 'info', label: 'Info' }),
+  Object.freeze({ id: 'attributes', label: 'Attributes' }),
+  Object.freeze({ id: 'equipment', label: 'Equipment' }),
+  Object.freeze({ id: 'bag', label: 'Bag' }),
+  Object.freeze({ id: 'commands', label: 'Commands' }),
+]);
+
+const EQUIP_SLOTS = ['weapon', 'tool', 'armor', 'accessory'];
 const TASK_ICON = { gather: '⛏', repair: '🔧', rest: '💤', eat: '🍎', drink: '💧', move: '👣', deposit: '📦', farm: '🌾', cook: '🍳', craft: '🔨', scavenge: '🧭', attack: '⚔', guard: '🛡', mount: '⚙', reload: '🔋', lure: '📣', upgrade: '⬆', collect: '🎒', take: '🤲', equip: '🗡' };
 const itemIcon = (id) => { const u = iconUrl(id); return u ? `<img class="item-icon" src="${u}" alt="">` : ''; };
 
@@ -33,7 +42,15 @@ export function buildSurvivorCardView(card, view = {}) {
   const needsHtml = Object.entries(needsObj).map(([k, v]) =>
     metricBarHtml({ label: k, value: v, max: 100, tone: v <= 20 ? 'bad' : v <= 40 ? 'warn' : 'good' })
   ).join('');
-  const attrsHtml = kvGridHtml(Object.entries(card.attributes ?? {}).map(([k, v]) => ({ label: cap(k), value: v })));
+  const conditions = card.conditions ?? [];
+  const conditionsHtml = conditions.length
+    ? `<div style="margin-top:6px;">${conditions.map((c) => statusPillHtml(c)).join(' ')}</div>`
+    : '';
+
+  const attrsEntries = Object.entries(card.attributes ?? {});
+  const attrsHtml = attrsEntries.length
+    ? kvGridHtml(attrsEntries.map(([k, v]) => ({ label: cap(k), value: v })))
+    : mutedHtml('No attributes reported.');
   const skills = Object.entries(card.skills ?? {});
   const skillsHtml = skills.length
     ? `<div class="attrs-grid">${skills.map(([k, v]) => {
@@ -44,10 +61,23 @@ export function buildSurvivorCardView(card, view = {}) {
     }).join('')}</div>`
     : mutedHtml('No skills tracked.');
 
-  const equip = Object.entries(card.equipment ?? {}).filter(([, item]) => item);
-  const equipHtml = equip.length
-    ? `<div class="equip-grid">${equip.map(([slot, item]) => `<div class="equip-slot"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${itemIcon(item)}${esc(item)}</span></div>`).join('')}</div>`
-    : mutedHtml('Nothing equipped.');
+  const traits = card.traits ?? [];
+  const spec = card.progression?.specialization ?? null;
+  const traitBits = [
+    ...traits.map((t) => statusPillHtml(t)),
+    card.occupation ? statusPillHtml(`Occupation: ${card.occupation}`) : null,
+    spec ? statusPillHtml(`Specialization: ${spec}`) : null,
+  ].filter(Boolean);
+  const traitsHtml = traitBits.length ? traitBits.join(' ') : mutedHtml('No traits or specialization yet.');
+
+  const eqObj = card.equipment ?? {};
+  const extraSlots = Object.keys(eqObj).filter((s) => !EQUIP_SLOTS.includes(s) && eqObj[s]);
+  const allSlots = [...EQUIP_SLOTS, ...extraSlots];
+  const anyEquipped = allSlots.some((s) => Boolean(eqObj[s]));
+  const equipHtml = `${anyEquipped ? '' : mutedHtml('Nothing equipped.')}<div class="equip-grid">${allSlots.map((slot) => {
+    const item = eqObj[slot];
+    return `<div class="equip-slot${item ? '' : ' is-empty'}"><span class="slot-label">${esc(slot.toUpperCase())}</span><span class="slot-val">${item ? `${itemIcon(item)}${esc(item)}` : 'Empty'}</span></div>`;
+  }).join('')}</div>`;
 
   const invDetail = card.inventoryDetail ?? [];
   const invHtml = invDetail.map((i) => `<div class="inv-item"><span class="name">${itemIcon(i.id)}${esc(i.name)} × ${i.quantity}</span><span class="qty">${i.weight} wt</span></div>`).join('');
@@ -64,19 +94,22 @@ export function buildSurvivorCardView(card, view = {}) {
     : mutedHtml('None. Try survivor.on("hungry", () => { survivor.eat(); })');
 
   const actions = isActionAllowedInState(severity) ? survivorActionList(card, view) : survivorActionList({ ...card, status: severity }, view);
+  const depositActions = actions.filter((a) => a.id === 'deposit');
+  const bagActionsHtml = depositActions.length
+    ? `<div style="margin-top:8px;">${renderCardActions(depositActions, { view, survivorId: card.id, showDisabledReasons: true })}</div>`
+    : '';
+
   const sections = [
-    { id: 'sec:Needs', tab: 'stats', icon: '❤', title: 'Needs', html: `<div class="needs-grid">${needsHtml}</div>` },
-    (card.conditions ?? []).length ? { id: 'sec:Conditions', tab: 'stats', icon: '⚠', title: 'Conditions', html: card.conditions.map((c) => statusPillHtml(c)).join(' ') } : null,
-    { id: 'sec:Attributes', tab: 'stats', icon: '⚡', title: 'Attributes', html: attrsHtml },
-    { id: 'sec:Skills', tab: 'stats', icon: '🎓', title: 'Skills', html: skillsHtml },
-    (card.traits ?? []).length ? { id: 'sec:Traits', tab: 'stats', icon: '🏷', title: 'Traits', html: card.traits.map((t) => statusPillHtml(t)).join(' ') } : null,
-    card.occupation ? { id: 'sec:Occupation', tab: 'stats', icon: '🪪', title: 'Occupation', html: statusPillHtml(card.occupation) } : null,
-    { id: 'sec:Equipment', tab: 'equipment', icon: '🎒', title: 'Equipment', html: equipHtml },
-    { id: 'sec:Inventory', tab: 'bag', icon: '📦', title: 'Inventory', html: `<div class="inv-list">${invHtml || mutedHtml('Empty')}</div><div style="margin-top:6px;">${mutedHtml(`Carrying ${carry.load} / ${carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>` },
+    { id: 'sec:Needs', tab: 'info', icon: '❤', title: 'Needs', html: `<div class="needs-grid">${needsHtml || mutedHtml('No needs reported.')}</div>${conditionsHtml}` },
     { id: 'sec:Current Task', tab: 'info', icon: '📋', title: 'Current Task', html: taskSectionHtml(card.task, card.queued, card.lastTask) },
-    { id: 'sec:Commands', tab: 'command', icon: '⌨', title: 'Commands', html: `${renderCardActions(actions, { view, survivorId: card.id })}${mutedHtml('Buttons add a command to the editor; nothing runs until you press Run.')}` },
-    { id: 'sec:Policies', tab: 'command', icon: '🧭', title: 'Policies', html: policiesHtml },
-    { id: 'sec:Hooks', tab: 'command', icon: '🪝', title: 'Hooks', html: hooksHtml },
+    { id: 'sec:Attributes', tab: 'attributes', icon: '⚡', title: 'Attributes', html: attrsHtml },
+    { id: 'sec:Skills', tab: 'attributes', icon: '🎓', title: 'Skills', html: skillsHtml },
+    { id: 'sec:Traits', tab: 'attributes', icon: '🏷', title: 'Traits & Specialization', html: traitsHtml },
+    { id: 'sec:Equipment', tab: 'equipment', icon: '🎒', title: 'Equipment', html: equipHtml },
+    { id: 'sec:Inventory', tab: 'bag', icon: '📦', title: 'Inventory', html: `<div class="inv-list">${invHtml || mutedHtml('Bag is empty.')}</div><div style="margin-top:6px;">${mutedHtml(`Carrying ${carry.load} / ${carry.capacity} wt. Encumbrance does not slow her yet.`)}</div>${bagActionsHtml}` },
+    { id: 'sec:Commands', tab: 'commands', icon: '⌨', title: 'Commands', html: `${renderCardActions(actions, { view, survivorId: card.id, showDisabledReasons: true })}${mutedHtml('Buttons add a command to the editor; nothing runs until you press Run.')}` },
+    { id: 'sec:Policies', tab: 'commands', icon: '🧭', title: 'Policies', html: policiesHtml },
+    { id: 'sec:Hooks', tab: 'commands', icon: '🪝', title: 'Hooks', html: hooksHtml },
   ].filter(Boolean);
 
   return createCardView({
@@ -92,13 +125,7 @@ export function buildSurvivorCardView(card, view = {}) {
       `Dir: ${card.direction ?? 'down'}`,
     ],
     severity,
-    tabs: [
-      { id: 'info', label: 'Info' },
-      { id: 'stats', label: 'Stats' },
-      { id: 'equipment', label: 'Equipment' },
-      { id: 'bag', label: 'Bag' },
-      { id: 'command', label: 'Command' },
-    ],
+    tabs: SURVIVOR_TABS.slice(),
     sections,
     metrics: Object.entries(needsObj).map(([k, v]) => ({ label: k, value: v, max: 100 })),
     inventory: invDetail,

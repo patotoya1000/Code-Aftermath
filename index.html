@@ -91,15 +91,19 @@
       <aside class="scene-detail hud-card" id="detail-front" hidden><div class="hud-head"><span class="sd-title" id="detail-front-title"></span><button type="button" class="hud-mini" data-detail-close="front" aria-label="Close">×</button></div><div class="sd-body" id="detail-front-body"></div></aside>
     </section>
     <section class="screen-pane screen-pane-forest" id="screen-forest" aria-label="Map 4: the forest" aria-hidden="true">
+      <button type="button" class="screen-return-outpost" data-screen-to="outpost" aria-label="Return to Outpost">◂ OUTPOST</button>
       <div class="scene-wrap" id="scene-forest"></div>
       <aside class="scene-detail hud-card" id="detail-forest" hidden><div class="hud-head"><span class="sd-title" id="detail-forest-title"></span><button type="button" class="hud-mini" data-detail-close="forest" aria-label="Close">×</button></div><div class="sd-body" id="detail-forest-body"></div></aside>
     </section>
     <section class="screen-pane screen-pane-quarry" id="screen-quarry" aria-label="Map 5: the quarry" aria-hidden="true">
+      <button type="button" class="screen-return-outpost" data-screen-to="outpost" aria-label="Return to Outpost">◂ OUTPOST</button>
       <div class="scene-wrap" id="scene-quarry"></div>
       <aside class="scene-detail hud-card" id="detail-quarry" hidden><div class="hud-head"><span class="sd-title" id="detail-quarry-title"></span><button type="button" class="hud-mini" data-detail-close="quarry" aria-label="Close">×</button></div><div class="sd-body" id="detail-quarry-body"></div></aside>
     </section>
     <button type="button" class="screen-arrow screen-arrow-west" id="screen-west" aria-label="Go to the town map"><span class="sa-glyph" aria-hidden="true">◂</span><span class="sa-label" id="screen-west-label">TOWN</span></button>
     <button type="button" class="screen-arrow screen-arrow-east" id="screen-east" data-alert="none" aria-label="Go to the front map"><span class="sa-glyph" aria-hidden="true">▸</span><span class="sa-label" id="screen-east-label">FRONT</span></button>
+    <button type="button" class="screen-road screen-road-north" id="screen-north" data-screen-to="forest" aria-label="Go to the forest map (north road)"><span class="sa-glyph" aria-hidden="true">▲</span><span class="sa-label" id="screen-north-label">FOREST</span><span class="sa-meta" id="screen-north-meta"></span></button>
+    <button type="button" class="screen-road screen-road-south" id="screen-south" data-screen-to="quarry" aria-label="Go to the quarry map (south road)"><span class="sa-label" id="screen-south-label">QUARRY</span><span class="sa-meta" id="screen-south-meta"></span><span class="sa-glyph" aria-hidden="true">▼</span></button>
 
     <div id="map-tools" class="map-tools" role="group" aria-label="Map view">
       <button type="button" class="hud-mini" id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (or use the mouse wheel / pinch)">＋</button>
@@ -163,10 +167,10 @@
     <nav id="inspector-tabs" role="tablist" aria-label="Inspector tabs" aria-orientation="vertical">
       <button type="button" id="inspector-toggle" aria-label="Close the card" title="Close the card (Esc)">✕</button>
       <button type="button" class="inspector-tab active" role="tab" data-tab="info" aria-selected="true">Info</button>
-      <button type="button" class="inspector-tab" role="tab" data-tab="stats" aria-selected="false">Stats</button>
+      <button type="button" class="inspector-tab" role="tab" data-tab="attributes" aria-selected="false">Attributes</button>
       <button type="button" class="inspector-tab" role="tab" data-tab="equipment" aria-selected="false">Equipment</button>
       <button type="button" class="inspector-tab" role="tab" data-tab="bag" aria-selected="false">Bag</button>
-      <button type="button" class="inspector-tab" role="tab" data-tab="command" aria-selected="false">Command</button>
+      <button type="button" class="inspector-tab" role="tab" data-tab="commands" aria-selected="false">Commands</button>
     </nav>
     <div id="inspector-dock">
       <section class="hud-card" id="card-selector" data-card="selector">
