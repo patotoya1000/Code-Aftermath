@@ -28,4 +28,6 @@ Nothing was rewritten; sections were only moved. The logic doc is the **logic au
 | [21-outpost-wall-town-economy-design.md](21-outpost-wall-town-economy-design.md) | **Added 2026-11-19:** one-line wall, the town behind it, events (raid/scavenge, regenerating sites), a recruit-only town with a train, and no real money (decisions recorded; NOT implemented) |
 | [22-cold-weather-survivor-protection.md](22-cold-weather-survivor-protection.md) | **Added 2026-11-20:** cold weather, winter outfit and survivor efficiency (decided/proposed, NOT implemented) |
 | [23-wall-gate-upgrades-and-strips-design.md](23-wall-gate-upgrades-and-strips-design.md) | **Added 2026-11-22:** wall/gate level ladder, HQ-gated levels, reserved defence strips (catwalk, wire, mesh, sandbags), smelter, phased plan (DESIGN, NOT implemented) |
-- `25-watchtower-ladder-and-mounts-design.md` - the 5-level watchtower ladder (lookout -> ballista -> machine gun -> minigun -> dual minigun), the new mounts and how the painted mount turns to aim.
+| [24-forest-quarry-mining-sawmill-design.md](24-forest-quarry-mining-sawmill-design.md) | Forest/quarry regions, mining, sawmill and vehicle phases R0-R7 |
+| [25-watchtower-ladder-and-mounts-design.md](25-watchtower-ladder-and-mounts-design.md) | Five-level watchtower ladder, mounted weapons and aiming presentation |
+| [26-unified-card-and-inspector-system.md](26-unified-card-and-inspector-system.md) | **Added 2026-11-22:** unified UI-C1 card/inspector contract and implementation phases |

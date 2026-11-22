@@ -31,7 +31,14 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [x] **UI-R1** (2026-11-19) full-screen map, on-map selection card, drag-pan / zoom, bottom-docked code and lesson panels, lesson Run feedback, completion from saved progress
 - [x] PA-1 camera · PA-2 terrain · PA-3 roads · PA-4 objects + fence autotiling · PA-5 multi-cell buildings
 - [~] PA-6 … PA-8 NPC/zombie sprites and interaction: placeholder art only
-- [ ] **I1 final art / real sprite sheets** (next, after the UI is accepted)
+- [ ] **UI-C1 unified card/inspector system** (`docs/game/26-unified-card-and-inspector-system.md`):
+  - [ ] UI-C1A shared card shell, tabs, metrics, actions and state helpers
+  - [ ] UI-C1B survivor and personal inventory/equipment cards
+  - [ ] UI-C1C consistent building cards, including tower/wall/gate variants
+  - [ ] UI-C1D node, loot, zombie, mount and offer cards
+  - [ ] UI-C1E Town/Train/Expedition/Power/Water panel consistency
+  - [ ] UI-C1F drift, mobile, keyboard, accessibility and state tests
+- [ ] **I1 final art / real sprite sheets** (after UI-C1 and the UI are accepted)
 
 ## Still to do
 - [ ] Playtest balance of the whole zombie ladder (long game)
