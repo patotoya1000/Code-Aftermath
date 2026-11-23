@@ -180,7 +180,7 @@ export const COMMANDS = {
   },
   equip: {
     type: 'equip', signature: 'survivor.equip(weapon)',
-    doc: 'Take a weapon in hand: \"knife\" or \"spear\" at once, a crafted one (\"advanced_spear\", \"bow\", \"crossbow\") from base stock (she walks to the storage that holds it; the weapon she held goes back). Needs the weapon\'s minCombat Combat skill (threats.weapons). A ranged weapon spends the ammo she carries: survivor.take(\"arrows\", 20). survivor.equip(\"suppressor\") fits a crafted suppressor for good (it does not replace the weapon): her personal weapon then makes about half the noise.',
+    doc: 'Take a weapon in hand: \"knife\" or \"spear\" at once, a crafted one (\"advanced_spear\", \"bow\", \"crossbow\") from base stock (she walks to the storage that holds it; the weapon she held goes back). Needs the weapon\'s minCombat Combat skill (threats.weapons). A ranged weapon spends the ammo she carries: survivor.take(\"arrows\", 20). survivor.equip(\"iron_vest\") or \"steel_vest\" wears body armor from base stock in its own slot (the piece she wore goes back): every zombie hit does less damage (threats.armors lists the reduction and the Combat skill it needs). survivor.equip(\"suppressor\") fits a crafted suppressor for good (it does not replace the weapon): her personal weapon then makes about half the noise.',
     params(args) {
       if (args.length !== 1 || typeof args[0] !== 'string' || !args[0]) throw bad('equip', 'use equip(\"bow\")');
       return { weapon: args[0] };

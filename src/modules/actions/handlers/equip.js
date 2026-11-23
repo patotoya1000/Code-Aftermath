@@ -9,6 +9,8 @@ import { ok, fail, RUNNING, DONE, failTick, walkStep } from './shared.js';
  *  - a crafted weapon is an item in base stock: she walks to the nearest working storage building that holds it, and the unit is reserved from stock
  *    when the job is accepted (cancel gives it back) and moves into her hands when the work is done;
  *  - the weapon she held goes back into base stock when it is a crafted one (a starter vanishes: it can always be taken up again).
+ * R6 (docs/game/24 section 3f): `equip("iron_vest")` / `equip("steel_vest")` wears BODY ARMOR (`defs.armors`): the same walk-to-stock job as a crafted weapon, into the separate `equipment.armor` slot (the armor she wore goes
+ * back into stock, a weapon stays in her hands). Each point of its `reduction` is taken off every zombie hit. Needs `armors.<id>.minCombat` Combat skill.
  * Z8: `equip("suppressor")` is an ACCESSORY, not a weapon: she fetches one from base stock the same way and fits it FOR GOOD (`equipment.suppressor`), which cuts the
  * noise of her personal weapon by `noise.suppressorPercent` (a mounted weapon never changes). It does not replace the weapon she holds. NOT_NEEDED when already fitted.
  * Needs `weapons.<id>.minCombat` Combat skill (CAPABILITY_INSUFFICIENT). Failures: INVALID_PARAMS (unknown / mounted weapon), NOT_NEEDED (already held),
@@ -27,10 +29,12 @@ export const equipHandler = {
       a.needsStock = true; a.accessory = true; a.depotId = depot.id; a.targetId = depot.id;
       return ok;
     }
-    if (typeof id !== 'string' || !hasOwn(defs.weapons, id) || defs.weapons[id].kind === 'mounted') return fail('INVALID_PARAMS');
-    const w = defs.weapons[id];
+    const isArmor = typeof id === 'string' && hasOwn(defs.armors ?? {}, id);
+    if (!isArmor && (typeof id !== 'string' || !hasOwn(defs.weapons, id) || defs.weapons[id].kind === 'mounted')) return fail('INVALID_PARAMS');
+    const w = isArmor ? { ...defs.armors[id], starter: false } : defs.weapons[id];
     const s = state.survivors[a.actorId];
-    if ((s.equipment.weapon ?? 'spear') === id) return fail('NOT_NEEDED');
+    a.slot = isArmor ? 'armor' : 'weapon';
+    if ((isArmor ? s.equipment.armor ?? null : s.equipment.weapon ?? 'spear') === id) return fail('NOT_NEEDED');
     if ((s.skills.combat ?? 0) < w.minCombat) return fail('CAPABILITY_INSUFFICIENT');
     a.needsStock = !w.starter;
     if (a.needsStock) {
@@ -40,7 +44,7 @@ export const equipHandler = {
       if (available(state, stockKey(id)) < 1) return fail('INSUFFICIENT_RESOURCE');
       a.depotId = depot.id; a.targetId = depot.id;
     }
-    const old = s.equipment.weapon;
+    const old = isArmor ? s.equipment.armor : s.equipment.weapon;
     if (old && !defs.weapons[old]?.starter && hasOwn(defs.items, old) && storageRoom(state, old) < 1) return fail('STORAGE_FULL');
     return ok;
   },
@@ -69,6 +73,13 @@ export const equipHandler = {
     if (a.accessory) {
       s.equipment.suppressor = true;
       ctx.emit('suppressor.fitted', { actorId: a.actorId });
+      return;
+    }
+    if (a.slot === 'armor') { // R6: body armor goes in its own slot; the piece she wore goes back into stock
+      const worn = s.equipment.armor ?? null;
+      if (worn && hasOwn(defs.items, worn)) credit(state, stockKey(worn), 1);
+      s.equipment.armor = a.params.weapon;
+      ctx.emit('armor.equipped', { actorId: a.actorId, armor: a.params.weapon, previous: worn, reduction: defs.armors[a.params.weapon].reduction });
       return;
     }
     const old = s.equipment.weapon;

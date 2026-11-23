@@ -34,6 +34,9 @@ export const items = {
   // Z5: bone meal is a better fertilizer (bones from the sortie); crafted personal weapons are items in base stock until a survivor equips one (survivor.equip).
   bone_meal: { name: 'Bone meal', unitWeight: 1 },
   advanced_spear: { name: 'Advanced spear', unitWeight: 3 },
+  iron_spear: { name: 'Iron spear', unitWeight: 4 }, // R6: forged from iron bars
+  iron_vest: { name: 'Iron vest', unitWeight: 6 }, // R6 body armor (equipment.armor)
+  steel_vest: { name: 'Steel vest', unitWeight: 8 },
   bow: { name: 'Bow', unitWeight: 2 },
   crossbow: { name: 'Crossbow', unitWeight: 4 },
   rifle: { name: 'Rifle', unitWeight: 5 }, // Z6c: LOUD (noise 8)

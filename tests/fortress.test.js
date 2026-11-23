@@ -222,11 +222,12 @@ test('P2: the whole chain works end to end - scrap and charcoal become a steel p
   assert.deepEqual(ledgerViolations(sim.snapshot()), []);
 });
 
-test('future bars: lead and iron come from the smelter (HQ 2), the HQ stores them, nothing consumes them yet', () => {
+test('bars: lead and iron come from the smelter (HQ 2), the HQ stores them, and only the R6 gear recipes consume them', () => {
   assert.deepEqual([defs.recipes.lead_bar.station, defs.recipes.lead_bar.inputs, defs.recipes.lead_bar.minHq], ['smelter', { scrap: 3 }, 2]);
   assert.deepEqual(defs.recipes.iron_bar.inputs, { scrap: 3, charcoal: 1 });
   for (const id of ['lead_bar', 'iron_bar']) for (const l of [2, 3, 4]) assert.ok(defs.buildings.hq.levels[l].storage[id] > 0);
-  for (const [id, r] of Object.entries(defs.recipes)) assert.ok(!('lead_bar' in r.inputs) && !('iron_bar' in r.inputs), `${id} must not use them yet`);
+  const users = Object.entries(defs.recipes).filter(([, r]) => 'lead_bar' in r.inputs || 'iron_bar' in r.inputs).map(([id]) => id).sort();
+  assert.deepEqual(users, ['ballista', 'bullets_lead', 'iron_spear', 'iron_vest', 'steel_vest'], 'R6: the bars are consumed by bullets, the iron spear, body armor and the ballista only');
   const sim = newSim('stage1', 1, (st) => { ready(st); fix(st, 'hq', 2); fix(st, 'smelter_1', 1); give(st, { scrap: 9, charcoal: 1 }); });
   call(sim, 'craft', 'lead_bar', 2); runUntilIdle(sim, 600);
   call(sim, 'craft', 'iron_bar', 1); runUntilIdle(sim, 1200);
@@ -319,7 +320,7 @@ test('P3: learner code can read what an upgrade needs (the HQ level) and what a 
 
 test('P3: SIM_VERSION moved to 0.42.0, so an older save or replay is refused instead of loading a world without the new sites and smelter', async () => {
   const { SIM_VERSION } = await import('../src/kernel/index.js');
-  assert.equal(SIM_VERSION, '0.47.0');
+  assert.ok(SIM_VERSION.split('.').map(Number).reduce((a, n, i) => a || Math.sign(n - [0, 47, 0][i]), 0) >= 0, `SIM_VERSION ${SIM_VERSION} must be at least 0.47.0`);
 });
 
 // ---------- the wall / gate card ----------

@@ -3,7 +3,7 @@ import { stockKey, available, discard } from '../resources/index.js';
 import { applyHealth, blockedTiles, findPath, armorOf } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
 import { dayOf, timeOf } from '../environment/index.js';
-import { awardSkillXp } from '../survivors/index.js';
+import { awardSkillXp, armoredDamage } from '../survivors/index.js';
 
 // Threats (O19 groundwork, data/threats.js). A RAID is a night attack by a number of zombies. Whether a day has a raid, its strength and its zombies are
 // a pure function of (seed, day): nothing random is saved, replays cannot diverge, and the schedule (strength + composition) is public `warnDays` ahead.
@@ -405,7 +405,7 @@ export function tickWanderers(ctx) {
       z.hit += 1;
       if (z.hit >= cfg.attackEveryTicks) {
         z.hit = 0;
-        const survivor = state.survivors[victim.id]; const damage = Math.max(0, statsOf(defs, z.type).damage);
+        const survivor = state.survivors[victim.id]; const damage = survivor ? armoredDamage(defs, survivor, Math.max(0, statsOf(defs, z.type).damage)) : 0;
         if (survivor?.status === 'active') {
           survivor.needs.health = Math.max(0, survivor.needs.health - damage);
           ctx.emit('survivor.damaged', { survivorId: survivor.id, cause: 'zombie', zombieId: z.id, zombieType: z.type, damage, health: survivor.needs.health });
@@ -545,8 +545,9 @@ function throwAt(ctx, wave, z, goal, victim) {
   if (victim) {
     const s = state.survivors[victim.id];
     if (s?.status === 'active') {
-      s.needs.health = Math.max(0, s.needs.health - b.damage);
-      ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'thrown', zombieId: z.id, zombieType: z.type, damage: b.damage, health: s.needs.health });
+      const dmg = armoredDamage(defs, s, b.damage);
+      s.needs.health = Math.max(0, s.needs.health - dmg);
+      ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'thrown', zombieId: z.id, zombieType: z.type, damage: dmg, health: s.needs.health });
       if (s.needs.health <= 0) { s.status = 'downed'; ctx.emit('survivor.downed', { survivorId: s.id, cause: 'thrown', zombieId: z.id }); }
     }
     ctx.emit('zombie.threw', { id: z.id, zombieType: z.type, target: victim.id, damage: b.damage });
@@ -581,9 +582,10 @@ function explodeZombie(ctx, wave, z) {
   const hit = [];
   for (const s of Object.values(state.survivors).sort((p, q) => (p.id < q.id ? -1 : 1))) {
     if (s.status !== 'active' || chebyshev(z, s.position) > b.radius) continue;
-    s.needs.health = Math.max(0, s.needs.health - b.survivorDamage);
+    const dmg = armoredDamage(defs, s, b.survivorDamage);
+    s.needs.health = Math.max(0, s.needs.health - dmg);
     hit.push(s.id);
-    ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'explosion', zombieId: z.id, zombieType: z.type, damage: b.survivorDamage, health: s.needs.health });
+    ctx.emit('survivor.damaged', { survivorId: s.id, cause: 'explosion', zombieId: z.id, zombieType: z.type, damage: dmg, health: s.needs.health });
     if (s.needs.health <= 0) { s.status = 'downed'; ctx.emit('survivor.downed', { survivorId: s.id, cause: 'explosion', zombieId: z.id }); }
   }
   addNoise(ctx, defs.noise.explosion);
@@ -635,7 +637,7 @@ export function tickWave(ctx) {
           z.hit = 0;
           const survivor = state.survivors[victim.id];
           if (survivor?.status === 'active') {
-            const damage = Math.max(0, def.damage);
+            const damage = armoredDamage(defs, survivor, Math.max(0, def.damage));
             survivor.needs.health = Math.max(0, survivor.needs.health - damage);
             ctx.emit('survivor.damaged', { survivorId: survivor.id, cause: 'zombie', zombieId: z.id, zombieType: z.type, damage, health: survivor.needs.health });
             if (survivor.needs.health <= 0) {
@@ -805,6 +807,7 @@ export function threatsView(state, defs) {
     defense: defenseOf(state, defs),
     upcoming: upcomingRaids(defs, state.seed, state.tick),
     bosses: upcomingBosses(defs, state.tick),
+    armors: Object.fromEntries(Object.entries(defs.armors ?? {}).map(([id, a]) => [id, { ...a, craft: { ...a.craft, materials: { ...a.craft.materials } } }])), // R6 body armor
     weapons: Object.fromEntries(Object.entries(defs.weapons).map(([id, w]) => [id, { ...w, ...(w.craft ? { craft: { ...w.craft, materials: { ...w.craft.materials } } } : {}) }])),
     towers: Object.fromEntries(Object.entries(defs.towers).map(([lv, t]) => [lv, { ...t, mounts: [...t.mounts] }])),
     noise: { ...defs.noise, attention: state.threats.attention, loudest: loudestTower(state)?.id ?? null, reinforced: state.threats.wave?.reinforced ?? 0 },

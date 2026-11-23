@@ -9,7 +9,7 @@ import { recipes } from './data/recipes.js';
 import { crops, farming } from './data/crops.js';
 import { events, eventSchedule } from './data/events.js';
 import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, wanderer } from './data/threats.js';
-import { weapons, towers, noise } from './data/arsenal.js';
+import { weapons, armors, towers, noise } from './data/arsenal.js';
 import { town } from './data/town.js';
 import { scavenge } from './data/scavenge.js';
 import { mining } from './data/mining.js';
@@ -161,6 +161,11 @@ export function validateDefinitions(d) {
     else need(w.power === undefined && w.hopper === undefined && w.minTowerLevel === undefined && w.shots === undefined, `weapon ${id}: only mounted weapons have power, hopper or minTowerLevel`);
     if (w.craft) need(whole(w.craft.stationLevel, 1) && whole(w.craft.minSkill, 0) && Object.keys(w.craft.materials ?? {}).length > 0 && Object.entries(w.craft.materials).every(([i, n]) => d.items[i] && whole(n, 1)), `weapon ${id}: craft needs a station level, a minSkill and known materials with whole counts >= 1`);
     else need(w.starter === true, `weapon ${id}: only a starter weapon may have no craft recipe`);
+  }
+  for (const [id, a] of Object.entries(d.armors ?? {})) { // R6 body armor: a crafted item that reduces every zombie hit
+    need(typeof a.name === 'string' && a.name && whole(a.tier, 0) && whole(a.minCombat, 0) && whole(a.reduction, 1), `armor ${id}: needs a name and whole tier, minCombat >= 0 and reduction >= 1`);
+    need(d.items[id] && !d.weapons?.[id], `armor ${id}: must be a known item and not also a weapon`);
+    need(whole(a.craft?.stationLevel, 1) && whole(a.craft?.minSkill, 0) && Object.keys(a.craft?.materials ?? {}).length > 0 && Object.entries(a.craft.materials).every(([i, n]) => d.items[i] && whole(n, 1)), `armor ${id}: craft needs a station level, a minSkill and known materials with whole quantities`);
   }
   need(Object.values(d.weapons ?? {}).some((w) => w.starter && w.kind === 'melee'), 'weapons: at least one starter melee weapon is required (a survivor always starts armed)');
   const tl = Object.keys(d.towers ?? {}).map(Number).sort((a, b) => a - b);
@@ -415,7 +420,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, vehicles, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, vehicles, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, armors, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

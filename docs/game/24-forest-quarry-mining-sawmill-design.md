@@ -1,6 +1,6 @@
 # 24 · Forest, quarry, camps, sawmill, mining station, vehicles (design + phases)
 
-Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 and R5 IMPLEMENTED 2026-11-23.** R6-R7 are design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
+Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4, R5 and R6 IMPLEMENTED 2026-11-23.** R7 is design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
 
 ## 1. Decisions
 - The **upper road** of the outpost map leads to the **forest** (far, slow, wood). The **lower road** leads to the **quarry** (heavy stone and sand, nearer). Each is its **own map screen**.
@@ -19,7 +19,7 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 and R5 IMPLEMENTED 20
 | **R3** | **Sawmill** (HQ 2): logs to planks, planks to beams (level 2). New items `plank`, `beam`. The ballista and advanced woodworking switch to planks in a later weapon pass. | IMPLEMENTED (see section 3c) |
 | **R4** | **Mining station** (outpost building, **HQ 3, decided**) + **Mining skill** + `survivor.mine("iron_ore")`. Ores: iron ore, lead ore, coal. The smelter turns ore into iron and lead bars (scrap stays for steel). Level 1 by hand, level 2 a rail cart (more ore per trip), level 3 a powered drill that draws power. A little cave-in risk. | IMPLEMENTED (`SIM_VERSION` 0.46.0, see section 3d) |
 | **R5** | **Vehicles**: hand cart, then cart with a beast or motor, then truck (fuel). A multiplier on a retrieve run: more carry capacity, fewer travel ticks. | IMPLEMENTED (`SIM_VERSION` 0.47.0, see section 3e; the beast-drawn cart is [open]) |
-| **R6** | **Weapon and armor use of the bars**: bullets from lead bars, weapon upgrades and body armor from iron bars (and steel). | PLANNED |
+| **R6** | **Weapon and armor use of the bars**: bullets from lead bars, weapon upgrades and body armor from iron bars (and steel). | IMPLEMENTED (`SIM_VERSION` 0.48.0, see section 3f) |
 | **R7** | **Road camps and road danger** (a camp building that shortens a road; loaded runs are a target in a wave). | PLANNED |
 
 ## 3. How R1 works
@@ -71,6 +71,22 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 and R5 IMPLEMENTED 20
 - Learner reads: `garage_1.garage` = `{ working, open, minHq, level, fuelItems, vehicles: [{ id, name, garageLevel, carryPercent, ticksPercent, fuel, busyWith, canUse, reason }] }`, and `scavenge.sites[].stash.retrieveTicksWith` (ticks per vehicle). Events: `scavenge.departed` carries `vehicle` and `fuel`, `scavenge.returned` and `stash.retrieved` carry `vehicle`. The garage card has one **Haul with <vehicle>** button per vehicle (it only inserts the call).
 - Not built: wear or breakdowns, a beast-drawn cart (feed instead of fuel), noise from a motor (R7), a vehicle picture (placeholder), a loaded run being a target in a wave (R7).
 - Data: `data/vehicles.js`, `data/world.js` `garage`. Code: `buildings/vehicles.js` (pure rules + learner view), `scavenge/index.js`, `actions/handlers/scavenge.js`. Tests: `tests/vehicles.test.js`.
+
+## 3f. How R6 works (bars into gear)
+- **Bullets from lead**: `bullets_lead` (workshop level 2, Crafting 1): 1 lead bar -> 10 bullets. The gland recipe `bullets` (workshop 3) stays; ammo no longer depends on zombie loot.
+- **Iron spear** (`weapons.iron_spear`, workshop 2, Crafting 1: 2 iron bars + 2 wood + 1 rags): melee, reach 3, damage 8, pierce 3, needs Combat 1 (between the advanced spear and the bow). `survivor.equip("iron_spear")`.
+- **Body armor** (`data/arsenal.js` `armors`, new `equipment.armor` slot, taken with `survivor.equip` like a weapon: from base stock, the piece she wore goes back, the weapon stays in her hands, event `armor.equipped`):
+
+| Armor | Workshop | Crafting | Materials | Reduction | Combat to wear |
+|---|---|---|---|---|---|
+| `iron_vest` | 2 | 1 | 4 iron bars + 2 rags + 1 hide | 2 | 0 |
+| `steel_vest` | 3 | 3 | 2 iron bars + 3 steel plate + 2 hide | 4 | 1 |
+
+  Each point of `reduction` is taken off EVERY zombie hit on her (a walker or wanderer hit, a thrown object, a boomer's blast); a hit that did damage still does at least 1 (`armoredDamage` in `survivors/index.js`). The `survivor.damaged` event carries the reduced damage. Wall armor is a different thing (docs/game/23).
+- **Ballista** now costs 4 planks + 1 beam + 2 iron bars (was 6 wood + 4 scrap), so the sawmill and the mine both matter. `weapons.ballista.craft` and the recipe stay equal.
+- Learner reads: `threats.armors` (reduction, minCombat, craft) next to `threats.weapons`; the survivor's `equipment.armor`. HQ stores the new items at every level.
+- Not built: armor wear or durability, the survivor-gear pieces from docs/game/22 (jacket, helmet, boots, bag) are still art only, armor pictures (no icon yet), weapon upgrade levels of an existing weapon (the iron spear is a new weapon, not an upgrade), the machine guns still use scrap + gland, and iron bars are not yet used by tower or wall upgrades.
+- Data: `data/arsenal.js`, `data/recipes.js`, `data/items.js`, `data/world.js` (HQ storage). Code: `actions/handlers/equip.js`, `survivors/index.js`, `threats/index.js`. Tests: `tests/armor.test.js`.
 
 ## 4. Open questions
 - (decided) The mining station opens at HQ 3; stash risk follows the R2 defaults above.

@@ -25,13 +25,19 @@ export const recipes = {
   arrows: { name: 'Arrows', station: 'workshop', stationLevel: 1, inputs: { wood: 2, scrap: 1 }, outputs: { arrows: 8 }, ticks: 10, skill: 'crafting', minSkill: 0, action: 'craft' },
   bolts: { name: 'Bolts', station: 'workshop', stationLevel: 2, inputs: { wood: 1, scrap: 2 }, outputs: { bolts: 6 }, ticks: 14, skill: 'crafting', minSkill: 1, action: 'craft' },
   // Z6b: the mounted weapons (installed on a tower with survivor.mount) mirror their `craft` blocks too; bullets (gland = gunpowder) are the minigun's ammo.
-  ballista: { name: 'Ballista', station: 'workshop', stationLevel: 2, inputs: { wood: 6, scrap: 4 }, outputs: { ballista: 1 }, ticks: 40, skill: 'crafting', minSkill: 2, action: 'craft' },
+  ballista: { name: 'Ballista', station: 'workshop', stationLevel: 2, inputs: { plank: 4, beam: 1, iron_bar: 2 }, outputs: { ballista: 1 }, ticks: 40, skill: 'crafting', minSkill: 2, action: 'craft' },
   machine_gun: { name: 'Machine gun', station: 'workshop', stationLevel: 3, inputs: { scrap: 10, gland: 1 }, outputs: { machine_gun: 1 }, ticks: 55, skill: 'crafting', minSkill: 3, action: 'craft' },
   minigun: { name: 'Minigun', station: 'workshop', stationLevel: 3, inputs: { scrap: 16, gland: 2 }, outputs: { minigun: 1 }, ticks: 70, skill: 'crafting', minSkill: 4, action: 'craft' },
   dual_minigun: { name: 'Dual minigun', station: 'workshop', stationLevel: 3, inputs: { scrap: 30, gland: 4 }, outputs: { dual_minigun: 1 }, ticks: 100, skill: 'crafting', minSkill: 5, action: 'craft' },
   rifle: { name: 'Rifle', station: 'workshop', stationLevel: 3, inputs: { scrap: 6, gland: 1 }, outputs: { rifle: 1 }, ticks: 40, skill: 'crafting', minSkill: 3, action: 'craft' },
   suppressor: { name: 'Suppressor', station: 'workshop', stationLevel: 2, inputs: { scrap: 3, rags: 2 }, outputs: { suppressor: 1 }, ticks: 30, skill: 'crafting', minSkill: 2, action: 'craft' },
   bullets: { name: 'Bullets', station: 'workshop', stationLevel: 3, inputs: { scrap: 2, gland: 1 }, outputs: { bullets: 12 }, ticks: 16, skill: 'crafting', minSkill: 2, action: 'craft' },
+  // R6 (docs/game/24 section 3f): what the bars are FOR. Lead bars cast bullets (no gland needed, so ammo no longer depends on zombie loot); iron bars forge a spear and body armor.
+  // Weapon and armor recipes mirror `weapons.<id>.craft` / `armors.<id>.craft` (a test keeps them equal). All of them need the workshop at level 2 or 3.
+  bullets_lead: { name: 'Bullets (cast from lead)', station: 'workshop', stationLevel: 2, inputs: { lead_bar: 1 }, outputs: { bullets: 10 }, ticks: 14, skill: 'crafting', minSkill: 1, action: 'craft' },
+  iron_spear: { name: 'Iron spear', station: 'workshop', stationLevel: 2, inputs: { iron_bar: 2, wood: 2, rags: 1 }, outputs: { iron_spear: 1 }, ticks: 28, skill: 'crafting', minSkill: 1, action: 'craft' },
+  iron_vest: { name: 'Iron vest', station: 'workshop', stationLevel: 2, inputs: { iron_bar: 4, rags: 2, hide: 1 }, outputs: { iron_vest: 1 }, ticks: 36, skill: 'crafting', minSkill: 1, action: 'craft' },
+  steel_vest: { name: 'Steel vest', station: 'workshop', stationLevel: 3, inputs: { iron_bar: 2, steel_plate: 3, hide: 2 }, outputs: { steel_vest: 1 }, ticks: 60, skill: 'crafting', minSkill: 3, action: 'craft' },
   // Bone meal: the better fertilizer (+100 % harvest instead of +50 %); farming works without it.
   bone_meal: { name: 'Bone meal', station: 'workshop', stationLevel: 1, inputs: { bones: 2, water: 1 }, outputs: { bone_meal: 2 }, ticks: 14, skill: 'crafting', minSkill: 0, action: 'craft' },
   // P1/P2 (docs/game/23 section 5). `minHq` (optional) = the headquarters level that opens the recipe (refused with HQ_LEVEL below it). Steel starts at the SMELTER (a separate

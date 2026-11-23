@@ -289,12 +289,12 @@ export const COMMAND_BOOK = {
   },
   equip: {
     group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat', 'suppressor', 'silencer'],
-    effect: 'She takes the weapon in hand (a crafted one comes out of base stock, the one she held goes back). Her next attack or guard uses it.',
-    requires: ['A weapon name from threats.weapons (not a mounted one)', 'The weapon in base stock unless it is a starter (knife, spear)', 'Enough Combat skill (the weapon\'s minCombat)'],
-    parameters: [['weapon', 'A weapon name such as \"bow\" or \"advanced_spear\".']],
+    effect: 'She takes the weapon in hand (a crafted one comes out of base stock, the one she held goes back). Her next attack or guard uses it. Body armor ("iron_vest", "steel_vest") goes in its own slot and keeps the weapon: every zombie hit on her then does less damage.',
+    requires: ['A weapon name from threats.weapons (not a mounted one) or an armor name from threats.armors', 'The weapon in base stock unless it is a starter (knife, spear)', 'Enough Combat skill (the weapon\'s minCombat)'],
+    parameters: [['weapon', 'A weapon name such as \"bow\" or \"iron_spear\", or a body armor such as \"iron_vest\".']],
     example: 'survivor.equip("spear");',
     reads: ['read.threats', 'read.skills', 'read.base-stock'], outcomes: ['NOT_NEEDED', 'CAPABILITY_INSUFFICIENT', 'INSUFFICIENT_RESOURCE', 'NO_DEPOT', 'STORAGE_FULL', 'NO_PATH'],
-    notes: ['Craft weapons at the workshop (survivor.craft("bow")) from the loot a sortie brings back. Ranged weapons need ammo in her hands: survivor.take("arrows", 20).', 'survivor.equip("suppressor") is an accessory: a crafted suppressor (workshop level 2) is fitted for good and halves the noise of her personal weapon (not a mounted one). It does not replace the weapon in her hands.'],
+    notes: ['Craft weapons at the workshop (survivor.craft("bow")) from the loot a sortie brings back. Ranged weapons need ammo in her hands: survivor.take("arrows", 20).', 'Body armor (R6): survivor.craft("iron_vest") at workshop level 2 (iron bars from the smelter), survivor.craft("steel_vest") at level 3. Each point of reduction is taken off every zombie hit (a hit still does at least 1). Lead bars cast bullets: survivor.craft("bullets_lead", 3).', 'survivor.equip("suppressor") is an accessory: a crafted suppressor (workshop level 2) is fitted for good and halves the noise of her personal weapon (not a mounted one). It does not replace the weapon in her hands.'],
   },
   take: {
     group: 'combat', keywords: ['ammo', 'arrows', 'bolts', 'bullets', 'carry', 'storage', 'hands', 'supply'],

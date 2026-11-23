@@ -220,5 +220,5 @@ test('API: survivor.mine(ore, rounds) is validated before it becomes a command; 
 
 test('SIM_VERSION moved to 0.47.0 (R5 garage): an older save or replay is refused instead of loading a world without the mining station', async () => {
   const { SIM_VERSION } = await import('../src/kernel/index.js');
-  assert.equal(SIM_VERSION, '0.47.0');
+  assert.ok(SIM_VERSION.split('.').map(Number).reduce((a, n, i) => a || Math.sign(n - [0, 47, 0][i]), 0) >= 0, `SIM_VERSION ${SIM_VERSION} must be at least 0.47.0`);
 });

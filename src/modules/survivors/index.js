@@ -141,3 +141,10 @@ export function skillProgress(defs, s) {
     return [k, { level, xp: s.progression.xp[k] ?? 0, next: level + 1 < th.length ? th[level + 1] : null }];
   }));
 }
+
+/** R6 body armor: the damage that gets through `s`'s armor (docs/game/24 section 3f). Each point of the worn armor's `reduction` is taken off a hit; a hit that did damage still does at least 1. Pure. */
+export function armoredDamage(defs, s, damage) {
+  if (!(damage > 0)) return 0;
+  const reduction = defs.armors?.[s.equipment?.armor]?.reduction ?? 0;
+  return Math.max(1, damage - reduction);
+}

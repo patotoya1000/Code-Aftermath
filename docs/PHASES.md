@@ -58,7 +58,8 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [x] **R3** (2026-11-22) sawmill station (HQ 2): wood -> planks, planks -> beams at the Beam Mill (level 2, HQ 3); items `plank`, `beam`
 - [x] **R4** (2026-11-23) mining station (HQ 3) + Mining skill + `survivor.mine(ore, rounds?)`: iron ore, lead ore, coal; rail cart (level 2) and powered drill (level 3, HQ 4); cave-in risk; smelter recipes `iron_bar_ore` / `lead_bar_ore`
 - [x] **R5** (2026-11-23) garage (`garage_1`, levels Cart Shed / Motor Pool / Truck Garage) + `survivor.retrieve(site, { vehicle })`: hand cart x2, motor cart x4, truck x8 carry, shorter runs, fuel (coal/charcoal) paid on departure, one of each vehicle at a time (`SIM_VERSION` 0.47.0)
-- [ ] R6 bars into bullets/weapons/armor · R7 road camps and road danger
+- [x] **R6** (2026-11-23) bars become gear: `bullets_lead` (lead bars), `iron_spear`, body armor `iron_vest` / `steel_vest` (`equipment.armor`, reduces every zombie hit), ballista from planks + beam + iron bars (`SIM_VERSION` 0.48.0)
+- [ ] R7 road camps and road danger
 
 ## Towers (docs/game/25)
 - [x] **T1** (2026-11-22) watchtower ladder levels 1-5 (range grows every level), `machine_gun` replaces `repeating_crossbow`, `dual_minigun` (`shots: 2`), `mountTarget` + `aim` in the projections, painted tower level pictures and mounts that turn toward their target (`SIM_VERSION` 0.44.0)
