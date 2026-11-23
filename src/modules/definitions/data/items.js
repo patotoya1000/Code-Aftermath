@@ -51,6 +51,9 @@ export const items = {
   // workshop into steel plate, hinge sets, concrete blocks and sandbags. All heavy, none of it spoils.
   sand: { name: 'Sand', unitWeight: 3 },
   cement: { name: 'Cement', unitWeight: 3 },
+  // R3 (docs/game/24): the sawmill turns wood (logs) into planks and planks into beams. Wooden, so heavy but they never spoil.
+  plank: { name: 'Plank', unitWeight: 2 },
+  beam: { name: 'Beam', unitWeight: 4 },
   steel_ingot: { name: 'Steel ingot', unitWeight: 3 },
   steel_plate: { name: 'Steel plate', unitWeight: 4 },
   concrete_block: { name: 'Concrete block', unitWeight: 5 },

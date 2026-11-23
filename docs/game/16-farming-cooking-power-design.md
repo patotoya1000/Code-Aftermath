@@ -1,6 +1,6 @@
 # Farming, cooking, crafting and power — agreed design (2026-11-16)
 
-Status: **build steps 1–7 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar, O10 farming, O11 power + freezer, O12 workshop crafting + hot meal + MRE)**; hydroponics (O13) is built; battery, fuel and fertilizer recipes are still design only. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
+Status: **build steps 1–7 are implemented (O5 upgrades, O6 environment, O7 water, O8 recipe engine/kitchen/bread, O9 spoilage + cold cellar, O10 farming, O11 power + freezer, O12 workshop crafting + hot meal + MRE)**; hydroponics (O13), battery (O14), fertilizer + charcoal (O15), the powered pump (O16) and nutrients (O17) are built too. Built on repair, upgrade (O5), skill XP (O4), environment (O6) and water (O7).
 
 ## Principles (decided with the project owner)
 - **No free construction.** Every building is placed by the scenario as a ruin. Learners repair it (`survivor.repair`) and then raise it (`survivor.upgrade`). Fixed world ⇒ fixed lessons and replays.

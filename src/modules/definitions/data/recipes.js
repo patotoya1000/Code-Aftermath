@@ -41,6 +41,9 @@ export const recipes = {
   // Future materials (nothing uses them yet): lead for bullets, iron for weapon upgrades and body armor.
   lead_bar: { name: 'Lead bar', station: 'smelter', stationLevel: 1, inputs: { scrap: 3 }, outputs: { lead_bar: 1 }, ticks: 30, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
   iron_bar: { name: 'Iron bar', station: 'smelter', stationLevel: 1, inputs: { scrap: 3, charcoal: 1 }, outputs: { iron_bar: 1 }, ticks: 35, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  // R3 (docs/game/24): the SAWMILL station. Planks from wood (logs), beams from planks (Beam Mill, level 2). Both open with the headquarters at level 2.
+  plank: { name: 'Plank', station: 'sawmill', stationLevel: 1, inputs: { wood: 3 }, outputs: { plank: 2 }, ticks: 20, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  beam: { name: 'Beam', station: 'sawmill', stationLevel: 2, inputs: { plank: 3 }, outputs: { beam: 1 }, ticks: 30, skill: 'crafting', minSkill: 1, action: 'craft', minHq: 2 },
   steel_plate: { name: 'Steel plate', station: 'workshop', stationLevel: 2, inputs: { steel_ingot: 2 }, outputs: { steel_plate: 1 }, ticks: 30, skill: 'crafting', minSkill: 1, action: 'craft' },
   hinge_set: { name: 'Hinge set', station: 'workshop', stationLevel: 1, inputs: { scrap: 2, wood: 1 }, outputs: { hinge_set: 1 }, ticks: 20, skill: 'crafting', minSkill: 0, action: 'craft' },
   concrete_block: { name: 'Concrete block', station: 'workshop', stationLevel: 2, inputs: { cement: 2, sand: 3, water: 1 }, outputs: { concrete_block: 1 }, ticks: 40, skill: 'crafting', minSkill: 1, action: 'craft' },

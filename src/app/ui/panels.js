@@ -2,7 +2,7 @@
 // ONE place builds these rows, so the nav-bar panels (hud.js) and the TOWN / FRONT screens (screens.js) can never disagree.
 // Every button only INSERTS CODE into the editor (data-action="insert"); nothing here changes the running world.
 // Read-only over the learner `view` (studentView): pure functions, no DOM.
-import { townActionList, trainActionList, scavengeActionList, actionButtons } from './actions.js';
+import { townActionList, trainActionList, scavengeActionList, stashActionList, actionButtons } from './actions.js';
 
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const costHtml = (price) => price.map((p) => `<span class="${p.ok ? 'good' : 'bad'}">${p.qty} ${esc(p.item)}</span>`).join(' / ');
@@ -60,21 +60,30 @@ export function scavengeHeadHtml(view) {
   if (!sv?.open) return `<div class="np-sub">Expeditions start on day ${esc(sv?.opensOnDay ?? '?')}.</div>`;
   const b = view.board ?? {};
   const head = `<div class="np-sub">Day ${sv.day} · ${b.duskInTicks > 0 ? `dusk in ${b.duskInTicks} ticks` : 'night: the gate is shut'} · ${(b.raids ?? []).length ? `raid on day ${esc(b.raids[0].day)}` : 'no raid announced'}. A survivor outside when a wave starts is lost.</div>`;
-  const away = (sv.away ?? []).map((a) => `<div class="np-sub"><strong>${esc(a.survivorId)}</strong> is at ${esc(a.siteId)}, back in ${a.returnsInTicks} ticks</div>`).join('');
+  const away = (sv.away ?? []).map((a) => `<div class="np-sub"><strong>${esc(a.survivorId)}</strong> is ${a.mode === 'stash' ? 'stashing at' : a.mode === 'retrieve' ? 'hauling the stash from' : 'at'} ${esc(a.siteId)}, back in ${a.returnsInTicks} ticks</div>`).join('');
   return `${head}${away}`;
 }
 export function scavengeLostHtml(view) {
   const lost = view.scavenge?.lost ?? [];
   return lost.length ? `<div class="np-sub bad">Lost outside: ${esc(lost.map((l) => l.name).join(', '))}</div>` : '';
 }
-/** One site's row (stats, expected loot, the real Scavenge button). `siteId` null = every site. */
+/** One site's row (stats, expected loot, the real Scavenge button, and the camp stash with its Stash / Retrieve buttons). `siteId` null = every site. */
 export function scavengeRowsHtml(view, siteId = null) {
   if (!view.scavenge?.open) return '';
+  const stash = stashActionList(view);
   return scavengeActionList(view).filter((a) => !siteId || a.site.id === siteId).map((a) => {
     const s = a.site;
     const gain = Object.entries(s.expected).map(([i, r]) => `${r[0]}-${r[1]} ${esc(i)}`).join(', ');
-    return `<div class="np-row"><div class="np-main"><strong>${esc(s.name)}</strong><span>${s.ticks} ticks · danger ${s.dangerToday}% · ${s.recoveryPercent}% recovered</span><span class="np-sub">${gain}</span><span class="np-sub">${esc(a.reason)}</span></div>${actionButtons([a], {})}</div>`;
+    const mine = stash.filter((x) => x.site.id === s.id);
+    return `<div class="np-row"><div class="np-main"><strong>${esc(s.name)}</strong><span>${s.ticks} ticks · danger ${s.dangerToday}% · ${s.recoveryPercent}% recovered</span><span class="np-sub">${gain}</span><span class="np-sub">${esc(a.reason)}</span>${stashLineHtml(s)}</div>${actionButtons([a, ...mine], {})}</div>`;
   }).join('');
+}
+/** The stash line of a site: what is out there, how full, the raid warning. Empty text when nothing is stashed. */
+export function stashLineHtml(site) {
+  const st = site.stash; if (!st || st.units < 1) return '';
+  const items = Object.entries(st.items).map(([i, q]) => `${q} ${esc(i)}`).join(', ');
+  const risk = st.atRiskTonight ? ` · <strong class="bad">RAID TONIGHT: ${st.lossPercent}% would be taken</strong>` : ` · a raid takes ${st.lossPercent}%`;
+  return `<span class="np-sub${st.atRiskTonight ? ' bad' : ''}">Stash ${st.units}/${st.capacity}: ${items}${st.protected ? ' · camped' : ''}${risk}</span>`;
 }
 /** The whole EXPEDITIONS nav panel (identical to what hud.js showed before). */
 export function scavengePanelHtml(view) {

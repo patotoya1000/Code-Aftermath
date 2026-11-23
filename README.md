@@ -1,10 +1,10 @@
-# CODE: AFTERMATH — engine (Phases 0–1 + correction C0–C8 + R1–R2, S0–S5, R4a, R4b, R3)
+# CODE: AFTERMATH — engine and game (real-time, standing actions, sandboxed learner code)
 
 A **modular monolith**: one deployable app (static files, offline-first, no build step), split into modules with
 enforced boundaries. Vanilla ES modules; Node ≥ 22 for tests.
 
 ```
-npm test          # 726 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
+npm test          # 789 tests incl. architecture boundaries, Phase 0 gate, sandbox, real-time clock, standing actions, asset resolver, renderer, regressions, soak
 SOAK_SEEDS=300 npm test   # deep randomized soak (invariants after every 50 ticks)
 npm run serve     # http://localhost:8080  (ES modules need http://, not file://)
 npm run smoke     # real-browser check (needs Playwright + Chromium) — (C9 gate: passing)
@@ -82,4 +82,4 @@ only — it is not a security boundary.
 - **New building / node / item / lesson**: edit the data files; `validateDefinitions` tells you what's inconsistent.
 - **New lesson check**: add a function to `lessons/checks.js`, reference it by name in lesson data.
 
-See `docs/PHASES.md` for the roadmap and acceptance gates. `docs/IMPLEMENTATION_PLAN_2026-11-13.md` is a historical analysis (all items done).
+See `docs/PHASES.md` for the roadmap and acceptance gates.

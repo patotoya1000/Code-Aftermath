@@ -193,6 +193,31 @@ export function scavengeActionList(view = {}) {
   });
 }
 
+/**
+ * Camp stash (R2): per site a STASH button (a one-round trip into the site's stash, needs room there) and, only where something is stashed, a RETRIEVE button.
+ * `enabled` mirrors the rules the player can see (free survivor, gate open, trip home before dusk, room / something to haul). The reason carries the raid warning:
+ * a stash is only at risk on a raid night. Snippets are the real calls; rounds and { camp: true } are typed by hand (the Codebook shows them).
+ */
+export function stashActionList(view = {}) {
+  const sv = view.scavenge;
+  if (!sv?.open) return [];
+  const dusk = view.board?.duskInTicks ?? 0;
+  const free = (view.survivors ?? []).some((s) => s.status === 'active');
+  const out = [];
+  for (const s of sv.sites) {
+    const st = s.stash; if (!st) continue;
+    const gate = (ticks) => (!free ? 'Nobody is free to go.' : dusk === 0 ? 'The gate is shut at night.' : dusk <= ticks + 10 ? `The trip takes ${ticks} ticks and dusk is ${dusk} away: she would be lost if a wave starts.` : null);
+    const stashWhy = gate(s.ticks) ?? (st.room < 1 ? `The stash holds ${st.capacity} units: retrieve it first.` : `One round, ${s.ticks} ticks; the haul stays here (${st.units}/${st.capacity} units). Add rounds or { camp: true } by hand.`);
+    out.push({ id: `stash:${s.id}`, site: s, label: `Stash at ${s.name}`, snippet: `survivor.stash(\"${s.id}\");`, enabled: !gate(s.ticks) && st.room >= 1, reason: stashWhy });
+    if (st.units > 0) {
+      const risk = st.atRiskTonight ? ` A raid is due tonight: it takes ${st.lossPercent}% of this stash${st.protected ? ' (camped)' : ''}.` : ` A raid would take ${st.lossPercent}% of it${st.protected ? ' (camped)' : ''}.`;
+      const why = gate(st.retrieveTicks) ?? `${st.retrieveTicks} ticks there and back, ${st.units} units waiting.${risk}`;
+      out.push({ id: `retrieve:${s.id}`, site: s, label: `Retrieve ${s.name}`, snippet: `survivor.retrieve(\"${s.id}\");`, enabled: !gate(st.retrieveTicks), reason: why, atRisk: st.atRiskTonight });
+    }
+  }
+  return out;
+}
+
 /** HTML for a list of actions. `view`+`survivorId` (optional) address the snippet to that survivor. */
 export function actionButtons(list, { view, survivorId } = {}) {
   return `<div class="act-grid">${list.map((a) => {

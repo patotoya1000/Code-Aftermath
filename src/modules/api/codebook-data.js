@@ -30,7 +30,7 @@ export const READ_GROUPS = [
 /** Meaning of every stop / failure code a learner can see in `survivor.lastTask.reason` or the event feed. */
 export const OUTCOMES = {
   TARGET_REACHED: 'The job did everything you asked for (for example the requested total was delivered).',
-  STORAGE_FULL: 'Base storage has no room left for that item. Free some space, upgrade storage, or use the item.',
+  STORAGE_FULL: 'Base storage has no room left for that item (or, for survivor.stash, that site\'s stash is already full). Free some space, upgrade storage, retrieve the stash, or use the item.',
   NO_TARGET: 'There is nothing of that kind left to work on (for example every tree is used up).',
   EXHAUSTED: 'The survivor is too tired to keep working. Rest first, or set a rest policy.',
   NO_DEPOT: 'No working storage building can take what she carries. Repair a storage building.',
@@ -65,6 +65,8 @@ export const OUTCOMES = {
   NOT_OPEN: 'Expeditions do not start before the day shown in scavenge.opensOnDay.',
   AWAY: 'She is out on an expedition and takes no commands until she is back (scavenge.away says when).',
   DEPARTED: 'She walked out of the gate and is away. The expedition resolves when she returns: read scavenge.history, or watch scavenge.away.',
+  INVALID_PARAMS: 'A number or option is out of range (for survivor.stash: rounds must be 1 to scavenge.stash.maxRounds).',
+  NO_STASH: 'There is no stash at that site. Leave one first with survivor.stash(siteId), then read scavenge.sites[].stash.units.',
   CARRY_FULL: 'Her hands are full: she cannot carry even one more unit of that. Deposit something first.',
 };
 
@@ -110,12 +112,12 @@ export const COMMAND_BOOK = {
   },
   craft: {
     group: 'production', keywords: ['workshop', 'packaging', 'glass', 'recipe', 'make', 'cook'],
-    effect: 'She walks to a repaired workshop (or the smelter, for steel ingots) and crafts a recipe in batches. Inputs leave base stock, the result goes back into it. Some recipes draw power while they are worked.',
-    requires: ['A repaired workshop (or smelter) of the recipe’s level', 'The hq level the recipe asks for, if any (steel ingots need hq level 2)', 'The recipe’s ingredients in base stock', 'Room for the result', 'Enough energy', 'Power on the grid, for recipes that need it'],
+    effect: 'She walks to a repaired workshop (or the smelter for steel ingots and bars, or the sawmill for planks and beams) and crafts a recipe in batches. Inputs leave base stock, the result goes back into it. Some recipes draw power while they are worked.',
+    requires: ['A repaired workshop (or smelter, or sawmill) of the recipe’s level', 'The hq level the recipe asks for, if any (steel ingots, planks and beams need hq level 2)', 'The recipe’s ingredients in base stock', 'Room for the result', 'Enough energy', 'Power on the grid, for recipes that need it'],
     parameters: [['recipe', 'A workshop recipe name such as "packaging". See the recipes read for what each needs.'], ['count', 'Optional whole number 1–100: how many batches. Without it she works until something stops her.']],
     example: 'survivor.craft("packaging", 5);',
     reads: ['read.recipes', 'read.power', 'read.base-stock'], outcomes: ['TARGET_REACHED', 'NO_INGREDIENTS', 'NO_STATION', 'NEEDS_REPAIR', 'HQ_LEVEL', 'NO_POWER', 'STORAGE_FULL', 'EXHAUSTED', 'NO_PATH', 'CAPABILITY_INSUFFICIENT'],
-    notes: ['Fortress materials: steel_ingot (smelter, hq level 2) → steel_plate, hinge_set, concrete_block, sandbag (workshop). Sand and cement come from scavenging and zombie loot.', 'Packaging seals MREs (cook("mre") at a level 3 kitchen). Glass needs the workshop at level 2 and power while the furnace works; it is the material for the hydroponic farm that comes later.'],
+    notes: ['Wood: plank (sawmill, hq level 2) from wood, then beam (Beam Mill, sawmill level 2) from planks.', 'Fortress materials: steel_ingot (smelter, hq level 2) → steel_plate, hinge_set, concrete_block, sandbag (workshop). Sand and cement come from scavenging and zombie loot.', 'Packaging seals MREs (cook("mre") at a level 3 kitchen). Glass needs the workshop at level 2 and power while the furnace works; it is the material for the hydroponic farm that comes later.'],
   },
   farm: {
     group: 'production', keywords: ['crop', 'plant', 'harvest', 'field', 'greenhouse', 'water', 'seed', 'potato', 'carrot', 'wheat'],
@@ -161,7 +163,7 @@ export const COMMAND_BOOK = {
   upgrade: {
     group: 'buildings', keywords: ['level', 'improve', 'building'],
     effect: 'She walks to the building and raises it one level, spending materials. Higher levels hold more or work better.',
-    requires: ['The building is fully repaired', 'A higher level exists', 'The headquarters is at least the level the upgrade needs (walls, gates and the smelter are capped by the hq)', 'The materials (see the building’s upgrade cost)', 'Enough Repair skill'],
+    requires: ['The building is fully repaired', 'A higher level exists', 'The headquarters is at least the level the upgrade needs (walls, gates, the smelter and the sawmill are capped by the hq)', 'The materials (see the building’s upgrade cost)', 'Enough Repair skill'],
     parameters: [['building', 'A building such as hq or fence.']],
     example: 'survivor.upgrade(hq);',
     reads: ['read.buildings', 'read.entities', 'read.base-stock', 'read.skills'], outcomes: ['HQ_LEVEL', 'NEEDS_REPAIR', 'MAX_LEVEL', 'INSUFFICIENT_RESOURCE', 'CAPABILITY_INSUFFICIENT', 'EXHAUSTED'],
@@ -255,6 +257,24 @@ export const COMMAND_BOOK = {
     example: 'const site = scavenge.sites.find((s) => s.recoveryPercent >= 80);\nif (site && board.duskInTicks > site.ticks + 20) {\n  survivor.scavenge(site.id);\n}',
     reads: ['read.scavenge', 'read.board', 'read.threats'], outcomes: ['UNKNOWN_TARGET', 'NOT_OPEN', 'WAVE_ACTIVE', 'EXHAUSTED', 'NO_PATH', 'DEPARTED', 'AWAY'],
     notes: ['If a wave starts while she is away she is lost for good (scavenge.lost). Nothing recalls her: check board.duskInTicks before sending anyone.', 'The command finishes when she leaves (stop reason DEPARTED); while she is away other commands to her fail with AWAY.'],
+  },
+  stash: {
+    group: 'scavenge', keywords: ['stash', 'cache', 'camp', 'remote', 'haul', 'store', 'forest', 'quarry', 'rounds', 'raid'],
+    effect: 'She leaves for a site like an expedition, works it for the rounds you ask for (more rounds = a longer trip and a little less each round) and walks home empty-handed. What she found stays in that site\'s stash. The stash holds 60 units per site and ignores base storage room. On a raid night a raid takes a share of every item in it (more at a deep site); { camp: true } makes the trip longer but cuts that loss a lot.',
+    requires: ['A site id from scavenge.sites', 'No zombie wave on (the gate is shut)', 'Enough energy to work', 'Room left in that site\'s stash (scavenge.sites[].stash.room)'],
+    parameters: [['siteId', 'The id of an entry in scavenge.sites, such as \"forest_edge\".'], ['rounds', 'Optional: how many rounds to work the site, 1 to scavenge.stash.maxRounds (default 1).'], ['options', 'Optional: { camp: true } pitches a camp so the stash is protected.']],
+    example: 'const site = scavenge.sites.find((s) => s.id === "forest_edge");\nif (site.stash.room > 0 && board.duskInTicks > site.ticks + 70) {\n  survivor.stash(site.id, 2, { camp: true });\n}',
+    reads: ['read.scavenge', 'read.board'], outcomes: ['UNKNOWN_TARGET', 'NOT_OPEN', 'INVALID_PARAMS', 'STORAGE_FULL', 'WAVE_ACTIVE', 'EXHAUSTED', 'NO_PATH', 'DEPARTED', 'AWAY'],
+    notes: ['A stash is only at risk on a raid night: scavenge.sites[].stash.atRiskTonight says when, lossPercent says how much.', 'Like any expedition, if a wave starts while she is away she is lost for good.', 'Bring the stash home with survivor.retrieve(siteId).'],
+  },
+  retrieve: {
+    group: 'scavenge', keywords: ['retrieve', 'stash', 'haul', 'fetch', 'bring', 'carry', 'cache', 'home'],
+    effect: 'She leaves for the site on a haul run (a share of the normal trip time) and comes back at the gate with what she can carry and what base storage has room for. Heavy items (stone, sand) count for more of her carry capacity. Whatever she could not take stays in the stash. A dangerous road can hurt her: she drops half the load and it stays in the stash.',
+    requires: ['A site whose stash is not empty (scavenge.sites[].stash.units)', 'No zombie wave on (the gate is shut)', 'Enough energy to work', 'Room in base storage for at least one stashed item'],
+    parameters: [['siteId', 'The id of a site that holds a stash, such as \"forest_edge\".']],
+    example: 'const full = scavenge.sites.find((s) => s.stash.units >= 30);\nif (full && board.duskInTicks > full.stash.retrieveTicks + 10) {\n  survivor.retrieve(full.id);\n}',
+    reads: ['read.scavenge', 'read.board'], outcomes: ['UNKNOWN_TARGET', 'NOT_OPEN', 'NO_STASH', 'STORAGE_FULL', 'WAVE_ACTIVE', 'EXHAUSTED', 'NO_PATH', 'DEPARTED', 'AWAY'],
+    notes: ['Retrieve before a raid night if scavenge.sites[].stash.atRiskTonight is true: a raid takes part of whatever is still out there.', 'If a wave starts while she is away she is lost for good.'],
   },
   equip: {
     group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat', 'suppressor', 'silencer'],

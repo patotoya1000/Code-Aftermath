@@ -1,6 +1,10 @@
 # 26. Unified Card and Inspector System (UI-C1)
 
-**Status:** Partial implementations exist; the unified card system is PLANNED.\n**Date:** 2026-11-22\n**Authority:** Presentation-only. Cards must read render projections and insert learner code. They must never mutate simulation state directly.\n\n## 1. Existing foundation
+**Status:** IMPLEMENTED 2026-11-22 (UI-C1A-F, presentation only).
+**Date:** 2026-11-22
+**Authority:** Presentation-only. Cards must read render projections and insert learner code. They must never mutate simulation state directly.
+
+## 1. Existing foundation
 
 The repository already has card and panel components, but they are feature-specific rather than one shared system:
 

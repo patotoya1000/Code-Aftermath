@@ -86,8 +86,8 @@ Each record: Decision · Reason · Consequence · Forbidden Alternative · Statu
 
 ## ADR-013 — Roadmap order: R4 (react) before R3 (carry)
 - **Decision:** Needs policies and event hooks came before carry + deposit.
-- **Reason:** The learner must be able to *react* before the economy gets deeper (`docs/IMPLEMENTATION_PLAN_2026-11-13.md`).
-- **Status:** ACCEPTED; R4a, R4b and R3 done. **Next: R5.**
+- **Reason:** The learner must be able to *react* before the economy gets deeper.
+- **Status:** ACCEPTED; R4a, R4b, R3 and R5 are done.
 
 ## ADR-014 — Carry as hands + pooled storage (R3)
 - **Decision:** Gathered units move node → survivor's `inventory.items` → base stock. Capacity is derived from data (`defs.carry`), never stored. Storage capacity is POOLED over every building that is not ruined; survivors unload at the nearest working building that accepts the item. Room for a trip (pooled capacity − stock − all carried − batches in flight) is checked BEFORE the units are picked up, so unloading cannot overfill.
@@ -242,3 +242,9 @@ Recruiting follows docs/game/21 sections 7-8 and 14. Decisions made while buildi
 - "Who is working this node" is derived in the projection from ledger reservations (`node.<id>` accounts), not stored on nodes, so state shape and SIM_VERSION are unchanged.
 - Hover never selects and never opens a card; the only clickable thing on a tag is the GATHER button, which only inserts code.
 
+
+## R2: the camp stash is a trip option with a raid-night loss (2026-11-22)
+- **Decision:** `survivor.stash` / `survivor.retrieve` reuse the scavenge departure (same handler, `a.actionType` picks the trip). The stash is plain state per site (not a ledger account): 60 units, loss on raid nights only (near 30 %, deep 50 %, camped 10 %, rounded up). `camp: true` costs trip time, not items. A retrieve run is limited by carry weight and storage room and never counts as looting.
+- **Reason:** keeps expeditions rule-resolved and replay-safe (pure rolls keyed by round) while giving remote sites a buffer that ignores base storage room.
+- **Consequence:** a guard or a camp BUILDING cutting the loss waits for R7; vehicles (R5) will multiply the retrieve carry weight. `SIM_VERSION` 0.45.0.
+- **Status:** ACCEPTED.

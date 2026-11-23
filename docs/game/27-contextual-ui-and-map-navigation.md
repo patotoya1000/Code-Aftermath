@@ -1,6 +1,6 @@
 # 27. Contextual UI and Outpost Road Navigation (UI-7)
 
-**Status:** PLANNED · 2026-11-22
+**Status:** IMPLEMENTED 2026-11-22 (UI-7A-E, presentation only)
 **Authority:** Presentation-only. This phase changes cards and map presentation only; it must not create or bypass simulation rules.
 
 ## 1. Goal

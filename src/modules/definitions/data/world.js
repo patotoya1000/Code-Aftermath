@@ -117,6 +117,15 @@ export const buildings = {
     repair: { cost: { wood: 6, stone: 8 }, healthPerAction: 30, ticks: 30 },
     upgrade: { 2: { cost: { wood: 25, stone: 35, scrap: 10 }, ticks: 80, minHq: 3 } },
   },
+  // R3 (docs/game/24): the SAWMILL is a station of its own. Ruin -> repair -> upgrade like any station. Level 1 saws wood (logs) into planks; level 2 (the Beam Mill,
+  // HQ 3) squares planks into beams. Its recipes carry `minHq: 2`: the sawmill opens when the headquarters reaches level 2. Powered sawing waits for a later pass.
+  sawmill: {
+    name: 'Sawmill',
+    levels: { 1: { maxHealth: 110 }, 2: { name: 'Beam Mill', maxHealth: 160 } },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 8, stone: 4 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 20, stone: 20, scrap: 6 }, ticks: 70, minHq: 3 } },
+  },
   // O11 power (docs/game/16). A level's `power` table is either a PRODUCER (`output`, plus `fuel` for a generator or `solar: true` for a panel)
   // or a CONSUMER (`use`). The grid is one number per tick: produced vs demanded. Demand is met by solar first (free, but only in daylight and
   // scaled by the weather's `solar` %), then by generators in id order, which burn one `fuel.item` from base stock per `fuel.every` ticks
@@ -207,8 +216,8 @@ export const buildings = {
 {
   const hq = buildings.hq;
   const grow = (t, k) => Object.fromEntries(Object.entries(t).map(([item, n]) => [item, Math.ceil(n * k)]));
-  Object.assign(hq.storage, { sand: 20, cement: 10, steel_ingot: 10, steel_plate: 6, concrete_block: 6, hinge_set: 6, sandbag: 10, lead_bar: 10, iron_bar: 10 });
-  Object.assign(hq.levels[2].storage, { sand: 60, cement: 30, steel_ingot: 30, steel_plate: 20, concrete_block: 20, hinge_set: 20, sandbag: 30, lead_bar: 30, iron_bar: 30 });
+  Object.assign(hq.storage, { sand: 20, cement: 10, steel_ingot: 10, steel_plate: 6, concrete_block: 6, hinge_set: 6, sandbag: 10, lead_bar: 10, iron_bar: 10, plank: 20, beam: 10 });
+  Object.assign(hq.levels[2].storage, { sand: 60, cement: 30, steel_ingot: 30, steel_plate: 20, concrete_block: 20, hinge_set: 20, sandbag: 30, lead_bar: 30, iron_bar: 30, plank: 60, beam: 30 });
   hq.levels[3] = { name: 'Command Post', maxHealth: 450, storage: grow(hq.levels[2].storage, 1.5) };
   hq.levels[4] = { name: 'Fortress Headquarters', maxHealth: 650, storage: grow(hq.levels[3].storage, 1.4) };
 }
@@ -233,6 +242,7 @@ const stage1 = {
     { id: 'tower_1', type: 'tower', level: 1, x: 15, y: 4, health: 8 },            // ruined watchtower inside the north-east corner; repair it, then survivor.guard(tower_1)
     { id: 'solar_1', type: 'solar_panel', level: 1, x: 7, y: 11, health: 10 },    // ruined; free power in daylight only
     { id: 'smelter_1', type: 'smelter', level: 1, x: 11, y: 10, health: 10 },     // ruined (P2); repair it, then (HQ level 2) survivor.craft("steel_ingot", 5)
+    { id: 'sawmill_1', type: 'sawmill', level: 1, x: 9, y: 13, health: 10 },       // ruined (R3); repair it, then (HQ level 2) survivor.craft("plank", 5)
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
   // gameplay; they reach the renderer through the render projection.
@@ -304,7 +314,7 @@ outFence.x = WALL_X; outFence.y = 12;
 for (const [id, x, y] of [
   ['hq', 6, 3], ['tower_1', WALL_X - 1, 3], ['storage_1', WALL_X - 2, 4], ['gate', WALL_X, 6],   // north of the road: hq (3x3 above its door), tower and storage by the wall
   ['kitchen', 2, 1], ['field_1', 2, 4], ['tent_1', 4, 4],
-  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10],   // south of the road
+  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10], ['sawmill_1', 7, 13],   // south of the road
   ['well', 9, 14], ['tank', WALL_X - 1, 13],                                                       // tank stays 2 east / 1 north of the well (siphon reach)
 ]) place(id, x, y);
 outpost.survivors[0].x = 6; outpost.survivors[0].y = 5;

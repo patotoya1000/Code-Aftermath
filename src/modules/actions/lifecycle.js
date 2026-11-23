@@ -40,6 +40,7 @@ export const FailureReason = Object.freeze({
   NO_LURE: 'NO_LURE', // lure: she carries no noise lure (survivor.take("noise_lure", 1))
   HOPPER_FULL: 'HOPPER_FULL', // reload: the hopper already holds as much as it can
   NOT_OPEN: 'NOT_OPEN', // scavenge: expeditions do not start before the day data/scavenge.js `startDay`
+  NO_STASH: 'NO_STASH', // retrieve: that site holds no stash
   AWAY: 'AWAY', // a survivor out on an expedition takes no commands until she is back
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',

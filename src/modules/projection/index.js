@@ -155,7 +155,7 @@ function terrainOf(state, defs) {
 function doingFor(state, s) {
   const a = currentAction(state, s.id); if (!a) return null;
   const r = a.params?.resource;
-  const t = { gather: r ? `gathering ${r}` : 'gathering', deposit: 'depositing', repair: 'repairing', upgrade: 'upgrading', rest: 'resting', eat: 'eating', drink: 'drinking', move: 'walking', moveTo: 'walking', farm: 'farming', cook: 'cooking', craft: 'crafting', scavenge: 'scavenging' }[a.actionType];
+  const t = { gather: r ? `gathering ${r}` : 'gathering', deposit: 'depositing', repair: 'repairing', upgrade: 'upgrading', rest: 'resting', eat: 'eating', drink: 'drinking', move: 'walking', moveTo: 'walking', farm: 'farming', cook: 'cooking', craft: 'crafting', scavenge: 'scavenging', stash: 'heading out to stash', retrieve: 'heading out to retrieve a stash' }[a.actionType];
   return t ?? String(a.actionType ?? '').toLowerCase() ?? null;
 }
 /** node id -> names of the survivors whose running gather job has reserved from it (the ledger records the account the job draws on). */

@@ -74,6 +74,14 @@ export const actions = {
   scavenge: { handler: 'scavenge', range: 0, ticksPerTile: 1,
     capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
   },
+  // stash / retrieve (R2, docs/game/24): the same walk-to-the-gate-and-depart handler as scavenge. `stash` works a remote site for a few rounds and leaves the haul in that
+  // site's stash; `retrieve` is the later run that hauls the stash home. Rules and numbers: data/scavenge.js `stash`.
+  stash: { handler: 'scavenge', range: 0, ticksPerTile: 1,
+    capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
+  },
+  retrieve: { handler: 'scavenge', range: 0, ticksPerTile: 1,
+    capability: { attributes: { strength: 1, agility: 1 }, skills: {} },
+  },
   // equip (Z5): put a weapon in her hands. A crafted weapon is taken from base stock (she walks to the storage that holds it); the weapon she held goes back
   // into stock (a starter weapon is never stocked, it can always be picked up again). It needs a minimum Combat skill (`weapons.<id>.minCombat`).
   equip: { handler: 'equip', range: 1, ticksPerTile: 1, ticks: 2,

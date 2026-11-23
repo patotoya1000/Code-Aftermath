@@ -7,7 +7,7 @@ import { ageFood } from '../spoilage/index.js';
 import { tickFarms, farmDay } from '../farming/index.js';
 import { eventDay } from '../events/index.js';
 import { recruit, buy, townDay } from '../town/index.js';
-import { scavengeTick, loseAway } from '../scavenge/index.js';
+import { scavengeTick, loseAway, raidStashes } from '../scavenge/index.js';
 import { raidWarning, waveStart, waveDawn, tickWave, tickWanderers, wanderersLeave, lootDawn, tickMounts, mountDemands, tickNoise } from '../threats/index.js';
 import { createActionEngine } from '../actions/index.js';
 import { studentView, renderProjection, inspectorCard } from '../projection/index.js';
@@ -63,7 +63,7 @@ export function createSimulation({ defs, state, log = createEventLog() }) {
     const before = timeOf(defs, state.tick - 1);
     const now = timeOf(defs, state.tick);
     if (before.isNight && !now.isNight) { ctx.emit('time.dawn', { day: now.day }); waveDawn(ctx); lootDawn(ctx, now.day); } // the wave retreats and is resolved at dawn
-    if (!before.isNight && now.isNight) { ctx.emit('time.dusk', { day: now.day }); wanderersLeave(ctx); waveStart(ctx, now.day); if (state.threats.wave) loseAway(ctx); } // a raid, if one is scheduled, starts as a wave of zombies at dusk
+    if (!before.isNight && now.isNight) { ctx.emit('time.dusk', { day: now.day }); wanderersLeave(ctx); waveStart(ctx, now.day); if (state.threats.wave) { loseAway(ctx); raidStashes(ctx); } } // a raid, if one is scheduled, starts as a wave of zombies at dusk
     if (now.day !== before.day) {
       ageFood(ctx, now.day); // food ages once a day, at dawn
       farmDay(ctx, now.day); // today's weather hazard hits unsheltered crops

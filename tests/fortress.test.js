@@ -319,7 +319,7 @@ test('P3: learner code can read what an upgrade needs (the HQ level) and what a 
 
 test('P3: SIM_VERSION moved to 0.42.0, so an older save or replay is refused instead of loading a world without the new sites and smelter', async () => {
   const { SIM_VERSION } = await import('../src/kernel/index.js');
-  assert.equal(SIM_VERSION, '0.44.0');
+  assert.equal(SIM_VERSION, '0.45.0');
 });
 
 // ---------- the wall / gate card ----------

@@ -91,4 +91,3 @@ Equipment/encumbrance; dedicated carry/unload animations (I1); learner-chosen de
 # Related Documentation
 
 - `docs/game/05-resources-inventory-carry.md`
-- `docs/IMPLEMENTATION_PLAN_2026-11-13.md` (R3 row)

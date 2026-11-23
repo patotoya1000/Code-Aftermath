@@ -30,7 +30,8 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [x] UI-1 Codebook · UI-2 live inspection · UI-3 contextual help · UI-4 lesson↔Codebook links · UI-5 mobile tabs · UI-6 polish
 - [x] **UI-R1** (2026-11-19) full-screen map, on-map selection card, drag-pan / zoom, bottom-docked code and lesson panels, lesson Run feedback, completion from saved progress
 - [x] PA-1 camera · PA-2 terrain · PA-3 roads · PA-4 objects + fence autotiling · PA-5 multi-cell buildings
-- [~] PA-6 … PA-8 NPC/zombie sprites and interaction: placeholder art only
+- [x] PA-6 painted nodes, trees, buildings, walls, gates, towers · PA-7 painted survivor sprites
+- [ ] PA-8 zombie sprites (placeholder art only)
 - [x] **UI-C1 unified card/inspector system** (`docs/game/26-unified-card-and-inspector-system.md`):
   - [x] UI-C1A shared card shell, tabs, metrics, actions and state helpers
   - [x] UI-C1B survivor and personal inventory/equipment cards
@@ -50,6 +51,12 @@ Authoritative detail lives in `AI_MEMORY/IMPLEMENTATION_STATUS.md` (what exists 
 - [ ] Playtest balance of the whole zombie ladder (long game)
 - [ ] Step/inspect mode UI · training buildings and specialization · encumbrance/equipment effects · research system
 - [ ] Pruning of finished actions (O1) · offline/release packaging · instructor tools
+
+## Forest, quarry and camps (docs/game/24)
+- [x] R0 loader animation · R1 forest and quarry maps · W1 wandering zombie
+- [x] **R2** (2026-11-22) camp stash: `survivor.stash(site, rounds?, { camp }?)`, `survivor.retrieve(site)`, raid-night loss 30% near / 50% deep / 10% camped, 60 units per site (`SIM_VERSION` 0.45.0)
+- [x] **R3** (2026-11-22) sawmill station (HQ 2): wood -> planks, planks -> beams at the Beam Mill (level 2, HQ 3); items `plank`, `beam`
+- [ ] R4 mining station + Mining skill · R5 vehicles · R6 bars into bullets/weapons/armor · R7 road camps and road danger
 
 ## Towers (docs/game/25)
 - [x] **T1** (2026-11-22) watchtower ladder levels 1-5 (range grows every level), `machine_gun` replaces `repeating_crossbow`, `dual_minigun` (`shots: 2`), `mountTarget` + `aim` in the projections, painted tower level pictures and mounts that turn toward their target (`SIM_VERSION` 0.44.0)

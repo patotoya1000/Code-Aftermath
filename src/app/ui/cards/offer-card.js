@@ -3,7 +3,7 @@ import { esc } from './card-state.js';
 import { metricRowHtml, mutedHtml } from './card-metrics.js';
 import { renderCardActions } from './card-actions.js';
 import { createCardView, renderCardShell, emptyCardView } from './card-shell.js';
-import { townActionList, trainActionList, scavengeActionList } from '../actions.js';
+import { townActionList, trainActionList, scavengeActionList, stashActionList } from '../actions.js';
 
 export function buildOfferCardView(offerOrId, kind = 'recruit', view = {}) {
   const id = typeof offerOrId === 'string' ? offerOrId : offerOrId?.id;
@@ -65,6 +65,9 @@ export function buildOfferCardView(offerOrId, kind = 'recruit', view = {}) {
     if (!entry) return emptyCardView('Scavenge site not available');
     const s = entry.site;
     const gain = Object.entries(s.expected ?? {}).map(([i, r]) => `${r[0]}-${r[1]} ${i}`).join(', ');
+    const stashEntries = stashActionList(view).filter((a) => a.site?.id === id); // R2: Stash / Retrieve buttons of this site
+    const st = s.stash;
+    const stashRows = st ? `${metricRowHtml('Stash', st.units > 0 ? `${st.units}/${st.capacity} units${st.protected ? ' (camped)' : ''}` : `empty (holds ${st.capacity})`)}${metricRowHtml('Raid takes', `${st.lossPercent}%${st.atRiskTonight ? ' — RAID TONIGHT' : ''}`)}${renderCardActions(stashEntries, { showDisabledReasons: true })}` : '';
     return createCardView({
       kind: 'offer',
       id: s.id,
@@ -78,10 +81,10 @@ export function buildOfferCardView(offerOrId, kind = 'recruit', view = {}) {
         tab: 'info',
         icon: '🗺',
         title: 'Expedition Site',
-        html: `${metricRowHtml('Trip time', `${s.ticks} ticks`)}${metricRowHtml('Danger today', `${s.dangerToday}%`)}${metricRowHtml('Recovery', `${s.recoveryPercent}%`)}${metricRowHtml('Expected', gain || '—')}${renderCardActions([entry], { showDisabledReasons: true })}${mutedHtml(esc(entry.reason))}`,
+        html: `${metricRowHtml('Trip time', `${s.ticks} ticks`)}${metricRowHtml('Danger today', `${s.dangerToday}%`)}${metricRowHtml('Recovery', `${s.recoveryPercent}%`)}${metricRowHtml('Expected', gain || '—')}${renderCardActions([entry], { showDisabledReasons: true })}${mutedHtml(esc(entry.reason))}${stashRows}`,
       }],
-      actions: [entry],
-      codeExamples: [{ label: entry.label, snippet: entry.snippet, reason: entry.reason }],
+      actions: [entry, ...stashEntries],
+      codeExamples: [entry, ...stashEntries].map((a) => ({ label: a.label, snippet: a.snippet, reason: a.reason })),
     });
   }
 

@@ -2,7 +2,7 @@ import { hashString } from '../../kernel/index.js';
 import { stockKey, credit } from '../resources/index.js';
 import { storageRoom } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
-import { awardSkillXp } from '../survivors/index.js';
+import { awardSkillXp, carryCapacity, carriedLoad } from '../survivors/index.js';
 import { dayOf, timeOf } from '../environment/index.js';
 import { raidForDay, bossForDay, threatsView } from '../threats/index.js';
 import { eventsView } from '../events/index.js';
@@ -16,6 +16,13 @@ import { townView } from '../town/index.js';
 //              loot = each yield range rolled from a hash, scaled by the site's RECOVERY (a just-looted site yields little, it regrows over `regrowDays`),
 //              halved when hurt (a hash roll under the danger percent), limited by storage room (the rest is left behind); the trip costs needs (paid on return)
 //   a wave     `loseAway`: when a wave starts, every survivor still away is LOST for good (removed, recorded in `state.scavenge.lost`): nothing recalls her
+// R2 CAMP STASH (docs/game/24): the same departure, two more trip kinds (`away.mode`):
+//   stash     `survivor.stash(site, rounds?, { camp }?)`: she works the site for 1..rounds.max rounds in one trip (each extra round adds `stash.rounds.ticks`, each later round
+//             yields `falloffPercent` less) and the haul goes into the site's STASH instead of base stock, no storage-room limit but `capPerSite` units per site (overflow is lost).
+//             `camp: true` adds `campTicks` and marks that stash PROTECTED until it is emptied.
+//   retrieve  `survivor.retrieve(site)`: a haul run of `haulTripPercent` of the site's ticks; she brings home what she can carry (survivor carry capacity, halved when hurt) and what
+//             base storage has room for; the rest stays in the stash.
+//   a raid    `raidStashes`: when a wave starts every stash loses a share of each item (near / deep / protected, rounded up); a stash at a site far from the wall is the easier prize.
 // Learner reads: `scavenge` (sites, danger today, recovery, who is away) and `board` (raids + train + events + sites in one place).
 
 const num = (seed, key) => parseInt(hashString(`scavenge:${seed}:${key}`).slice(-8), 16);
@@ -49,13 +56,22 @@ export function rollLoot(defs, seed, key, siteId, percent, hurt) {
   return out;
 }
 
+/** Trip length and kind for a command. Pure. mode: 'scavenge' | 'stash' | 'retrieve'. */
+export function tripPlan(defs, siteId, mode, { rounds = 1, camp = false } = {}) {
+  const site = defs.scavenge.sites[siteId]; const st = defs.scavenge.stash;
+  if (mode === 'retrieve') return { mode, ticks: Math.max(1, Math.ceil((site.ticks * st.haulTripPercent) / 100)) };
+  if (mode === 'stash') return { mode, rounds, camp, ticks: site.ticks + (rounds - 1) * st.rounds.ticks + (camp ? st.campTicks : 0) };
+  return { mode: 'scavenge', ticks: site.ticks };
+}
+
 /** Leave: the survivor stands at the gate. Called by the scavenge handler when she arrives. */
-export function depart(ctx, s, siteId) {
+export function depart(ctx, s, siteId, mode = 'scavenge', opts = {}) {
   const { state, defs } = ctx;
-  const site = defs.scavenge.sites[siteId];
+  const plan = tripPlan(defs, siteId, mode, opts);
   s.status = 'away';
-  s.away = { siteId, departTick: state.tick, returnTick: state.tick + site.ticks, danger: dangerOn(defs, state.seed, siteId, dayOf(defs, state.tick)) };
-  ctx.emit('scavenge.departed', { survivorId: s.id, siteId, returnTick: s.away.returnTick, danger: s.away.danger });
+  s.away = { siteId, mode: plan.mode, departTick: state.tick, returnTick: state.tick + plan.ticks, danger: dangerOn(defs, state.seed, siteId, dayOf(defs, state.tick)) };
+  if (plan.mode === 'stash') { s.away.rounds = plan.rounds; s.away.camp = plan.camp; }
+  ctx.emit('scavenge.departed', { survivorId: s.id, siteId, mode: plan.mode, returnTick: s.away.returnTick, danger: s.away.danger });
 }
 
 /** Bring back every survivor whose trip is over, resolve it, and pay its costs. ctx = { state, defs, emit }. */
@@ -68,16 +84,36 @@ function comeBack(ctx, s) {
   const { state, defs } = ctx;
   const cfg = defs.scavenge;
   const { siteId, departTick, danger, returnTick } = s.away;
+  const mode = s.away.mode ?? 'scavenge';
+  if (mode === 'retrieve') return comeBackRetrieve(ctx, s);
   const day = dayOf(defs, state.tick);
   const key = `${s.id}:${departTick}:${siteId}`;
   const hurt = num(state.seed, `${key}:danger`) % 100 < danger;
   const percent = recoveryPercent(defs, state, siteId, day);
-  const rolled = rollLoot(defs, state.seed, key, siteId, percent, hurt);
   const loot = {}, leftBehind = {};
-  for (const [item, qty] of Object.entries(rolled)) {
-    const take = Math.min(qty, Math.max(0, storageRoom(state, item)));
-    if (take > 0) { credit(state, stockKey(item), take); syncStock(state, defs, item); loot[item] = take; }
-    if (take < qty) leftBehind[item] = qty - take;
+  if (mode === 'stash') {
+    // R2: every round is rolled on its own and the haul goes to the site's stash (capped), never to base stock.
+    const rolled = {};
+    for (let r = 0; r < (s.away.rounds ?? 1); r++) {
+      const scale = Math.max(0, 100 - cfg.stash.rounds.falloffPercent * r);
+      for (const [item, qty] of Object.entries(rollLoot(defs, state.seed, `${key}:r${r}`, siteId, Math.floor((percent * scale) / 100), hurt))) rolled[item] = (rolled[item] ?? 0) + qty;
+    }
+    const entry = state.scavenge.stash[siteId] ?? { items: {}, protected: false };
+    let room = Math.max(0, cfg.stash.capPerSite - stashUnits(entry));
+    for (const item of Object.keys(rolled).sort()) {
+      const take = Math.min(rolled[item], room);
+      if (take > 0) { entry.items[item] = (entry.items[item] ?? 0) + take; room -= take; loot[item] = take; }
+      if (take < rolled[item]) leftBehind[item] = rolled[item] - take;
+    }
+    if (s.away.camp) entry.protected = true;
+    if (stashUnits(entry) > 0) state.scavenge.stash[siteId] = entry;
+  } else {
+    const rolled = rollLoot(defs, state.seed, key, siteId, percent, hurt);
+    for (const [item, qty] of Object.entries(rolled)) {
+      const take = Math.min(qty, Math.max(0, storageRoom(state, item)));
+      if (take > 0) { credit(state, stockKey(item), take); syncStock(state, defs, item); loot[item] = take; }
+      if (take < qty) leftBehind[item] = qty - take;
+    }
   }
   const away = returnTick - departTick;
   for (const need of ['hunger', 'thirst', 'energy']) s.needs[need] = Math.max(0, s.needs[need] - Math.floor((away * cfg.needsPer10Ticks[need]) / 10));
@@ -90,9 +126,76 @@ function comeBack(ctx, s) {
   const got = Object.keys(loot).length > 0;
   if (got) awardSkillXp(ctx, s, 'scavenge');
   const outcome = hurt ? 'hurt' : got ? 'clean' : 'empty';
-  state.scavenge.history.push({ day, survivorId: s.id, siteId, outcome, loot: { ...loot }, recoveryPercent: percent });
+  state.scavenge.history.push({ day, survivorId: s.id, siteId, mode, outcome, loot: { ...loot }, recoveryPercent: percent });
   while (state.scavenge.history.length > cfg.historyLimit) state.scavenge.history.shift();
-  ctx.emit('scavenge.returned', { survivorId: s.id, siteId, outcome, loot, leftBehind, recoveryPercent: percent, hurt });
+  ctx.emit('scavenge.returned', { survivorId: s.id, siteId, mode, outcome, loot, leftBehind, recoveryPercent: percent, hurt });
+  if (mode === 'stash') ctx.emit('stash.stored', { survivorId: s.id, siteId, stored: loot, leftBehind, units: stashUnits(state.scavenge.stash[siteId]), protected: Boolean(state.scavenge.stash[siteId]?.protected) });
+}
+
+const stashUnits = (entry) => Object.values(entry?.items ?? {}).reduce((a, b) => a + b, 0);
+
+/** The retrieve run is over: she is at the gate with what she could carry; what base storage or her hands could not take stays in the stash. */
+function comeBackRetrieve(ctx, s) {
+  const { state, defs } = ctx;
+  const cfg = defs.scavenge;
+  const { siteId, departTick, danger, returnTick } = s.away;
+  const day = dayOf(defs, state.tick);
+  const key = `${s.id}:${departTick}:${siteId}`;
+  const hurt = num(state.seed, `${key}:danger`) % 100 < danger;
+  const entry = state.scavenge.stash[siteId];
+  const loot = {}, left = {};
+  if (entry) {
+    // her hands: the weight she can still carry (a hurt survivor drops part of the load: it stays in the stash)
+    let weight = Math.max(0, carryCapacity(s, defs) - carriedLoad(s, defs));
+    if (hurt) weight = Math.floor((weight * cfg.hurtLootPercent) / 100);
+    for (const item of Object.keys(entry.items).sort()) {
+      const unit = defs.items[item]?.unitWeight ?? 1;
+      const take = Math.min(entry.items[item], Math.floor(weight / unit), Math.max(0, storageRoom(state, item)));
+      if (take > 0) { credit(state, stockKey(item), take); syncStock(state, defs, item); loot[item] = take; weight -= take * unit; entry.items[item] -= take; }
+      if (entry.items[item] > 0) left[item] = entry.items[item]; else delete entry.items[item];
+    }
+    if (stashUnits(entry) === 0) delete state.scavenge.stash[siteId];
+  }
+  const away = returnTick - departTick;
+  for (const need of ['hunger', 'thirst', 'energy']) s.needs[need] = Math.max(0, s.needs[need] - Math.floor((away * cfg.needsPer10Ticks[need]) / 10));
+  if (hurt) s.needs.health = Math.max(1, s.needs.health - cfg.hurtDamage);
+  s.status = 'active';
+  delete s.away;
+  const gate = state.buildings.gate ?? state.buildings.hq;
+  s.position = { x: gate.x, y: gate.y };
+  const got = Object.keys(loot).length > 0;
+  if (got) awardSkillXp(ctx, s, 'scavenge');
+  const outcome = hurt ? 'hurt' : got ? 'clean' : 'empty';
+  // a retrieve run never touches the site's recovery (nothing was searched): only the history and the event
+  state.scavenge.history.push({ day, survivorId: s.id, siteId, mode: 'retrieve', outcome, loot: { ...loot }, recoveryPercent: recoveryPercent(defs, state, siteId, day) });
+  while (state.scavenge.history.length > cfg.historyLimit) state.scavenge.history.shift();
+  ctx.emit('scavenge.returned', { survivorId: s.id, siteId, mode: 'retrieve', outcome, loot, leftBehind: left, recoveryPercent: recoveryPercent(defs, state, siteId, day), hurt });
+  ctx.emit('stash.retrieved', { survivorId: s.id, siteId, hauled: loot, left, hurt });
+}
+
+/** Percent of each item a raid takes from the stash at `siteId` (data: stash.lossPercent). Pure. */
+export function stashLossPercent(defs, state, siteId) {
+  const st = defs.scavenge.stash; const entry = state.scavenge.stash?.[siteId];
+  if (entry?.protected) return st.lossPercent.protected;
+  return defs.scavenge.sites[siteId].ticks >= st.deepFromTicks ? st.lossPercent.deep : st.lossPercent.near;
+}
+
+/** A wave started: every stash loses a share of each item (rounded up, never more than it holds). A protected (camped) stash loses the least. */
+export function raidStashes(ctx) {
+  const { state, defs } = ctx;
+  for (const siteId of Object.keys(state.scavenge.stash).sort()) {
+    const entry = state.scavenge.stash[siteId];
+    const percent = stashLossPercent(defs, state, siteId);
+    const lost = {};
+    for (const item of Object.keys(entry.items).sort()) {
+      const take = Math.min(entry.items[item], Math.ceil((entry.items[item] * percent) / 100));
+      if (take > 0) { entry.items[item] -= take; lost[item] = take; }
+      if (entry.items[item] <= 0) delete entry.items[item];
+    }
+    const wasProtected = Boolean(entry.protected);
+    if (stashUnits(entry) === 0) delete state.scavenge.stash[siteId];
+    if (Object.keys(lost).length) ctx.emit('stash.raided', { siteId, lost, percent, protected: wasProtected });
+  }
 }
 
 /** A wave started: everyone still outside is lost (removed for good). Nothing recalls a survivor; bringing everyone in before dusk is the learner's job. */
@@ -108,10 +211,20 @@ export function loseAway(ctx) {
   }
 }
 
-/** Why a scavenge command cannot start now (or null). Used by the handler. */
-export function scavengeRefusal(state, defs, siteId) {
+/** Why a scavenge / stash / retrieve command cannot start now (or null). Used by the handler. `mode` is the action type, `params` its command parameters. */
+export function scavengeRefusal(state, defs, siteId, mode = 'scavenge', params = {}) {
   if (!Object.prototype.hasOwnProperty.call(defs.scavenge.sites, siteId)) return { code: 'UNKNOWN_TARGET', message: `There is no site \"${siteId}\". Read scavenge.sites for the ids.` };
   if (dayOf(defs, state.tick) < defs.scavenge.startDay) return { code: 'NOT_OPEN', message: `Expeditions start on day ${defs.scavenge.startDay}.` };
+  const st = defs.scavenge.stash; const entry = state.scavenge.stash?.[siteId];
+  if (mode === 'stash') {
+    const rounds = params.rounds ?? 1;
+    if (!Number.isInteger(rounds) || rounds < 1 || rounds > st.rounds.max) return { code: 'INVALID_PARAMS', message: `rounds must be a whole number from 1 to ${st.rounds.max}.` };
+    if (stashUnits(entry) >= st.capPerSite) return { code: 'STORAGE_FULL', message: `The stash at ${siteId} already holds ${st.capPerSite} units: retrieve it first.` };
+  }
+  if (mode === 'retrieve') {
+    if (stashUnits(entry) === 0) return { code: 'NO_STASH', message: `There is no stash at ${siteId}. Read scavenge.sites[].stash.` };
+    if (!Object.keys(entry.items).some((item) => storageRoom(state, item) > 0)) return { code: 'STORAGE_FULL', message: 'Base storage has no room for anything in that stash.' };
+  }
   return null;
 }
 
@@ -121,6 +234,18 @@ const ticksToDusk = (defs, tick) => {
   return Math.max(0, Math.round((e.duskHour - t.hour) * (e.ticksPerDay / 24)));
 };
 
+/** One site's stash for the learner: what it holds, how full it is, what a raid would take, and whether tonight is a raid night (an unprotected warning). */
+function stashSiteView(state, defs, id, day) {
+  const st = defs.scavenge.stash; const entry = state.scavenge.stash?.[id];
+  const units = stashUnits(entry);
+  const raidNight = !state.threats?.wave && Boolean(raidForDay(defs, state.seed, day) || bossForDay(defs, day));
+  const retrieveTicks = tripPlan(defs, id, 'retrieve').ticks;
+  return {
+    items: { ...(entry?.items ?? {}) }, units, capacity: st.capPerSite, room: Math.max(0, st.capPerSite - units), protected: Boolean(entry?.protected),
+    deep: defs.scavenge.sites[id].ticks >= st.deepFromTicks, lossPercent: stashLossPercent(defs, state, id), atRiskTonight: units > 0 && raidNight, retrieveTicks,
+  };
+}
+
 function sitesView(state, defs) {
   const day = dayOf(defs, state.tick);
   return Object.entries(defs.scavenge.sites).map(([id, st]) => {
@@ -129,6 +254,7 @@ function sitesView(state, defs) {
     for (const [item, [min, max]] of Object.entries(st.yield)) expected[item] = [Math.floor((min * percent) / 100), Math.floor((max * percent) / 100)];
     const rec = state.scavenge.sites[id];
     return {
+      stash: stashSiteView(state, defs, id, day),
       id, name: st.name, region: st.region ?? 'front', ticks: st.ticks, danger: st.danger, dangerToday: dangerOn(defs, state.seed, id, day), regrowDays: st.regrowDays,
       recoveryPercent: percent, lastLootedDay: rec ? rec.lastDay : null, yield: Object.fromEntries(Object.entries(st.yield).map(([i, r]) => [i, [...r]])), expected,
       awayNow: Object.values(state.survivors).filter((s) => s.status === 'away' && s.away?.siteId === id).length,
@@ -137,7 +263,13 @@ function sitesView(state, defs) {
 }
 
 function awayView(state) {
-  return sorted(state).filter((s) => s.status === 'away' && s.away).map((s) => ({ survivorId: s.id, siteId: s.away.siteId, returnTick: s.away.returnTick, returnsInTicks: Math.max(0, s.away.returnTick - state.tick), danger: s.away.danger }));
+  return sorted(state).filter((s) => s.status === 'away' && s.away).map((s) => ({ survivorId: s.id, siteId: s.away.siteId, mode: s.away.mode ?? 'scavenge', returnTick: s.away.returnTick, returnsInTicks: Math.max(0, s.away.returnTick - state.tick), danger: s.away.danger }));
+}
+
+/** The stash rules the learner can read (data: stash). */
+function stashRulesView(defs) {
+  const st = defs.scavenge.stash;
+  return { capPerSite: st.capPerSite, deepFromTicks: st.deepFromTicks, lossPercent: { ...st.lossPercent }, maxRounds: st.rounds.max, roundTicks: st.rounds.ticks, falloffPercent: st.rounds.falloffPercent, campTicks: st.campTicks, haulTripPercent: st.haulTripPercent };
 }
 
 /** The learner's `scavenge` read. */
@@ -145,7 +277,7 @@ export function scavengeView(state, defs) {
   const day = dayOf(defs, state.tick);
   return {
     open: day >= defs.scavenge.startDay, opensOnDay: defs.scavenge.startDay, day,
-    sites: sitesView(state, defs), away: awayView(state),
+    sites: sitesView(state, defs), away: awayView(state), stash: stashRulesView(defs),
     lost: state.scavenge.lost.map((l) => ({ ...l })), history: state.scavenge.history.map((h) => ({ ...h, loot: { ...h.loot } })),
   };
 }

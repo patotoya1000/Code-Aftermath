@@ -85,5 +85,4 @@ Migration hook point exists (`SAVE_FORMAT_UNSUPPORTED`); no migrations written.
 
 # Related Documentation
 
-- `docs/IMPLEMENTATION_PLAN_2026-11-13.md` §4
 - `AI_MEMORY/systems/REPLAY_INDEX.md`

@@ -1,4 +1,4 @@
-# 20. Zombies, Waves, Loot, Weapons and Towers (DESIGN — decided 2026-11-18; implemented through Z6b, see sections 16-20)
+# 20. Zombies, Waves, Loot, Weapons and Towers (DESIGN — decided 2026-11-18; Z1-Z8 implemented, see sections 16-21)
 
 > Supersedes the "ENEMY — OPEN" section of [14](14-enemies-resources-items-open.md) for gameplay (sprites/animation-state lists there stay open).
 > Builds on the O19 groundwork: `threats` module, `data/threats.js`, abstract dusk raids. Every number below is a PLACEHOLDER to tune.

@@ -228,6 +228,30 @@ export const COMMANDS = {
       return { siteId: args[0] };
     },
   },
+  stash: {
+    type: 'stash', options: true, signature: 'survivor.stash(siteId, rounds, { camp })',
+    doc: 'Work a remote site and leave the haul there in a STASH instead of carrying it home (read scavenge.sites[].stash). She walks to the gate and leaves like survivor.scavenge, works the site for `rounds` rounds (1 to 3, default 1; each extra round adds time and yields a little less) and walks home empty-handed; what she found stays in that site\'s stash, which holds 60 units in all (more is lost) and does not use base storage room. Add { camp: true } (after the rounds) to pitch a camp: the trip takes longer, and that stash loses far less when a raid comes. A stash is only at risk on a raid night: a raid takes a share of every item in it (more at a deep site). Bring it home with survivor.retrieve(siteId). While she is away she takes no commands, and a wave that starts before she is back loses her for good.',
+    params(args) {
+      const rest = args.slice(1);
+      const last = rest.at(-1);
+      const hasOptions = last !== null && typeof last === 'object' && !Array.isArray(last);
+      const roundArgs = hasOptions ? rest.slice(0, -1) : rest;
+      if (args.length < 1 || args.length > 3 || roundArgs.length > 1 || typeof args[0] !== 'string' || !args[0]) throw bad('stash', 'use survivor.stash(\"forest_edge\"), survivor.stash(\"forest_edge\", 2) or survivor.stash(\"forest_edge\", 2, { camp: true })');
+      const rounds = optInt('stash', 'rounds', roundArgs[0], 1, 10);
+      const o = hasOptions ? cleanOptions('stash', last) : {};
+      for (const k of Object.keys(o)) if (k !== 'camp') throw bad('stash', `unknown option \"${k}\" (only camp)`);
+      if (o.camp !== undefined && typeof o.camp !== 'boolean') throw bad('stash', 'camp must be true or false');
+      return { siteId: args[0], ...(rounds !== undefined ? { rounds } : {}), ...(o.camp ? { camp: true } : {}) };
+    },
+  },
+  retrieve: {
+    type: 'retrieve', signature: 'survivor.retrieve(siteId)',
+    doc: 'Haul a site\'s stash home (survivor.stash puts it there). She walks to the gate and leaves for the site, which takes a share of the normal trip time (no searching, a known road), and comes back at the gate with what she can carry (her carry capacity: heavy items like stone and sand count for more) and what base storage has room for. Anything she could not take stays in the stash for the next run. A dangerous road can hurt her: she then drops half the load (it stays in the stash). While she is away she takes no commands, and a wave that starts before she is back loses her for good.',
+    params(args) {
+      if (args.length !== 1 || typeof args[0] !== 'string' || !args[0]) throw bad('retrieve', 'use survivor.retrieve(\"forest_edge\") with a site id whose scavenge.sites[].stash.units is above 0');
+      return { siteId: args[0] };
+    },
+  },
   attack: {
     type: 'attack', signature: 'survivor.attack(zombie)',
     doc: 'Attack a zombie during an active wave. The survivor moves to weapon range and fires or strikes by the weapon reload speed. Melee weapons never gain tower range bonuses. Running out of ammunition stops with NO_AMMO.',
@@ -272,7 +296,7 @@ export const READ_SURFACE = [
   'field_1.farm   (a farm: { working, sheltered, growth, yield, plots: [{ id, crop, stage: "empty" | "growing" | "ready", percent, water, dry, damage, ready }] })',
   'events   (risk events: { upcoming: [{ day, inDays, id, name, kind, harm }] scheduled soon - the schedule is public, prepare for it; history: [{ day, id, name, outcome, detail }] what has happened })',
   'town   (the town behind the wall: { open, day, opensOnDay, nextBoardInDays, survivors, beds, freeBeds, accepts: item -> { value, inStock }, offers: [{ id, name, attributes, skills, traits, worth, price: item -> units, train, hired, canAfford }] (train: true = came on the train), train: { present, nextArrivalDay, arrivesInDays, leavesInDays, visit, goods: [{ id, item, name, qty, left, worth, price: item -> units, canAfford }] }, history } - offers are public and fixed per seed and day; hire with town.recruit(offerId, item?))',
-  'scavenge   (expeditions: { open, opensOnDay, day, sites: [{ id, name, ticks (away), danger, dangerToday (more on a raid day), regrowDays, recoveryPercent (100 = untouched, low = looted recently), lastLootedDay, yield: item -> [min, max] at full recovery, expected: the same scaled by recovery, awayNow }], away: [{ survivorId, siteId, returnTick, returnsInTicks, danger }], lost: [{ id, name, day, siteId }] survivors lost outside during a wave, history: [{ day, survivorId, siteId, outcome: \"clean\" | \"hurt\" | \"empty\", loot, recoveryPercent }] } - a survivor who is away has survivor.status \"away\" and takes no commands until she returns)',
+  'scavenge   (expeditions: { open, opensOnDay, day, sites: [{ id, name, ticks (away), danger, dangerToday (more on a raid day), regrowDays, recoveryPercent (100 = untouched, low = looted recently), lastLootedDay, yield: item -> [min, max] at full recovery, expected: the same scaled by recovery, awayNow, stash: { items: item -> units, units, capacity, room, protected (camped), deep, lossPercent (what a raid night takes), atRiskTonight (units there and a raid or boss is due tonight), retrieveTicks } the camp stash at that site (survivor.stash puts loot there, survivor.retrieve brings it home) }], stash: { capPerSite, deepFromTicks, lossPercent: { near, deep, protected }, maxRounds, roundTicks, falloffPercent, campTicks, haulTripPercent } the stash rules, away: [{ survivorId, siteId, mode: \"scavenge\" | \"stash\" | \"retrieve\", returnTick, returnsInTicks, danger }], lost: [{ id, name, day, siteId }] survivors lost outside during a wave, history: [{ day, survivorId, siteId, mode, outcome: \"clean\" | \"hurt\" | \"empty\", loot, recoveryPercent }] } - a survivor who is away has survivor.status \"away\" and takes no commands until she returns)',
   'board   (everything coming or open: { day, duskInTicks (0 at night), raids: [{ day, inDays, strength }], bosses: [{ day, inDays, boss }], events: [{ day, inDays, id, name }], train: { present, arrivesInDays, leavesInDays }, sites: [{ id, name, ticks, dangerToday, recoveryPercent }], away })',
   'threats   (night raids: { zombies: type -> { name, role, threat, health, damage, speed, armor, firstDay, behaviour? }, bosses: [{ day, inDays, boss, name, escorts }] fixed milestones 4 days ahead, weapons: id -> { name, kind, reach | range, damage, pierce, noise, ammo, reload, craft }, towers: level -> { name, slots, rangeBonus, mounts }, noise: { threshold, reinforceEvery, reinforceCap, decayPerTick, attention (the noise of the wave now), loudest (tower id or null), reinforced (extra zombies it has drawn) }, waveRules, defense: { value, fence } (a rating only), wave: { active, day, gateClosed, breached, wallDamage, remaining, zombies: [{ id, type, x, y, state }] } while a wave is on, loot: { sortieOpen, piles: [{ id, item, qty, x, y, daysLeft }] } zombie loot on the ground (daysLeft = dawns until it is gone, null while its wave is on), upcoming: [{ day, inDays, strength, composition }] public 2 days ahead, history: [{ day, strength, defense, outcome, fenceDamage, lost }] } - a raid starts at dusk as a wave of zombies: the gate closes, they walk to the wall (or to a survivor OUTSIDE it) and hit it until dawn; keep everyone inside before dusk)',
   'nodes   (resource nodes: id, type, resource, amount, x, y)',

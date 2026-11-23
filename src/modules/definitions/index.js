@@ -212,6 +212,10 @@ export function validateDefinitions(d) {
   need(sv && [sv.raidDayDanger, sv.hurtLootPercent, sv.hurtDamage, sv.minRecovery].every((n) => Number.isInteger(n) && n >= 0) && sv.hurtLootPercent <= 100 && sv.minRecovery <= 100, 'scavenge: raidDayDanger, hurtLootPercent (0-100), hurtDamage and minRecovery (0-100) must be whole numbers >= 0');
   need(sv && ['hunger', 'thirst', 'energy'].every((k) => Number.isInteger(sv.needsPer10Ticks?.[k]) && sv.needsPer10Ticks[k] >= 0), 'scavenge: needsPer10Ticks needs whole hunger, thirst and energy numbers >= 0');
   need(sv && Object.keys(sv.sites ?? {}).length >= 1, 'scavenge: at least one site is needed');
+  const sh = sv?.stash; const whole2 = (n, min = 0) => Number.isInteger(n) && n >= min;
+  need(sh && whole2(sh.capPerSite, 1) && whole2(sh.deepFromTicks, 1) && whole2(sh.campTicks) && Number.isInteger(sh.haulTripPercent) && sh.haulTripPercent >= 1 && sh.haulTripPercent <= 100, 'scavenge.stash: capPerSite, deepFromTicks, campTicks and haulTripPercent (1-100) must be whole numbers');
+  need(sh && ['near', 'deep', 'protected'].every((k) => whole2(sh.lossPercent?.[k]) && sh.lossPercent[k] <= 100) && sh.lossPercent.protected <= sh.lossPercent.near && sh.lossPercent.near <= sh.lossPercent.deep, 'scavenge.stash: lossPercent near, deep and protected must be whole percents with protected <= near <= deep');
+  need(sh && whole2(sh.rounds?.max, 1) && whole2(sh.rounds?.ticks) && whole2(sh.rounds?.falloffPercent) && sh.rounds.falloffPercent * (sh.rounds.max - 1) < 100, 'scavenge.stash: rounds needs whole max >= 1, ticks >= 0 and a falloffPercent that never takes a round to zero');
   for (const [id, st] of Object.entries(sv?.sites ?? {})) {
     need(typeof st.name === 'string' && st.name && Number.isInteger(st.ticks) && st.ticks >= 1 && Number.isInteger(st.regrowDays) && st.regrowDays >= 1, `scavenge site ${id}: needs a name, whole ticks >= 1 and whole regrowDays >= 1`);
     need(Number.isInteger(st.danger) && st.danger >= 0 && st.danger <= 100, `scavenge site ${id}: danger must be a whole percent 0-100`);

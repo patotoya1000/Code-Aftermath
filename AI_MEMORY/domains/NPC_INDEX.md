@@ -74,7 +74,7 @@ IMPLEMENTED for one survivor type with full schema; multi-survivor works in test
 
 # Known Problems
 
-- `morale` is displayed but never changes (O5 in `docs/IMPLEMENTATION_PLAN_2026-11-13.md`).
+- `morale` is displayed but never changes.
 - The learner `survivor` is simply the first survivor unless `actorId` is given (`src/modules/sandbox/runtime.js`).
 - Survivors cannot walk through buildings or the fence; the gate is the opening (O3). No unit-vs-unit collision.
 
