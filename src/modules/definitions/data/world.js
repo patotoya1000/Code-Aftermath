@@ -126,6 +126,20 @@ export const buildings = {
     repair: { cost: { wood: 8, stone: 4 }, healthPerAction: 30, ticks: 30 },
     upgrade: { 2: { cost: { wood: 20, stone: 20, scrap: 6 }, ticks: 70, minHq: 3 } },
   },
+  // R4 (docs/game/24): the MINING STATION is a building of its own. Ruin -> repair -> upgrade like any station, and its work (survivor.mine) opens when the headquarters
+  // reaches `mining.minHq` (3). Level 1 digs by hand; level 2 (the Rail Cart) brings more ore per round and shores the tunnel (see data/mining.js caveIn); level 3 (the Powered
+  // Drill, HQ 4) brings the most and draws `mine.power` from the grid while a round is worked. Rules and numbers: data/mining.js.
+  mining_station: {
+    name: 'Mining Station',
+    levels: {
+      1: { maxHealth: 120, mine: { yieldPercent: 100 } },
+      2: { name: 'Rail Cart Mine', maxHealth: 170, mine: { yieldPercent: 200 } },
+      3: { name: 'Powered Drill', maxHealth: 230, mine: { yieldPercent: 300, power: 8 } },
+    },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 10, stone: 8 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 25, stone: 30, scrap: 8 }, ticks: 80, minHq: 3 }, 3: { cost: { wood: 20, stone: 40, scrap: 20, steel_plate: 4 }, ticks: 110, minHq: 4 } },
+  },
   // O11 power (docs/game/16). A level's `power` table is either a PRODUCER (`output`, plus `fuel` for a generator or `solar: true` for a panel)
   // or a CONSUMER (`use`). The grid is one number per tick: produced vs demanded. Demand is met by solar first (free, but only in daylight and
   // scaled by the weather's `solar` %), then by generators in id order, which burn one `fuel.item` from base stock per `fuel.every` ticks
@@ -216,8 +230,8 @@ export const buildings = {
 {
   const hq = buildings.hq;
   const grow = (t, k) => Object.fromEntries(Object.entries(t).map(([item, n]) => [item, Math.ceil(n * k)]));
-  Object.assign(hq.storage, { sand: 20, cement: 10, steel_ingot: 10, steel_plate: 6, concrete_block: 6, hinge_set: 6, sandbag: 10, lead_bar: 10, iron_bar: 10, plank: 20, beam: 10 });
-  Object.assign(hq.levels[2].storage, { sand: 60, cement: 30, steel_ingot: 30, steel_plate: 20, concrete_block: 20, hinge_set: 20, sandbag: 30, lead_bar: 30, iron_bar: 30, plank: 60, beam: 30 });
+  Object.assign(hq.storage, { sand: 20, cement: 10, steel_ingot: 10, steel_plate: 6, concrete_block: 6, hinge_set: 6, sandbag: 10, lead_bar: 10, iron_bar: 10, plank: 20, beam: 10, iron_ore: 20, lead_ore: 20, coal: 30 });
+  Object.assign(hq.levels[2].storage, { sand: 60, cement: 30, steel_ingot: 30, steel_plate: 20, concrete_block: 20, hinge_set: 20, sandbag: 30, lead_bar: 30, iron_bar: 30, plank: 60, beam: 30, iron_ore: 60, lead_ore: 60, coal: 90 });
   hq.levels[3] = { name: 'Command Post', maxHealth: 450, storage: grow(hq.levels[2].storage, 1.5) };
   hq.levels[4] = { name: 'Fortress Headquarters', maxHealth: 650, storage: grow(hq.levels[3].storage, 1.4) };
 }
@@ -243,6 +257,7 @@ const stage1 = {
     { id: 'solar_1', type: 'solar_panel', level: 1, x: 7, y: 11, health: 10 },    // ruined; free power in daylight only
     { id: 'smelter_1', type: 'smelter', level: 1, x: 11, y: 10, health: 10 },     // ruined (P2); repair it, then (HQ level 2) survivor.craft("steel_ingot", 5)
     { id: 'sawmill_1', type: 'sawmill', level: 1, x: 9, y: 13, health: 10 },       // ruined (R3); repair it, then (HQ level 2) survivor.craft("plank", 5)
+    { id: 'mining_1', type: 'mining_station', level: 1, x: 7, y: 7, health: 10 },    // ruined (R4); repair it, then (HQ level 3) survivor.mine("iron_ore")
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
   // gameplay; they reach the renderer through the render projection.
@@ -314,7 +329,7 @@ outFence.x = WALL_X; outFence.y = 12;
 for (const [id, x, y] of [
   ['hq', 6, 3], ['tower_1', WALL_X - 1, 3], ['storage_1', WALL_X - 2, 4], ['gate', WALL_X, 6],   // north of the road: hq (3x3 above its door), tower and storage by the wall
   ['kitchen', 2, 1], ['field_1', 2, 4], ['tent_1', 4, 4],
-  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10], ['sawmill_1', 7, 13],   // south of the road
+  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10], ['sawmill_1', 7, 13], ['mining_1', 10, 9],   // south of the road
   ['well', 9, 14], ['tank', WALL_X - 1, 13],                                                       // tank stays 2 east / 1 north of the well (siphon reach)
 ]) place(id, x, y);
 outpost.survivors[0].x = 6; outpost.survivors[0].y = 5;

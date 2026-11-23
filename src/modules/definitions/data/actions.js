@@ -36,6 +36,11 @@ export const actions = {
   craft: { handler: 'cook', skill: 'crafting', range: 1, ticksPerTile: 1, maxCount: 100, powerWaitTicks: 90,
     capability: { attributes: { agility: 1, strength: 1 }, skills: { crafting: 0 } },
   },
+  // mine (R4, docs/game/24) is a STANDING action of ROUNDS at the mining station: walk to a repaired station, dig one round of an ore, bring its yield into base stock, repeat until `count`
+  // rounds are done or a stop reason fires (STORAGE_FULL, EXHAUSTED, NO_STATION, NO_POWER, TOO_HURT). A round may end in a cave-in (lost round, she is hurt). Numbers: data/mining.js.
+  mine: { handler: 'mine', skill: 'mining', range: 1, ticksPerTile: 1, maxCount: 100,
+    capability: { attributes: { strength: 1, endurance: 1 }, skills: { mining: 0 } },
+  },
   rest: { handler: 'rest', defaultTicks: 20, maxTicks: 200, energyPerTick: 2,
     capability: { attributes: { endurance: 1 }, skills: { rest: 0 } },
   },

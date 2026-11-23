@@ -14,9 +14,10 @@ import { equipHandler } from './equip.js';
 import { mountHandler } from './mount.js';
 import { reloadHandler } from './reload.js';
 import { lureHandler } from './lure.js';
+import { mineHandler } from './mine.js';
 import { scavengeHandler } from './scavenge.js';
 
 // Keyed by the `handler` field in action definitions.
 export const createHandlers = () => ({
-  move: moveHandler, gather: gatherHandler, deposit: depositHandler, rest: restHandler, consume: consumeHandler, repair: repairHandler, upgrade: upgradeHandler, cook: cookHandler, farm: farmHandler, combat: combatHandler, guard: guardHandler, collect: collectHandler, take: takeHandler, equip: equipHandler, mount: mountHandler, reload: reloadHandler, lure: lureHandler, scavenge: scavengeHandler,
+  move: moveHandler, gather: gatherHandler, deposit: depositHandler, rest: restHandler, consume: consumeHandler, repair: repairHandler, upgrade: upgradeHandler, cook: cookHandler, farm: farmHandler, combat: combatHandler, guard: guardHandler, collect: collectHandler, take: takeHandler, equip: equipHandler, mount: mountHandler, reload: reloadHandler, lure: lureHandler, scavenge: scavengeHandler, mine: mineHandler,
 });

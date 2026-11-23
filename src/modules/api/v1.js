@@ -65,6 +65,15 @@ export const COMMANDS = {
       return { recipe: args[0], ...(count !== undefined ? { count } : {}) };
     },
   },
+  mine: {
+    type: 'mine', signature: 'survivor.mine(ore, rounds)',
+    doc: 'Walk to a repaired mining station and dig ore in rounds, e.g. survivor.mine("iron_ore", 5). Ores: "iron_ore", "lead_ore", "coal". Each round brings ore into base stock (more at a higher station level and Mining skill) and practises Mining; the smelter turns ore into bars. A round can end in a cave-in: the ore is lost and she is hurt (see mining_1.mining.caveInPercent). The station opens when the headquarters reaches level 3. Stops by itself when `rounds` are done, storage is full, she is too tired or too hurt, or a powered drill waits too long for power.',
+    params(args) {
+      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string' || !args[0]) throw bad('mine', 'first argument must be an ore name like "iron_ore"');
+      const count = optInt('mine', 'rounds', args[1], 1, 100);
+      return { ore: args[0], ...(count !== undefined ? { count } : {}) };
+    },
+  },
   farm: {
     type: 'farm', options: true, signature: 'survivor.farm(farm, crop, count, { fertilize })',
     doc: 'Work one farm for one crop, e.g. survivor.farm(field_1, "potato"). She harvests what is ripe (and carries it to storage), waters dry plots, and plants empty ones, again and again. Planting spends seeds from base stock (a crop is its own seed), watering spends water; rain waters the plots for free. Add { fertilize: true } (after the optional count) to also spread fertilizer on growing plots while there is some in base stock: +50 % harvest for that plot. She waits at the farm while the crop grows. Stops when `count` plots are harvested, seeds or water run out, storage is full, or she is too tired. The farm must be repaired. See crops and the farm\'s plots (field_1.farm).',
@@ -290,6 +299,7 @@ export const READ_SURFACE = [
   'generator_1.power   (a generator or solar panel: { role, kind, output, producing, status, working, fuel: { item, every, burnLeft, inStock } or null }; a freezer: { role: "consumer", use, powered, status, working }; a battery: { role: "storage", capacity, rate, charge, status, working })',
   'tower_1.tower   (a watchtower: { level, name, slots, freeSlots, rangeBonus, mounts: what it can hold, installed: [{ weapon, name, ammo, hopper, hopperMax, range, damage, reload, power?, status, operator }] mounted weapons, working, posted: [survivor ids] } - a survivor standing next to a working tower (within its slots) is posted: her ranged weapon reaches rangeBonus cells further; the first posted survivors crew the installed mounted weapons (operator), which fire by themselves; status is READY | RELOADING | IDLE | NO_AMMO | NO_OPERATOR | NO_POWER | BROKEN)',
   'well.water   (the deep well\'s reservoir: { amount, capacity, working, recharge: { every, amount, percent, perDay }, siphon: { status, reach, target } or null })',
+  'mining_1.mining   (a mining station: { working, open, minHq, level, yieldPercent, caveInPercent, power, powered, ores: [{ id, name, item, ticks, yield, inStock, room, canMine }] })',
   'recipes   (what can be cooked or crafted: id -> { name, action: "cook" | "craft", station, stationLevel, inputs, outputs, ticks, skill, power, stationWorking, canAfford })',
   'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',
   'crops   (what can be planted: id -> { name, growthTicks, seeds, yield, hazards, inStock })',

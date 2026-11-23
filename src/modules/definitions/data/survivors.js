@@ -10,6 +10,7 @@ export const SKILLS = {
   farming: { name: 'Farming', description: 'Plant, water and harvest faster.' },
   crafting: { name: 'Crafting', description: 'Craft faster at a workshop.' },
   combat: { name: 'Combat', description: 'Fight zombies faster and more effectively.' },
+  mining: { name: 'Mining', description: 'Dig ore faster and safer at the mining station.' },
 };
 
 // Skill progression (O4). Skills improve ONLY through simulation-awarded XP from real work (docs/game/07 §NPC skill learning).
@@ -33,6 +34,7 @@ export const progression = {
     craft:  { skill: 'crafting',   xp: 4,    fullUntil: 2, teachesUpTo: 6 }, // per finished workshop batch
     farm:   { skill: 'farming',   xp: 2,    fullUntil: 2, teachesUpTo: 6 }, // per finished chore (plant, water, harvest)
     combat: { skill: 'combat',    xp: 2,    fullUntil: 2, teachesUpTo: 8 }, // per successful combat hit
+    mine:   { skill: 'mining',    xp: 4,    fullUntil: 2, teachesUpTo: 6 }, // per finished mining round (R4)
     scavenge: { skill: 'gathering', xp: 3, fullUntil: 3, teachesUpTo: 8 }, // per expedition that came back with something (W3)
   },
 };
@@ -54,7 +56,7 @@ export const survivorTemplates = {
     background: 'A trainee survivor.',
     needs: { health: 100, hunger: 80, thirst: 80, energy: 90, morale: 70 },
     attributes: { strength: 5, agility: 5, endurance: 5, intelligence: 5, perception: 5 },
-    skills: { gathering: 0, repair: 0, rest: 0, consume: 0, move: 0, cooking: 0, farming: 0, crafting: 0, combat: 0 },
+    skills: { gathering: 0, repair: 0, rest: 0, consume: 0, move: 0, cooking: 0, farming: 0, crafting: 0, combat: 0, mining: 0 },
     traits: [],
   },
 };

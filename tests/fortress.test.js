@@ -173,7 +173,7 @@ test('P2: the smelter is a ruined station in the settlement, with two levels', (
   const b = view(sim, 'smelter_1');
   assert.equal(b.type, 'smelter'); assert.equal(b.condition, 'ruined');
   assert.equal(defs.buildings.smelter.levels[2].name, 'Blast Smelter');
-  assert.deepEqual(b.recipes.map((r) => r.id), ['steel_ingot', 'steel_ingot_bulk', 'lead_bar', 'iron_bar']);
+  assert.deepEqual(b.recipes.map((r) => r.id), ['steel_ingot', 'steel_ingot_bulk', 'lead_bar', 'iron_bar', 'iron_bar_ore', 'lead_bar_ore']);
   const out = newSim('stage1_outpost', 1);
   assert.ok(view(out, 'smelter_1'), 'the painted outpost has one too');
 });
@@ -319,7 +319,7 @@ test('P3: learner code can read what an upgrade needs (the HQ level) and what a 
 
 test('P3: SIM_VERSION moved to 0.42.0, so an older save or replay is refused instead of loading a world without the new sites and smelter', async () => {
   const { SIM_VERSION } = await import('../src/kernel/index.js');
-  assert.equal(SIM_VERSION, '0.45.0');
+  assert.equal(SIM_VERSION, '0.46.0');
 });
 
 // ---------- the wall / gate card ----------

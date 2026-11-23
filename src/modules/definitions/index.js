@@ -12,8 +12,9 @@ import { zombies, raidSchedule, bosses, bossSchedule, waveRules, lootTables, wan
 import { weapons, towers, noise } from './data/arsenal.js';
 import { town } from './data/town.js';
 import { scavenge } from './data/scavenge.js';
+import { mining } from './data/mining.js';
 
-const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure', 'scavenge'];
+const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure', 'scavenge', 'mine'];
 
 const isTile = (s, x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < s.map.width && y < s.map.height;
 
@@ -105,6 +106,7 @@ export function validateDefinitions(d) {
       need(Number.isInteger(a.maxCount) && a.maxCount >= 1, `action ${id}: maxCount must be a whole number >= 1`);
       need(Number.isInteger(a.powerWaitTicks) && a.powerWaitTicks >= 1, `action ${id}: powerWaitTicks must be a whole number >= 1`);
     }
+    if (a.handler === 'mine') need(Number.isInteger(a.maxCount) && a.maxCount >= 1 && Number.isInteger(a.range) && a.range >= 1 && Number.isInteger(a.ticksPerTile) && a.ticksPerTile >= 1, `action ${id}: range, ticksPerTile and maxCount must be whole numbers >= 1`);
     if (a.handler === 'collect') need(['range', 'ticksPerTile', 'ticksPerUnit', 'unloadTicks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticksPerUnit and unloadTicks must be whole numbers >= 1`);
     if (a.handler === 'equip') need(['range', 'ticksPerTile', 'ticks'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile and ticks must be whole numbers >= 1`);
     if (a.handler === 'take') need(['range', 'ticksPerTile', 'ticks', 'maxAmount'].every((k) => Number.isInteger(a[k]) && a[k] >= 1), `action ${id}: range, ticksPerTile, ticks and maxAmount must be whole numbers >= 1`);
@@ -369,6 +371,23 @@ export function validateDefinitions(d) {
     for (const skillId of Object.keys(s.skills ?? {})) need(d.skills[skillId], `survivor template ${id}: unknown skill \"${skillId}\"`);
     for (const traitId of s.traits ?? []) need(d.traits[traitId], `survivor template ${id}: unknown trait \"${traitId}\"`);
   }
+  // R4 mining (docs/game/24): the station, its gate, the cave-in numbers and the ores must all be known and whole.
+  {
+    const m = d.mining;
+    need(m && d.buildings[m.station]?.levels?.[1], 'mining: station must be a known building type');
+    need(m && whole(m.minHq, 1) && whole(m.minHealth, 1) && whole(m.powerWaitTicks, 1), 'mining: minHq, minHealth and powerWaitTicks must be whole numbers >= 1');
+    need(m && whole(m.caveIn?.skillPercent, 0) && whole(m.caveIn?.floorPercent, 0) && whole(m.caveIn?.damage, 1), 'mining.caveIn: skillPercent and floorPercent must be whole numbers >= 0 and damage >= 1');
+    for (const [lv, def] of Object.entries(d.buildings[m?.station]?.levels ?? {})) {
+      need(whole(m.caveIn?.percent?.[lv], 0) && m.caveIn.percent[lv] <= 100, `mining.caveIn.percent: level ${lv} needs a whole percent from 0 to 100`);
+      need(whole(def.mine?.yieldPercent, 1), `mining station level ${lv}: mine.yieldPercent must be a whole number >= 1`);
+      if (def.mine?.power !== undefined) need(whole(def.mine.power, 1) && def.power === undefined, `mining station level ${lv}: mine.power must be a whole number >= 1 (and the level has no power table of its own)`);
+    }
+    for (const [id, o] of Object.entries(m?.ores ?? {})) {
+      need(typeof o.name === 'string' && o.name && d.items[o.item], `mining ore ${id}: needs a name and a known item`);
+      need(whole(o.ticks, 1) && whole(o.yield, 1) && whole(o.minSkill, 0), `mining ore ${id}: ticks and yield must be whole numbers >= 1 and minSkill >= 0`);
+    }
+    need(Object.keys(m?.ores ?? {}).length > 0 && d.skills.mining && d.progression.awards.mine?.skill === 'mining', 'mining: needs at least one ore, a "mining" skill and a "mine" XP award');
+  }
   for (const [id, l] of Object.entries(d.lessons)) {
     need(d.scenarios[l.scenario], `lesson ${id}: unknown scenario "${l.scenario}"`);
     need(Array.isArray(l.goals) && l.goals.length > 0, `lesson ${id}: needs goals`);
@@ -379,7 +398,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

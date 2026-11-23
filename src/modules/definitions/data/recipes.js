@@ -41,6 +41,9 @@ export const recipes = {
   // Future materials (nothing uses them yet): lead for bullets, iron for weapon upgrades and body armor.
   lead_bar: { name: 'Lead bar', station: 'smelter', stationLevel: 1, inputs: { scrap: 3 }, outputs: { lead_bar: 1 }, ticks: 30, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
   iron_bar: { name: 'Iron bar', station: 'smelter', stationLevel: 1, inputs: { scrap: 3, charcoal: 1 }, outputs: { iron_bar: 1 }, ticks: 35, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  // R4 (docs/game/24): the mine becomes the real source of bars. Ore + coal melt into MORE bars than the scrap recipes above (which stay as the slower fallback). Both open with the HQ at level 2 like the other smelter recipes.
+  iron_bar_ore: { name: 'Iron bar (from ore)', station: 'smelter', stationLevel: 1, inputs: { iron_ore: 3, coal: 1 }, outputs: { iron_bar: 2 }, ticks: 35, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
+  lead_bar_ore: { name: 'Lead bar (from ore)', station: 'smelter', stationLevel: 1, inputs: { lead_ore: 3, coal: 1 }, outputs: { lead_bar: 2 }, ticks: 30, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
   // R3 (docs/game/24): the SAWMILL station. Planks from wood (logs), beams from planks (Beam Mill, level 2). Both open with the headquarters at level 2.
   plank: { name: 'Plank', station: 'sawmill', stationLevel: 1, inputs: { wood: 3 }, outputs: { plank: 2 }, ticks: 20, skill: 'crafting', minSkill: 0, action: 'craft', minHq: 2 },
   beam: { name: 'Beam', station: 'sawmill', stationLevel: 2, inputs: { plank: 3 }, outputs: { beam: 1 }, ticks: 30, skill: 'crafting', minSkill: 1, action: 'craft', minHq: 2 },

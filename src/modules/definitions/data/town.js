@@ -23,7 +23,7 @@ export const town = {
   candidates: {
     template: 'rookie',
     attribute: { min: 3, max: 8 },
-    skills: { count: 2, maxLevel: 3, pool: ['gathering', 'repair', 'rest', 'consume', 'move', 'cooking', 'farming', 'crafting', 'combat'] },
+    skills: { count: 2, maxLevel: 3, pool: ['gathering', 'repair', 'rest', 'consume', 'move', 'cooking', 'farming', 'crafting', 'combat', 'mining'] },
     traitPercent: 30,
     names: ['Ash', 'Bram', 'Cleo', 'Dara', 'Eli', 'Faye', 'Gus', 'Hana', 'Ivo', 'June', 'Kade', 'Lena', 'Milo', 'Nell', 'Otto', 'Pia', 'Quinn', 'Rhea', 'Sol', 'Tess', 'Uma', 'Vik', 'Wren', 'Yara'],
   },

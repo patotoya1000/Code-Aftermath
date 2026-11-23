@@ -24,6 +24,13 @@ export function buildingActionList(b, view = {}) {
     out.push({ id: `${r.action}:${r.id}`, label: `${cap(r.action)} ${r.id}`, snippet: `survivor.${r.action}("${r.id}", 5);`, enabled: !!r.working,
       reason: r.working ? `Runs 5 batches of ${r.id}.` : r.minHq && (view?.hq?.level ?? 0) < r.minHq ? `Needs HQ level ${r.minHq} (it is level ${view?.hq?.level ?? 0}): upgrade the hq first.` : b.condition === 'repaired' ? `Needs ${b.type} level ${r.stationLevel}: upgrade it first.` : 'Repair it first.' });
   }
+  if (b.mining) {
+    const m = b.mining; const hq = view?.hq?.level ?? 0;
+    for (const o of m.ores) {
+      const why = !m.working ? 'Repair the mining station first.' : !m.open ? `Needs HQ level ${m.minHq} (it is level ${hq}): upgrade the hq first.` : o.room < 1 ? `No storage room for ${o.item}.` : `Digs 5 rounds of ${o.name}: about ${o.yield} per round, ${m.caveInPercent} % cave-in risk per round.`;
+      out.push({ id: `mine:${o.id}`, label: `Mine ${o.name}`, snippet: `survivor.mine("${o.id}", 5);`, enabled: !!o.canMine, reason: why });
+    }
+  }
   if (b.upgrade) {
     const short = Object.entries(b.upgrade.cost).filter(([k, v]) => have(view, k) < v).map(([k, v]) => `${v - have(view, k)} more ${k}`);
     const ready = b.condition === 'repaired' && b.health >= b.maxHealth;

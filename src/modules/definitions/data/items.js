@@ -59,6 +59,10 @@ export const items = {
   concrete_block: { name: 'Concrete block', unitWeight: 5 },
   hinge_set: { name: 'Hinge set', unitWeight: 2 },
   sandbag: { name: 'Sandbag', unitWeight: 2 },
+  // R4 (docs/game/24): ore dug at the mining station. The smelter turns iron ore (+ coal) into iron bars and lead ore (+ coal) into lead bars. Heavy, never spoils.
+  iron_ore: { name: 'Iron ore', unitWeight: 4 },
+  lead_ore: { name: 'Lead ore', unitWeight: 4 },
+  coal: { name: 'Coal', unitWeight: 2 },
   // Smelter bars kept for LATER use (no recipe consumes them yet): lead bars will cast bullets, iron bars will upgrade weapons and craft body armor.
   lead_bar: { name: 'Lead bar', unitWeight: 3 },
   iron_bar: { name: 'Iron bar', unitWeight: 3 },

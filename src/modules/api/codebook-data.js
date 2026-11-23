@@ -29,6 +29,7 @@ export const READ_GROUPS = [
 
 /** Meaning of every stop / failure code a learner can see in `survivor.lastTask.reason` or the event feed. */
 export const OUTCOMES = {
+  TOO_HURT: 'She is too hurt to dig (health is below the safe level, for example after a cave-in). Eat, drink and rest, then mine again.',
   TARGET_REACHED: 'The job did everything you asked for (for example the requested total was delivered).',
   STORAGE_FULL: 'Base storage has no room left for that item (or, for survivor.stash, that site\'s stash is already full). Free some space, upgrade storage, retrieve the stash, or use the item.',
   NO_TARGET: 'There is nothing of that kind left to work on (for example every tree is used up).',
@@ -118,6 +119,15 @@ export const COMMAND_BOOK = {
     example: 'survivor.craft("packaging", 5);',
     reads: ['read.recipes', 'read.power', 'read.base-stock'], outcomes: ['TARGET_REACHED', 'NO_INGREDIENTS', 'NO_STATION', 'NEEDS_REPAIR', 'HQ_LEVEL', 'NO_POWER', 'STORAGE_FULL', 'EXHAUSTED', 'NO_PATH', 'CAPABILITY_INSUFFICIENT'],
     notes: ['Wood: plank (sawmill, hq level 2) from wood, then beam (Beam Mill, sawmill level 2) from planks.', 'Fortress materials: steel_ingot (smelter, hq level 2) → steel_plate, hinge_set, concrete_block, sandbag (workshop). Sand and cement come from scavenging and zombie loot.', 'Packaging seals MREs (cook("mre") at a level 3 kitchen). Glass needs the workshop at level 2 and power while the furnace works; it is the material for the hydroponic farm that comes later.'],
+  },
+  mine: {
+    group: 'production', keywords: ['mining', 'ore', 'iron', 'lead', 'coal', 'dig', 'mine', 'cave-in', 'drill'],
+    effect: 'She walks to a repaired mining station and digs ore in rounds. Every round brings ore into base stock; some rounds end in a cave-in that costs the ore and some health.',
+    requires: ['A repaired mining station', 'The hq at level 3 (the mine opens with it)', 'Room in base storage for the ore', 'Enough energy and health', 'Power on the grid, when the station is a level 3 powered drill'],
+    parameters: [['ore', 'An ore name: "iron_ore", "lead_ore" or "coal".'], ['rounds', 'Optional whole number 1–100: how many rounds. Without it she digs until something stops her.']],
+    example: 'survivor.mine("iron_ore", 5);',
+    reads: ['read.mining', 'read.base-stock', 'read.skill-progress'], outcomes: ['TARGET_REACHED', 'NO_STATION', 'NEEDS_REPAIR', 'HQ_LEVEL', 'NO_POWER', 'TOO_HURT', 'STORAGE_FULL', 'EXHAUSTED', 'NO_PATH', 'CAPABILITY_INSUFFICIENT'],
+    notes: ['Smelting: survivor.craft("iron_bar_ore", 3) or ("lead_bar_ore", 3) at the smelter turns 3 ore + 1 coal into 2 bars. Mining skill makes rounds faster and cave-ins rarer.', 'Upgrade the station with survivor.upgrade(mining_1): level 2 (rail cart, hq 3) doubles the ore per round, level 3 (powered drill, hq 4) triples it and draws power while it digs.'],
   },
   farm: {
     group: 'production', keywords: ['crop', 'plant', 'harvest', 'field', 'greenhouse', 'water', 'seed', 'potato', 'carrot', 'wheat'],
@@ -381,6 +391,8 @@ export const READS = [
     summary: 'What can be planted: for each crop its growing time in ticks, the seeds one plot costs, the yield, the % lost to each weather hazard, and how much is in stock.', example: 'console.log(crops.potato.yield, crops.potato.hazards);' },
   { slug: 'farm', group: 'buildings', covers: 'field_1.farm', title: 'Farm plots', path: 'field_1.farm', keywords: ['field', 'greenhouse', 'plot', 'ripe', 'dry', 'shelter'],
     summary: 'A farm lists its plots: crop, stage (empty, growing or ready), percent grown, water left, whether it is dry, weather damage and units ready to harvest. It also says whether it is sheltered and how fast it grows.', example: 'for (const p of field_1.farm.plots) {\n  console.log(p.id, p.stage, p.percent);\n}' },
+  { slug: 'mining', group: 'buildings', covers: 'mining_1.mining', title: 'Mining station', path: 'mining_1.mining', keywords: ['ore', 'iron', 'lead', 'coal', 'cave-in', 'drill', 'yield'],
+    summary: 'A mining station says whether it works and is open (the hq level it needs), its yield percent, the cave-in chance per round, any power it draws, and for each ore the ticks per round, the yield, how much is in stock and whether it can be mined now.', example: 'console.log(mining_1.mining.ores);' },
   { slug: 'events', group: 'world', covers: 'events', title: 'Risk events', path: 'events', keywords: ['risk', 'rats', 'fault', 'cache', 'warning', 'upcoming', 'history'],
     summary: 'Some days bring an event: rats eat part of the stored food, a machine breaks down, or a supply cache turns up. The schedule is public a couple of days ahead (upcoming), so you can prepare. history lists what has happened and what it cost or gave.', example: 'for (const e of events.upcoming) {\n  console.log(e.name, "in", e.inDays, "days");\n}' },
   { slug: 'town', group: 'world', covers: 'town', title: 'Town offers', path: 'town', keywords: ['recruit', 'hire', 'offer', 'price', 'bed', 'survivor', 'accepts', 'board'],

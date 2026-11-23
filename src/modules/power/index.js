@@ -46,9 +46,15 @@ function poweredJobs(state, defs) {
     const a = state.actions[id];
     if (!a) continue;
     a.powered = false; // re-decided below, every tick
-    if (defs.actions[a.actionType]?.handler !== 'cook' || a.status !== 'EXECUTING') continue;
-    const rc = defs.recipes[a.params.recipe];
+    const handler = defs.actions[a.actionType]?.handler;
+    if ((handler !== 'cook' && handler !== 'mine') || a.status !== 'EXECUTING') continue;
     const station = a.targetId ? state.buildings[a.targetId] : null;
+    if (handler === 'mine') { // R4: a powered drill (mining station level `mine.power`) draws power while a round is dug
+      const use = station && station.condition === 'repaired' ? defs.buildings[station.type].levels[station.level]?.mine?.power : 0;
+      if (use && chebyshev(state.survivors[a.actorId].position, station) <= defs.actions[a.actionType].range) jobs.push({ a, use });
+      continue;
+    }
+    const rc = defs.recipes[a.params.recipe];
     if (!rc?.power || !station || station.condition !== 'repaired' || station.level < rc.stationLevel) continue;
     if (chebyshev(state.survivors[a.actorId].position, station) > defs.actions[a.actionType].range) continue;
     jobs.push({ a, use: rc.power });

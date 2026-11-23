@@ -36,6 +36,7 @@ export const FailureReason = Object.freeze({
   CARRY_FULL: 'CARRY_FULL', // take: her hands are full (carry capacity)
   TOWER_TOO_LOW: 'TOWER_TOO_LOW', // mount: this tower level cannot hold that mounted weapon (upgrade the tower)
   NO_SLOT: 'NO_SLOT', // mount: every slot of the tower is taken by a mounted weapon
+  TOO_HURT: 'TOO_HURT', // mine: she is too hurt to dig (health below mining.minHealth)
   NO_MOUNT: 'NO_MOUNT', // reload: no weapon installed on the tower uses that ammo
   NO_LURE: 'NO_LURE', // lure: she carries no noise lure (survivor.take("noise_lure", 1))
   HOPPER_FULL: 'HOPPER_FULL', // reload: the hopper already holds as much as it can
@@ -59,6 +60,7 @@ export const StopReason = Object.freeze({
   NO_PATH: 'NO_PATH',               // she cannot walk to where the work is
   DEPARTED: 'DEPARTED',             // scavenge: she walked out of the gate and is away (the expedition resolves when she returns)
   NO_INGREDIENTS: 'NO_INGREDIENTS', // cook: the next batch cannot be paid for from base stock
+  TOO_HURT: 'TOO_HURT',             // mine: a cave-in left her below mining.minHealth
   NO_STATION: 'NO_STATION',         // cook: the station stopped working (or is gone)
   NO_POWER: 'NO_POWER',             // cook/craft: a powered recipe waited too long for the grid (generator out of fuel, night, ...)
   NO_FARM: 'NO_FARM',               // farm: the farm stopped working (ruined / damaged) or is gone

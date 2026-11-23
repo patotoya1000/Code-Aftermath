@@ -69,7 +69,7 @@ export function clearPolicy(ctx, actorId, params = {}) {
 
 /** The command that continues an interrupted job, or null when nothing is left to do. Never carries learner input twice. */
 function continuationOf(a, defs) {
-  const resumeOf = { actionId: a.actionId, gathered: (a.resumeOf?.gathered ?? 0) + (a.stats?.gathered ?? a.stats?.crafted ?? 0), workTotal: a.workTotal ?? 0 };
+  const resumeOf = { actionId: a.actionId, gathered: (a.resumeOf?.gathered ?? 0) + (a.stats?.gathered ?? a.stats?.crafted ?? a.stats?.mined ?? 0), workTotal: a.workTotal ?? 0 };
   const params = { ...a.params };
   if (a.actionType === 'gather' && params.total !== undefined) {
     params.total -= a.stats?.gathered ?? 0; // what is already in the base counts toward the learner's total
@@ -77,6 +77,10 @@ function continuationOf(a, defs) {
   }
   if ((a.actionType === 'cook' || a.actionType === 'craft') && params.count !== undefined) {
     params.count -= a.stats?.crafted ?? 0; // batches already finished count toward the learner's count
+    if (params.count < 1) return null;
+  }
+  if (a.actionType === 'mine' && params.count !== undefined) {
+    params.count -= a.stats?.mined ?? 0; // rounds already dug count toward the learner's count
     if (params.count < 1) return null;
   }
   if (a.actionType === 'farm' && params.count !== undefined) {

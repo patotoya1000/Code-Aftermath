@@ -1,6 +1,6 @@
 # 24 · Forest, quarry, camps, sawmill, mining station, vehicles (design + phases)
 
-Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22.** R4-R7 are design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
+Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 IMPLEMENTED 2026-11-23.** R5-R7 are design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
 
 ## 1. Decisions
 - The **upper road** of the outpost map leads to the **forest** (far, slow, wood). The **lower road** leads to the **quarry** (heavy stone and sand, nearer). Each is its **own map screen**.
@@ -17,7 +17,7 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22.** R4-R7 are design only.
 | **W1** | **Random wandering zombie** (a walker) outside the wall in daylight: about 60% of days from day 2, appears within 40 ticks of dawn, drifts at random, chases a survivor outside within 5 cells, hits like a walker, can be killed with `attack` (no wave needed), drops walker loot, wanders off at dusk. | IMPLEMENTED (`SIM_VERSION` 0.43.0) |
 | **R2** | **Camp stash and retrieve run.** A survivor gathers at a remote site into a **stash** there instead of walking home; one `survivor.retrieve(site)` hauls it back. **Decided defaults:** a stash is only at risk on a raid night; a raid takes 30% of a near-site stash and 50% of a deep-site stash; each site holds at most 60 units; a camp or a guard cuts the loss to 10%; the view warns when a stash is at risk tonight. | IMPLEMENTED (`SIM_VERSION` 0.45.0, see section 3b) |
 | **R3** | **Sawmill** (HQ 2): logs to planks, planks to beams (level 2). New items `plank`, `beam`. The ballista and advanced woodworking switch to planks in a later weapon pass. | IMPLEMENTED (see section 3c) |
-| **R4** | **Mining station** (outpost building, **HQ 3, decided**) + **Mining skill** + `survivor.mine("iron_ore")`. Ores: iron ore, lead ore, coal. The smelter turns ore into iron and lead bars (scrap stays for steel). Level 1 by hand, level 2 a rail cart (more ore per trip), level 3 a powered drill that draws power. A little cave-in risk. | PLANNED |
+| **R4** | **Mining station** (outpost building, **HQ 3, decided**) + **Mining skill** + `survivor.mine("iron_ore")`. Ores: iron ore, lead ore, coal. The smelter turns ore into iron and lead bars (scrap stays for steel). Level 1 by hand, level 2 a rail cart (more ore per trip), level 3 a powered drill that draws power. A little cave-in risk. | IMPLEMENTED (`SIM_VERSION` 0.46.0, see section 3d) |
 | **R5** | **Vehicles**: hand cart, then cart with a beast or motor, then truck (fuel). A multiplier on a retrieve run: more carry capacity, fewer travel ticks. | PLANNED |
 | **R6** | **Weapon and armor use of the bars**: bullets from lead bars, weapon upgrades and body armor from iron bars (and steel). | PLANNED |
 | **R7** | **Road camps and road danger** (a camp building that shortens a road; loaded runs are a target in a wave). | PLANNED |
@@ -43,6 +43,18 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22.** R4-R7 are design only.
 - Nothing consumes planks or beams yet: the ballista and woodworking switch to them in a later weapon pass (R6). Powered sawing is not built. No sawmill picture yet (placeholder).
 - Code: `data/world.js` `sawmill`, `data/recipes.js`, `data/items.js`. Tests: `tests/sawmill.test.js`.
 
+## 3d. How R4 works (mining station)
+- Building `mining_station` (`mining_1`, a ruin in every scenario; on the painted outpost south of the road next to the smelter). Level 1 `Mining Station`, level 2 `Rail Cart Mine` (upgrade 25 wood + 30 stone + 8 scrap, HQ 3), level 3 `Powered Drill` (20 wood + 40 stone + 20 scrap + 4 steel plate, **HQ 4**, draws 8 power). Repair 10 wood + 8 stone.
+- `survivor.mine(ore, rounds?)` (`mine` handler, Mining skill, needs strength 1 + endurance 1): walk to the nearest repaired station, then repeat { dig a round -> cave-in roll -> ore into base stock }. **Opens at HQ 3** (`mining.minHq`; refusal `HQ_LEVEL`, nothing changes). Stops with TARGET_REACHED (rounds done), STORAGE_FULL, EXHAUSTED, TOO_HURT, NO_STATION, NO_POWER (drill waited 90 ticks for the grid) or NO_PATH. Like cook: some work done = COMPLETED with the reason, none = FAILED with it. A needs policy that interrupts a job resumes it with the remaining rounds.
+- Ores: `iron_ore` (24 ticks, 2 per round), `lead_ore` (24 ticks, 2), `coal` (18 ticks, 3). A round brings `yield x level % x output modifier` (levels 100 / 200 / 300 %), never more than base storage has room for. Skill makes rounds faster (like every skill) and adds a little ore.
+- **Cave-in**: after each round a pure hash roll (seed + survivor + tick) can collapse it: no ore, no XP, she loses 15 health (never below 1), event `mine.caveIn`. Chance 10 % / 6 % / 4 % by station level, minus 1 point per Mining level (floor 1 %). Below `mining.minHealth` (25) she cannot start and a running job stops with TOO_HURT.
+- Mining skill: `mine` XP award 4 per finished round (like crafting); recruits can arrive with it.
+- Smelter: `iron_bar_ore` (3 iron ore + 1 coal -> 2 iron bars) and `lead_bar_ore` (3 lead ore + 1 coal -> 2 lead bars), smelter level 1, HQ 2. The scrap recipes for bars stay as the slower fallback; scrap is still what steel is made from.
+- Learner read `mining_1.mining` ({ working, open, level, yieldPercent, caveInPercent, power, powered, ores[] }) and one **Mine <ore>** button per ore on the building card (it only inserts `survivor.mine("<ore>", 5);`).
+- Not built: ore deposits that run out or regrow, the Mining skill training buildings, a mining station picture (placeholder), consumers of the bars (R6).
+- Data: `data/mining.js`, `data/world.js` `mining_station`. Code: `actions/handlers/mine.js`, `buildings/mining.js` (pure rules + learner view), `power/index.js` (drill demand). Tests: `tests/mining.test.js`.
+
 ## 4. Open questions
 - (decided) The mining station opens at HQ 3; stash risk follows the R2 defaults above.
+- [open] Whether the old scrap recipes for iron and lead bars should be removed now that ore exists (kept for now as a slow fallback).
 - [open] Whether FOREST and QUARRY should later become live grids with real trees and rocks like the outpost.
