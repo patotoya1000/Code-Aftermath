@@ -13,6 +13,7 @@ import { weapons, towers, noise } from './data/arsenal.js';
 import { town } from './data/town.js';
 import { scavenge } from './data/scavenge.js';
 import { mining } from './data/mining.js';
+import { vehicles } from './data/vehicles.js';
 
 const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure', 'scavenge', 'mine'];
 
@@ -388,6 +389,22 @@ export function validateDefinitions(d) {
     }
     need(Object.keys(m?.ores ?? {}).length > 0 && d.skills.mining && d.progression.awards.mine?.skill === 'mining', 'mining: needs at least one ore, a "mining" skill and a "mine" XP award');
   }
+  // R5 vehicles (docs/game/24 section 3e): the garage, the fuel and every vehicle's multipliers must be known and whole.
+  {
+    const v = d.vehicles;
+    const maxLevel = Math.max(0, ...Object.keys(d.buildings[v?.garage]?.levels ?? {}).map(Number));
+    need(v && d.buildings[v.garage]?.levels?.[1], 'vehicles: garage must be a known building type');
+    need(v && whole(v.minHq, 1), 'vehicles: minHq must be a whole number >= 1');
+    need(v && Array.isArray(v.fuelItems) && v.fuelItems.length > 0 && v.fuelItems.every((i) => d.items[i]), 'vehicles: fuelItems must list known items');
+    need(v && Object.keys(v.types ?? {}).length > 0, 'vehicles: needs at least one vehicle type');
+    for (const [id, t] of Object.entries(v?.types ?? {})) {
+      need(typeof t.name === 'string' && t.name, `vehicle ${id}: needs a name`);
+      need(whole(t.garageLevel, 1) && t.garageLevel <= maxLevel, `vehicle ${id}: garageLevel must be a level the garage can reach (1-${maxLevel})`);
+      need(whole(t.carryPercent, 100), `vehicle ${id}: carryPercent must be a whole number >= 100 (a vehicle never carries less than a survivor)`);
+      need(whole(t.ticksPercent, 1) && t.ticksPercent <= 100, `vehicle ${id}: ticksPercent must be a whole number from 1 to 100 (a vehicle is never slower)`);
+      need(whole(t.fuel, 0), `vehicle ${id}: fuel must be a whole number >= 0`);
+    }
+  }
   for (const [id, l] of Object.entries(d.lessons)) {
     need(d.scenarios[l.scenario], `lesson ${id}: unknown scenario "${l.scenario}"`);
     need(Array.isArray(l.goals) && l.goals.length > 0, `lesson ${id}: needs goals`);
@@ -398,7 +415,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, vehicles, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

@@ -1,6 +1,6 @@
 # 24 · Forest, quarry, camps, sawmill, mining station, vehicles (design + phases)
 
-Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 IMPLEMENTED 2026-11-23.** R5-R7 are design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
+Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 and R5 IMPLEMENTED 2026-11-23.** R6-R7 are design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
 
 ## 1. Decisions
 - The **upper road** of the outpost map leads to the **forest** (far, slow, wood). The **lower road** leads to the **quarry** (heavy stone and sand, nearer). Each is its **own map screen**.
@@ -18,7 +18,7 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 IMPLEMENTED 2026-11-2
 | **R2** | **Camp stash and retrieve run.** A survivor gathers at a remote site into a **stash** there instead of walking home; one `survivor.retrieve(site)` hauls it back. **Decided defaults:** a stash is only at risk on a raid night; a raid takes 30% of a near-site stash and 50% of a deep-site stash; each site holds at most 60 units; a camp or a guard cuts the loss to 10%; the view warns when a stash is at risk tonight. | IMPLEMENTED (`SIM_VERSION` 0.45.0, see section 3b) |
 | **R3** | **Sawmill** (HQ 2): logs to planks, planks to beams (level 2). New items `plank`, `beam`. The ballista and advanced woodworking switch to planks in a later weapon pass. | IMPLEMENTED (see section 3c) |
 | **R4** | **Mining station** (outpost building, **HQ 3, decided**) + **Mining skill** + `survivor.mine("iron_ore")`. Ores: iron ore, lead ore, coal. The smelter turns ore into iron and lead bars (scrap stays for steel). Level 1 by hand, level 2 a rail cart (more ore per trip), level 3 a powered drill that draws power. A little cave-in risk. | IMPLEMENTED (`SIM_VERSION` 0.46.0, see section 3d) |
-| **R5** | **Vehicles**: hand cart, then cart with a beast or motor, then truck (fuel). A multiplier on a retrieve run: more carry capacity, fewer travel ticks. | PLANNED |
+| **R5** | **Vehicles**: hand cart, then cart with a beast or motor, then truck (fuel). A multiplier on a retrieve run: more carry capacity, fewer travel ticks. | IMPLEMENTED (`SIM_VERSION` 0.47.0, see section 3e; the beast-drawn cart is [open]) |
 | **R6** | **Weapon and armor use of the bars**: bullets from lead bars, weapon upgrades and body armor from iron bars (and steel). | PLANNED |
 | **R7** | **Road camps and road danger** (a camp building that shortens a road; loaded runs are a target in a wave). | PLANNED |
 
@@ -54,7 +54,27 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4 IMPLEMENTED 2026-11-2
 - Not built: ore deposits that run out or regrow, the Mining skill training buildings, a mining station picture (placeholder), consumers of the bars (R6).
 - Data: `data/mining.js`, `data/world.js` `mining_station`. Code: `actions/handlers/mine.js`, `buildings/mining.js` (pure rules + learner view), `power/index.js` (drill demand). Tests: `tests/mining.test.js`.
 
+## 3e. How R5 works (garage and vehicles)
+- Building `garage` (`garage_1`, a ruin in every scenario; on the painted outpost south of the road at (4,8), in stage 1 at (11,11)). Level 1 `Cart Shed`, level 2 `Motor Pool` (upgrade 20 wood + 20 stone + 10 scrap, HQ 3), level 3 `Truck Garage` (25 wood + 40 stone + 24 scrap + 4 steel plate, **HQ 4**). Repair 10 wood + 6 stone. Following the "no free construction" rule, the garage is repaired and upgraded like any station; **its level is what unlocks a vehicle**. There is no vehicle item.
+- `survivor.retrieve(site, { vehicle })`: the same haul run as R2 with a vehicle from the garage. Vehicle runs **open at HQ 2** (`vehicles.minHq`). Placeholder numbers (data/vehicles.js, to tune in a playtest):
+
+| Vehicle | Garage level | Carry capacity | Run time | Fuel per run |
+|---|---|---|---|---|
+| `hand_cart` | 1 | x2 | 90 % | none |
+| `motor_cart` | 2 | x4 | 60 % | 1 coal or charcoal |
+| `truck` | 3 | x8 | 40 % | 3 coal or charcoal |
+
+- The multiplier is on her carry capacity in weight (a rookie carries 60: 15 stone on foot, 30 with the cart, 60 with the motor cart). The run takes `ceil(site ticks x 80 % x ticksPercent)`, never under 1 tick. A hurt survivor still drops part of the load. Only haul runs take a vehicle (`stash` and `scavenge` refuse the option).
+- **Fuel** is paid from base stock when she LEAVES (coal first, charcoal when coal cannot cover it) and is not refunded if she is lost. Coal comes from the mining station (R4), so the mine now feeds the trucks.
+- **One vehicle of each kind**: it is busy while a survivor is away with it (`away.vehicle`), so a lost survivor frees it and nothing extra is saved. The rules are checked when the command is given and AGAIN when she reaches the gate (two survivors can race for one cart).
+- Refusals (nothing changes): `UNKNOWN_TARGET` (no such vehicle), `HQ_LEVEL`, `NO_STATION` (no garage in the world), `NEEDS_REPAIR` (garage ruined or too low a level for that vehicle), `VEHICLE_BUSY` (new reason), `INSUFFICIENT_RESOURCE` (not enough fuel), `INVALID_PARAMS` (vehicle on a stash/scavenge command). The stash rules (`NO_STASH`, `STORAGE_FULL`) are checked first.
+- Learner reads: `garage_1.garage` = `{ working, open, minHq, level, fuelItems, vehicles: [{ id, name, garageLevel, carryPercent, ticksPercent, fuel, busyWith, canUse, reason }] }`, and `scavenge.sites[].stash.retrieveTicksWith` (ticks per vehicle). Events: `scavenge.departed` carries `vehicle` and `fuel`, `scavenge.returned` and `stash.retrieved` carry `vehicle`. The garage card has one **Haul with <vehicle>** button per vehicle (it only inserts the call).
+- Not built: wear or breakdowns, a beast-drawn cart (feed instead of fuel), noise from a motor (R7), a vehicle picture (placeholder), a loaded run being a target in a wave (R7).
+- Data: `data/vehicles.js`, `data/world.js` `garage`. Code: `buildings/vehicles.js` (pure rules + learner view), `scavenge/index.js`, `actions/handlers/scavenge.js`. Tests: `tests/vehicles.test.js`.
+
 ## 4. Open questions
 - (decided) The mining station opens at HQ 3; stash risk follows the R2 defaults above.
 - [open] Whether the old scrap recipes for iron and lead bars should be removed now that ore exists (kept for now as a slow fallback).
+- [open] A beast-drawn cart as the other branch at garage level 2 ("cart with a beast or motor"): feed instead of fuel? Only the motor branch is built.
+- [open] Whether a motor run should make noise (R7 road danger) and whether vehicles should wear out.
 - [open] Whether FOREST and QUARRY should later become live grids with real trees and rocks like the outpost.

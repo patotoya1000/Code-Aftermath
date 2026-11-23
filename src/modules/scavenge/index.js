@@ -1,6 +1,6 @@
 import { hashString } from '../../kernel/index.js';
-import { stockKey, credit } from '../resources/index.js';
-import { storageRoom } from '../buildings/index.js';
+import { stockKey, credit, discard } from '../resources/index.js';
+import { storageRoom, vehicleRefusal, fuelPlan, vehicleCarry, vehicleTicks } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
 import { awardSkillXp, carryCapacity, carriedLoad } from '../survivors/index.js';
 import { dayOf, timeOf } from '../environment/index.js';
@@ -22,6 +22,8 @@ import { townView } from '../town/index.js';
 //             `camp: true` adds `campTicks` and marks that stash PROTECTED until it is emptied.
 //   retrieve  `survivor.retrieve(site)`: a haul run of `haulTripPercent` of the site's ticks; she brings home what she can carry (survivor carry capacity, halved when hurt) and what
 //             base storage has room for; the rest stays in the stash.
+//   a vehicle R5 (docs/game/24 section 3e): `survivor.retrieve(site, { vehicle })` hauls with a hand cart / motor cart / truck from the garage: her carry capacity x `carryPercent`, the run takes `ticksPercent` of the
+//             haul time, a motorised run burns fuel paid when she LEAVES (not refunded if she is lost), and one vehicle of each kind can be out at a time (it is busy while `away.vehicle` names it).
 //   a raid    `raidStashes`: when a wave starts every stash loses a share of each item (near / deep / protected, rounded up); a stash at a site far from the wall is the easier prize.
 // Learner reads: `scavenge` (sites, danger today, recovery, who is away) and `board` (raids + train + events + sites in one place).
 
@@ -57,9 +59,12 @@ export function rollLoot(defs, seed, key, siteId, percent, hurt) {
 }
 
 /** Trip length and kind for a command. Pure. mode: 'scavenge' | 'stash' | 'retrieve'. */
-export function tripPlan(defs, siteId, mode, { rounds = 1, camp = false } = {}) {
+export function tripPlan(defs, siteId, mode, { rounds = 1, camp = false, vehicle = null } = {}) {
   const site = defs.scavenge.sites[siteId]; const st = defs.scavenge.stash;
-  if (mode === 'retrieve') return { mode, ticks: Math.max(1, Math.ceil((site.ticks * st.haulTripPercent) / 100)) };
+  if (mode === 'retrieve') {
+    const onFoot = Math.max(1, Math.ceil((site.ticks * st.haulTripPercent) / 100));
+    return { mode, ticks: vehicleTicks(defs, vehicle, onFoot), ...(vehicle ? { vehicle } : {}) };
+  }
   if (mode === 'stash') return { mode, rounds, camp, ticks: site.ticks + (rounds - 1) * st.rounds.ticks + (camp ? st.campTicks : 0) };
   return { mode: 'scavenge', ticks: site.ticks };
 }
@@ -71,7 +76,13 @@ export function depart(ctx, s, siteId, mode = 'scavenge', opts = {}) {
   s.status = 'away';
   s.away = { siteId, mode: plan.mode, departTick: state.tick, returnTick: state.tick + plan.ticks, danger: dangerOn(defs, state.seed, siteId, dayOf(defs, state.tick)) };
   if (plan.mode === 'stash') { s.away.rounds = plan.rounds; s.away.camp = plan.camp; }
-  ctx.emit('scavenge.departed', { survivorId: s.id, siteId, mode: plan.mode, returnTick: s.away.returnTick, danger: s.away.danger });
+  let fuel = null;
+  if (plan.vehicle) { // R5: the vehicle goes with her; its fuel is paid now (the handler checked the refusal rules a moment ago, at the gate)
+    s.away.vehicle = plan.vehicle;
+    const f = fuelPlan(state, defs, plan.vehicle);
+    if (f && f.units > 0) { discard(state, stockKey(f.item), f.units); syncStock(state, defs, f.item); fuel = { item: f.item, units: f.units }; }
+  }
+  ctx.emit('scavenge.departed', { survivorId: s.id, siteId, mode: plan.mode, returnTick: s.away.returnTick, danger: s.away.danger, ...(plan.vehicle ? { vehicle: plan.vehicle, fuel } : {}) });
 }
 
 /** Bring back every survivor whose trip is over, resolve it, and pay its costs. ctx = { state, defs, emit }. */
@@ -139,6 +150,7 @@ function comeBackRetrieve(ctx, s) {
   const { state, defs } = ctx;
   const cfg = defs.scavenge;
   const { siteId, departTick, danger, returnTick } = s.away;
+  const vehicle = s.away.vehicle ?? null;
   const day = dayOf(defs, state.tick);
   const key = `${s.id}:${departTick}:${siteId}`;
   const hurt = num(state.seed, `${key}:danger`) % 100 < danger;
@@ -146,7 +158,7 @@ function comeBackRetrieve(ctx, s) {
   const loot = {}, left = {};
   if (entry) {
     // her hands: the weight she can still carry (a hurt survivor drops part of the load: it stays in the stash)
-    let weight = Math.max(0, carryCapacity(s, defs) - carriedLoad(s, defs));
+    let weight = Math.max(0, vehicleCarry(defs, s.away.vehicle, carryCapacity(s, defs)) - carriedLoad(s, defs)); // R5: a vehicle multiplies what she can bring home
     if (hurt) weight = Math.floor((weight * cfg.hurtLootPercent) / 100);
     for (const item of Object.keys(entry.items).sort()) {
       const unit = defs.items[item]?.unitWeight ?? 1;
@@ -169,8 +181,8 @@ function comeBackRetrieve(ctx, s) {
   // a retrieve run never touches the site's recovery (nothing was searched): only the history and the event
   state.scavenge.history.push({ day, survivorId: s.id, siteId, mode: 'retrieve', outcome, loot: { ...loot }, recoveryPercent: recoveryPercent(defs, state, siteId, day) });
   while (state.scavenge.history.length > cfg.historyLimit) state.scavenge.history.shift();
-  ctx.emit('scavenge.returned', { survivorId: s.id, siteId, mode: 'retrieve', outcome, loot, leftBehind: left, recoveryPercent: recoveryPercent(defs, state, siteId, day), hurt });
-  ctx.emit('stash.retrieved', { survivorId: s.id, siteId, hauled: loot, left, hurt });
+  ctx.emit('scavenge.returned', { survivorId: s.id, siteId, mode: 'retrieve', outcome, loot, leftBehind: left, recoveryPercent: recoveryPercent(defs, state, siteId, day), hurt, ...(vehicle ? { vehicle } : {}) });
+  ctx.emit('stash.retrieved', { survivorId: s.id, siteId, hauled: loot, left, hurt, ...(vehicle ? { vehicle } : {}) });
 }
 
 /** Percent of each item a raid takes from the stash at `siteId` (data: stash.lossPercent). Pure. */
@@ -225,6 +237,11 @@ export function scavengeRefusal(state, defs, siteId, mode = 'scavenge', params =
     if (stashUnits(entry) === 0) return { code: 'NO_STASH', message: `There is no stash at ${siteId}. Read scavenge.sites[].stash.` };
     if (!Object.keys(entry.items).some((item) => storageRoom(state, item) > 0)) return { code: 'STORAGE_FULL', message: 'Base storage has no room for anything in that stash.' };
   }
+  if (params.vehicle !== undefined) { // R5: only a haul run takes a vehicle; its own rules (garage, HQ, busy, fuel) live in buildings/vehicles.js
+    if (mode !== 'retrieve') return { code: 'INVALID_PARAMS', message: 'Only survivor.retrieve takes a vehicle.' };
+    const why = vehicleRefusal(state, defs, params.vehicle);
+    if (why) return why;
+  }
   return null;
 }
 
@@ -243,6 +260,7 @@ function stashSiteView(state, defs, id, day) {
   return {
     items: { ...(entry?.items ?? {}) }, units, capacity: st.capPerSite, room: Math.max(0, st.capPerSite - units), protected: Boolean(entry?.protected),
     deep: defs.scavenge.sites[id].ticks >= st.deepFromTicks, lossPercent: stashLossPercent(defs, state, id), atRiskTonight: units > 0 && raidNight, retrieveTicks,
+    retrieveTicksWith: Object.fromEntries(Object.keys(defs.vehicles.types).map((v) => [v, tripPlan(defs, id, 'retrieve', { vehicle: v }).ticks])), // R5: the same run with each vehicle
   };
 }
 
@@ -263,7 +281,7 @@ function sitesView(state, defs) {
 }
 
 function awayView(state) {
-  return sorted(state).filter((s) => s.status === 'away' && s.away).map((s) => ({ survivorId: s.id, siteId: s.away.siteId, mode: s.away.mode ?? 'scavenge', returnTick: s.away.returnTick, returnsInTicks: Math.max(0, s.away.returnTick - state.tick), danger: s.away.danger }));
+  return sorted(state).filter((s) => s.status === 'away' && s.away).map((s) => ({ survivorId: s.id, siteId: s.away.siteId, mode: s.away.mode ?? 'scavenge', returnTick: s.away.returnTick, returnsInTicks: Math.max(0, s.away.returnTick - state.tick), danger: s.away.danger, ...(s.away.vehicle ? { vehicle: s.away.vehicle } : {}) }));
 }
 
 /** The stash rules the learner can read (data: stash). */

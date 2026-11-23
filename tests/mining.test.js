@@ -218,7 +218,7 @@ test('API: survivor.mine(ore, rounds) is validated before it becomes a command; 
   assert.equal(sim.renderProjection().npcs[0].doing, 'mining coal');
 });
 
-test('SIM_VERSION moved to 0.46.0: an older save or replay is refused instead of loading a world without the mining station', async () => {
+test('SIM_VERSION moved to 0.47.0 (R5 garage): an older save or replay is refused instead of loading a world without the mining station', async () => {
   const { SIM_VERSION } = await import('../src/kernel/index.js');
-  assert.equal(SIM_VERSION, '0.46.0');
+  assert.equal(SIM_VERSION, '0.47.0');
 });

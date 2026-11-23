@@ -254,11 +254,16 @@ export const COMMANDS = {
     },
   },
   retrieve: {
-    type: 'retrieve', signature: 'survivor.retrieve(siteId)',
-    doc: 'Haul a site\'s stash home (survivor.stash puts it there). She walks to the gate and leaves for the site, which takes a share of the normal trip time (no searching, a known road), and comes back at the gate with what she can carry (her carry capacity: heavy items like stone and sand count for more) and what base storage has room for. Anything she could not take stays in the stash for the next run. A dangerous road can hurt her: she then drops half the load (it stays in the stash). While she is away she takes no commands, and a wave that starts before she is back loses her for good.',
+    type: 'retrieve', options: true, signature: 'survivor.retrieve(siteId, { vehicle })',
+    doc: 'Haul a site\'s stash home (survivor.stash puts it there). She walks to the gate and leaves for the site, which takes a share of the normal trip time (no searching, a known road), and comes back at the gate with what she can carry (her carry capacity: heavy items like stone and sand count for more) and what base storage has room for. Anything she could not take stays in the stash for the next run. A dangerous road can hurt her: she then drops half the load (it stays in the stash). Add { vehicle: "hand_cart" } to haul with a vehicle from the garage (read the garage building\'s `garage.vehicles`): it multiplies what she can carry and shortens the run; "motor_cart" and "truck" need a higher garage level and burn coal or charcoal from base stock. Only one of each vehicle can be out at a time. While she is away she takes no commands, and a wave that starts before she is back loses her for good.',
     params(args) {
-      if (args.length !== 1 || typeof args[0] !== 'string' || !args[0]) throw bad('retrieve', 'use survivor.retrieve(\"forest_edge\") with a site id whose scavenge.sites[].stash.units is above 0');
-      return { siteId: args[0] };
+      const last = args.at(-1);
+      const hasOptions = args.length === 2 && last !== null && typeof last === 'object' && !Array.isArray(last);
+      if ((args.length !== 1 && !hasOptions) || typeof args[0] !== 'string' || !args[0]) throw bad('retrieve', 'use survivor.retrieve(\"forest_edge\") or survivor.retrieve(\"forest_edge\", { vehicle: \"hand_cart\" }) with a site id whose scavenge.sites[].stash.units is above 0');
+      const o = hasOptions ? cleanOptions('retrieve', last) : {};
+      for (const k of Object.keys(o)) if (k !== 'vehicle') throw bad('retrieve', `unknown option \"${k}\" (only vehicle)`);
+      if (o.vehicle !== undefined && (typeof o.vehicle !== 'string' || !o.vehicle)) throw bad('retrieve', 'vehicle must be a vehicle id like \"hand_cart\"');
+      return { siteId: args[0], ...(o.vehicle !== undefined ? { vehicle: o.vehicle } : {}) };
     },
   },
   attack: {
@@ -299,6 +304,7 @@ export const READ_SURFACE = [
   'generator_1.power   (a generator or solar panel: { role, kind, output, producing, status, working, fuel: { item, every, burnLeft, inStock } or null }; a freezer: { role: "consumer", use, powered, status, working }; a battery: { role: "storage", capacity, rate, charge, status, working })',
   'tower_1.tower   (a watchtower: { level, name, slots, freeSlots, rangeBonus, mounts: what it can hold, installed: [{ weapon, name, ammo, hopper, hopperMax, range, damage, reload, power?, status, operator }] mounted weapons, working, posted: [survivor ids] } - a survivor standing next to a working tower (within its slots) is posted: her ranged weapon reaches rangeBonus cells further; the first posted survivors crew the installed mounted weapons (operator), which fire by themselves; status is READY | RELOADING | IDLE | NO_AMMO | NO_OPERATOR | NO_POWER | BROKEN)',
   'well.water   (the deep well\'s reservoir: { amount, capacity, working, recharge: { every, amount, percent, perDay }, siphon: { status, reach, target } or null })',
+  'garage_1.garage   (a garage: { working, open, minHq, level, fuelItems, vehicles: [{ id, name, garageLevel, carryPercent, ticksPercent, fuel, busyWith, canUse, reason }] })',
   'mining_1.mining   (a mining station: { working, open, minHq, level, yieldPercent, caveInPercent, power, powered, ores: [{ id, name, item, ticks, yield, inStock, room, canMine }] })',
   'recipes   (what can be cooked or crafted: id -> { name, action: "cook" | "craft", station, stationLevel, inputs, outputs, ticks, skill, power, stationWorking, canAfford })',
   'foods   (what survivor.eat() can eat: item -> { restore, rank, available }; the lowest rank is eaten first by default)',

@@ -68,6 +68,7 @@ export const OUTCOMES = {
   DEPARTED: 'She walked out of the gate and is away. The expedition resolves when she returns: read scavenge.history, or watch scavenge.away.',
   INVALID_PARAMS: 'A number or option is out of range (for survivor.stash: rounds must be 1 to scavenge.stash.maxRounds).',
   NO_STASH: 'There is no stash at that site. Leave one first with survivor.stash(siteId), then read scavenge.sites[].stash.units.',
+  VEHICLE_BUSY: 'That vehicle is out on another haul run. Pick another vehicle, or wait until it is back (the garage read shows busyWith).',
   CARRY_FULL: 'Her hands are full: she cannot carry even one more unit of that. Deposit something first.',
 };
 
@@ -278,13 +279,13 @@ export const COMMAND_BOOK = {
     notes: ['A stash is only at risk on a raid night: scavenge.sites[].stash.atRiskTonight says when, lossPercent says how much.', 'Like any expedition, if a wave starts while she is away she is lost for good.', 'Bring the stash home with survivor.retrieve(siteId).'],
   },
   retrieve: {
-    group: 'scavenge', keywords: ['retrieve', 'stash', 'haul', 'fetch', 'bring', 'carry', 'cache', 'home'],
-    effect: 'She leaves for the site on a haul run (a share of the normal trip time) and comes back at the gate with what she can carry and what base storage has room for. Heavy items (stone, sand) count for more of her carry capacity. Whatever she could not take stays in the stash. A dangerous road can hurt her: she drops half the load and it stays in the stash.',
-    requires: ['A site whose stash is not empty (scavenge.sites[].stash.units)', 'No zombie wave on (the gate is shut)', 'Enough energy to work', 'Room in base storage for at least one stashed item'],
-    parameters: [['siteId', 'The id of a site that holds a stash, such as \"forest_edge\".']],
-    example: 'const full = scavenge.sites.find((s) => s.stash.units >= 30);\nif (full && board.duskInTicks > full.stash.retrieveTicks + 10) {\n  survivor.retrieve(full.id);\n}',
-    reads: ['read.scavenge', 'read.board'], outcomes: ['UNKNOWN_TARGET', 'NOT_OPEN', 'NO_STASH', 'STORAGE_FULL', 'WAVE_ACTIVE', 'EXHAUSTED', 'NO_PATH', 'DEPARTED', 'AWAY'],
-    notes: ['Retrieve before a raid night if scavenge.sites[].stash.atRiskTonight is true: a raid takes part of whatever is still out there.', 'If a wave starts while she is away she is lost for good.'],
+    group: 'scavenge', keywords: ['retrieve', 'stash', 'haul', 'fetch', 'bring', 'carry', 'cache', 'home', 'vehicle', 'cart', 'truck', 'garage', 'fuel'],
+    effect: 'She leaves for the site on a haul run (a share of the normal trip time) and comes back at the gate with what she can carry and what base storage has room for. Heavy items (stone, sand) count for more of her carry capacity. Whatever she could not take stays in the stash. A dangerous road can hurt her: she drops half the load and it stays in the stash. With { vehicle: "hand_cart" } (or "motor_cart", "truck") she hauls with a vehicle from the garage: she can carry two, four or eight times as much and the run is shorter. Motorised vehicles burn coal or charcoal from base stock when she leaves.',
+    requires: ['A site whose stash is not empty (scavenge.sites[].stash.units)', 'No zombie wave on (the gate is shut)', 'Enough energy to work', 'Room in base storage for at least one stashed item', 'With a vehicle: the hq at level 2, a repaired garage of the level that vehicle needs, the vehicle not already out, and the fuel in base stock'],
+    parameters: [['siteId', 'The id of a site that holds a stash, such as \"forest_edge\".'], ['options', 'Optional: { vehicle: "hand_cart" } hauls with that vehicle. Read the garage building\'s garage.vehicles for ids, numbers and whether each can leave now.']],
+    example: 'const full = scavenge.sites.find((s) => s.stash.units >= 30);\nconst cart = garage_1.garage.vehicles.find((v) => v.canUse);\nif (full && board.duskInTicks > full.stash.retrieveTicks + 10) {\n  survivor.retrieve(full.id, cart ? { vehicle: cart.id } : {});\n}',
+    reads: ['read.scavenge', 'read.board', 'read.garage'], outcomes: ['UNKNOWN_TARGET', 'NOT_OPEN', 'NO_STASH', 'STORAGE_FULL', 'WAVE_ACTIVE', 'EXHAUSTED', 'NO_PATH', 'HQ_LEVEL', 'NO_STATION', 'NEEDS_REPAIR', 'VEHICLE_BUSY', 'INSUFFICIENT_RESOURCE', 'INVALID_PARAMS', 'DEPARTED', 'AWAY'],
+    notes: ['Retrieve before a raid night if scavenge.sites[].stash.atRiskTonight is true: a raid takes part of whatever is still out there.', 'A run with a vehicle is faster: scavenge.sites[].stash.retrieveTicksWith lists the ticks for each vehicle.', 'Fuel is paid when she leaves and is not refunded if she is lost.', 'If a wave starts while she is away she is lost for good.'],
   },
   equip: {
     group: 'combat', keywords: ['weapon', 'bow', 'spear', 'crossbow', 'arm', 'hold', 'equipment', 'combat', 'suppressor', 'silencer'],
@@ -393,6 +394,8 @@ export const READS = [
     summary: 'A farm lists its plots: crop, stage (empty, growing or ready), percent grown, water left, whether it is dry, weather damage and units ready to harvest. It also says whether it is sheltered and how fast it grows.', example: 'for (const p of field_1.farm.plots) {\n  console.log(p.id, p.stage, p.percent);\n}' },
   { slug: 'mining', group: 'buildings', covers: 'mining_1.mining', title: 'Mining station', path: 'mining_1.mining', keywords: ['ore', 'iron', 'lead', 'coal', 'cave-in', 'drill', 'yield'],
     summary: 'A mining station says whether it works and is open (the hq level it needs), its yield percent, the cave-in chance per round, any power it draws, and for each ore the ticks per round, the yield, how much is in stock and whether it can be mined now.', example: 'console.log(mining_1.mining.ores);' },
+  { slug: 'garage', group: 'buildings', covers: 'garage_1.garage', title: 'Garage and vehicles', path: 'garage_1.garage', keywords: ['vehicle', 'cart', 'truck', 'motor', 'haul', 'fuel', 'carry'],
+    summary: 'A garage says whether it works and is open (the hq level it needs), its level, the fuel it burns and every vehicle: the garage level it needs, how much more she can carry (carryPercent), how much shorter the run is (ticksPercent), the fuel per run, who has it out, and whether it can leave now and why not.', example: 'const cart = garage_1.garage.vehicles.find((v) => v.canUse);\nconsole.log(cart ? cart.name : "no vehicle ready");' },
   { slug: 'events', group: 'world', covers: 'events', title: 'Risk events', path: 'events', keywords: ['risk', 'rats', 'fault', 'cache', 'warning', 'upcoming', 'history'],
     summary: 'Some days bring an event: rats eat part of the stored food, a machine breaks down, or a supply cache turns up. The schedule is public a couple of days ahead (upcoming), so you can prepare. history lists what has happened and what it cost or gave.', example: 'for (const e of events.upcoming) {\n  console.log(e.name, "in", e.inDays, "days");\n}' },
   { slug: 'town', group: 'world', covers: 'town', title: 'Town offers', path: 'town', keywords: ['recruit', 'hire', 'offer', 'price', 'bed', 'survivor', 'accepts', 'board'],

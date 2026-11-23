@@ -42,6 +42,7 @@ export const FailureReason = Object.freeze({
   HOPPER_FULL: 'HOPPER_FULL', // reload: the hopper already holds as much as it can
   NOT_OPEN: 'NOT_OPEN', // scavenge: expeditions do not start before the day data/scavenge.js `startDay`
   NO_STASH: 'NO_STASH', // retrieve: that site holds no stash
+  VEHICLE_BUSY: 'VEHICLE_BUSY', // retrieve: that vehicle is out with another survivor (R5)
   AWAY: 'AWAY', // a survivor out on an expedition takes no commands until she is back
   CAPABILITY_INSUFFICIENT: 'CAPABILITY_INSUFFICIENT',
   CANCELLED: 'CANCELLED',

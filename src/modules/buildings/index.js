@@ -126,3 +126,4 @@ export function stationsFor(state, defs, recipe) {
 
 export { findPath, blockedTiles } from './pathing.js';
 export { caveInPercent, roundYield, miningInfoFor } from './mining.js';
+export { garagesOf, garageLevelOf, vehicleHolder, fuelPlan, vehicleRefusal, vehicleCarry, vehicleTicks, garageInfoFor } from './vehicles.js';

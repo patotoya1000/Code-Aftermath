@@ -31,6 +31,14 @@ export function buildingActionList(b, view = {}) {
       out.push({ id: `mine:${o.id}`, label: `Mine ${o.name}`, snippet: `survivor.mine("${o.id}", 5);`, enabled: !!o.canMine, reason: why });
     }
   }
+  if (b.garage) { // R5: one button per vehicle; it only inserts a retrieve call for the first site that holds a stash (typed by hand for another site)
+    const g = b.garage; const site = (view?.scavenge?.sites ?? []).find((x) => x.stash?.units > 0);
+    for (const v of g.vehicles) {
+      const why = !g.working ? 'Repair the garage first.' : !g.open ? `Needs HQ level ${g.minHq} (it is level ${view?.hq?.level ?? 0}): upgrade the hq first.` : !v.canUse ? v.reason : !site ? 'No stash is waiting: leave one with survivor.stash first.'
+        : `Hauls the stash at ${site.name} home: ${site.stash.retrieveTicksWith?.[v.id] ?? '?'} ticks, she carries ${v.carryPercent} % of her usual load${v.fuel ? `, burns ${v.fuel} ${g.fuelItems.join(' or ')}` : ''}.`;
+      out.push({ id: `haul:${v.id}`, label: `Haul with ${v.name}`, snippet: `survivor.retrieve(\"${site?.id ?? 'forest_edge'}\", { vehicle: \"${v.id}\" });`, enabled: !!(g.working && g.open && v.canUse && site), reason: why });
+    }
+  }
   if (b.upgrade) {
     const short = Object.entries(b.upgrade.cost).filter(([k, v]) => have(view, k) < v).map(([k, v]) => `${v - have(view, k)} more ${k}`);
     const ready = b.condition === 'repaired' && b.health >= b.maxHealth;

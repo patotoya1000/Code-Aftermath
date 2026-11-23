@@ -60,7 +60,7 @@ export function scavengeHeadHtml(view) {
   if (!sv?.open) return `<div class="np-sub">Expeditions start on day ${esc(sv?.opensOnDay ?? '?')}.</div>`;
   const b = view.board ?? {};
   const head = `<div class="np-sub">Day ${sv.day} · ${b.duskInTicks > 0 ? `dusk in ${b.duskInTicks} ticks` : 'night: the gate is shut'} · ${(b.raids ?? []).length ? `raid on day ${esc(b.raids[0].day)}` : 'no raid announced'}. A survivor outside when a wave starts is lost.</div>`;
-  const away = (sv.away ?? []).map((a) => `<div class="np-sub"><strong>${esc(a.survivorId)}</strong> is ${a.mode === 'stash' ? 'stashing at' : a.mode === 'retrieve' ? 'hauling the stash from' : 'at'} ${esc(a.siteId)}, back in ${a.returnsInTicks} ticks</div>`).join('');
+  const away = (sv.away ?? []).map((a) => `<div class="np-sub"><strong>${esc(a.survivorId)}</strong> is ${a.mode === 'stash' ? 'stashing at' : a.mode === 'retrieve' ? 'hauling the stash from' : 'at'} ${esc(a.siteId)}${a.vehicle ? ` (${esc(a.vehicle.replace('_', ' '))})` : ''}, back in ${a.returnsInTicks} ticks</div>`).join('');
   return `${head}${away}`;
 }
 export function scavengeLostHtml(view) {
