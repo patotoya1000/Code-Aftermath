@@ -32,3 +32,4 @@ Nothing was rewritten; sections were only moved. The logic doc is the **logic au
 | [25-watchtower-ladder-and-mounts-design.md](25-watchtower-ladder-and-mounts-design.md) | Five-level watchtower ladder, mounted weapons and aiming presentation |
 | [26-unified-card-and-inspector-system.md](26-unified-card-and-inspector-system.md) | **Added 2026-11-22:** unified UI-C1 card/inspector contract (implemented) |
 | [27-contextual-ui-and-map-navigation.md](27-contextual-ui-and-map-navigation.md) | **Added 2026-11-22:** UI-7 contextual survivor/building inspectors and direct OUTPOST top-road FOREST / bottom-road QUARRY navigation (implemented) |
+| [28-testing-state-fixtures.md](28-testing-state-fixtures.md) | **Proposed:** JSON test fixtures for resources, building states, survivors and repeatable replay/manual testing (not implemented) |
