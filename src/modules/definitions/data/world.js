@@ -135,6 +135,19 @@ export const buildings = {
     repair: { cost: { wood: 10, stone: 6 }, healthPerAction: 30, ticks: 30 },
     upgrade: { 2: { cost: { wood: 20, stone: 20, scrap: 10 }, ticks: 80, minHq: 3 }, 3: { cost: { wood: 25, stone: 40, scrap: 24, steel_plate: 4 }, ticks: 110, minHq: 4 } },
   },
+  // R7 (docs/game/24 section 3g): the ROAD CAMP serves the forest and quarry roads. Ruin -> repair -> upgrade like any station; while it WORKS (repaired, HQ level data/roads.js `minHq`)
+  // trips to road sites take `roadTicksPercent` of their travel ticks, runs there face `dangerCutPercent` less danger and a raid night takes at most `stashLossPercent` of a stash
+  // along the roads (level 2 has a guard). Rules: data/roads.js.
+  road_camp: {
+    name: 'Waystation',
+    levels: {
+      1: { maxHealth: 100, camp: { roadTicksPercent: 85, dangerCutPercent: 30, stashLossPercent: 10 } },
+      2: { name: 'Fortified Camp', maxHealth: 180, camp: { roadTicksPercent: 70, dangerCutPercent: 60, stashLossPercent: 5 } },
+    },
+    visual: { ruinedBelow: 0.25, damagedBelow: 0.6 },
+    repair: { cost: { wood: 12, stone: 4 }, healthPerAction: 30, ticks: 30 },
+    upgrade: { 2: { cost: { wood: 25, stone: 25, scrap: 12 }, ticks: 90, minHq: 3 } },
+  },
   // R4 (docs/game/24): the MINING STATION is a building of its own. Ruin -> repair -> upgrade like any station, and its work (survivor.mine) opens when the headquarters
   // reaches `mining.minHq` (3). Level 1 digs by hand; level 2 (the Rail Cart) brings more ore per round and shores the tunnel (see data/mining.js caveIn); level 3 (the Powered
   // Drill, HQ 4) brings the most and draws `mine.power` from the grid while a round is worked. Rules and numbers: data/mining.js.
@@ -268,6 +281,7 @@ const stage1 = {
     { id: 'sawmill_1', type: 'sawmill', level: 1, x: 9, y: 13, health: 10 },       // ruined (R3); repair it, then (HQ level 2) survivor.craft("plank", 5)
     { id: 'mining_1', type: 'mining_station', level: 1, x: 7, y: 7, health: 10 },    // ruined (R4); repair it, then (HQ level 3) survivor.mine("iron_ore")
     { id: 'garage_1', type: 'garage', level: 1, x: 11, y: 11, health: 10 },          // ruined (R5); repair it, then (HQ level 2) survivor.retrieve(site, { vehicle: "hand_cart" })
+    { id: 'camp_1', type: 'road_camp', level: 1, x: 13, y: 5, health: 10 },            // ruined (R7); repair it (HQ level 2) to shorten and guard the forest and quarry roads
   ],
   // Presentation-only ground: where the forest is and the path that leaves the gate. Zones/paths never affect
   // gameplay; they reach the renderer through the render projection.
@@ -339,7 +353,7 @@ outFence.x = WALL_X; outFence.y = 12;
 for (const [id, x, y] of [
   ['hq', 6, 3], ['tower_1', WALL_X - 1, 3], ['storage_1', WALL_X - 2, 4], ['gate', WALL_X, 6],   // north of the road: hq (3x3 above its door), tower and storage by the wall
   ['kitchen', 2, 1], ['field_1', 2, 4], ['tent_1', 4, 4],
-  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10], ['sawmill_1', 7, 13], ['mining_1', 10, 9], ['garage_1', 4, 8],   // south of the road
+  ['workshop_1', 2, 10], ['generator_1', 5, 10], ['battery_1', 2, 13], ['solar_1', 5, 13], ['smelter_1', 8, 10], ['sawmill_1', 7, 13], ['mining_1', 10, 9], ['garage_1', 4, 8], ['camp_1', 10, 12],   // south of the road
   ['well', 9, 14], ['tank', WALL_X - 1, 13],                                                       // tank stays 2 east / 1 north of the well (siphon reach)
 ]) place(id, x, y);
 outpost.survivors[0].x = 6; outpost.survivors[0].y = 5;

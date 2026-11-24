@@ -1,6 +1,6 @@
 # 24 · Forest, quarry, camps, sawmill, mining station, vehicles (design + phases)
 
-Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4, R5 and R6 IMPLEMENTED 2026-11-23.** R7 is design only. Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
+Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4, R5, R6 and R7 IMPLEMENTED 2026-11-23/24.** Decisions come from the author's brief of 2026-11-22; items marked [open] are still undecided.
 
 ## 1. Decisions
 - The **upper road** of the outpost map leads to the **forest** (far, slow, wood). The **lower road** leads to the **quarry** (heavy stone and sand, nearer). Each is its **own map screen**.
@@ -20,7 +20,7 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4, R5 and R6 IMPLEMENTE
 | **R4** | **Mining station** (outpost building, **HQ 3, decided**) + **Mining skill** + `survivor.mine("iron_ore")`. Ores: iron ore, lead ore, coal. The smelter turns ore into iron and lead bars (scrap stays for steel). Level 1 by hand, level 2 a rail cart (more ore per trip), level 3 a powered drill that draws power. A little cave-in risk. | IMPLEMENTED (`SIM_VERSION` 0.46.0, see section 3d) |
 | **R5** | **Vehicles**: hand cart, then cart with a beast or motor, then truck (fuel). A multiplier on a retrieve run: more carry capacity, fewer travel ticks. | IMPLEMENTED (`SIM_VERSION` 0.47.0, see section 3e; the beast-drawn cart is [open]) |
 | **R6** | **Weapon and armor use of the bars**: bullets from lead bars, weapon upgrades and body armor from iron bars (and steel). | IMPLEMENTED (`SIM_VERSION` 0.48.0, see section 3f) |
-| **R7** | **Road camps and road danger** (a camp building that shortens a road; loaded runs are a target in a wave). | PLANNED |
+| **R7** | **Road camps and road danger** (a camp building that shortens a road; loaded runs are a target in a wave). | IMPLEMENTED (`SIM_VERSION` 0.49.0, see section 3g) |
 
 ## 3. How R1 works
 - `data/scavenge.js`: every site may carry `region`. The definitions check rejects any region other than `front`, `forest`, `quarry`.
@@ -88,9 +88,25 @@ Status: **R0, R1, W1, R2 and R3 IMPLEMENTED 2026-11-22, R4, R5 and R6 IMPLEMENTE
 - Not built: armor wear or durability, the survivor-gear pieces from docs/game/22 (jacket, helmet, boots, bag) are still art only, armor pictures (no icon yet), weapon upgrade levels of an existing weapon (the iron spear is a new weapon, not an upgrade), the machine guns still use scrap + gland, and iron bars are not yet used by tower or wall upgrades.
 - Data: `data/arsenal.js`, `data/recipes.js`, `data/items.js`, `data/world.js` (HQ storage). Code: `actions/handlers/equip.js`, `survivors/index.js`, `threats/index.js`. Tests: `tests/armor.test.js`.
 
+## 3g. How R7 works (road camp and road danger)
+- Building `road_camp` (`camp_1`, a ruin in every scenario; on the painted outpost at (10,12), in stage 1 at (13,5)). Level 1 `Waystation`, level 2 `Fortified Camp` (upgrade 25 wood + 25 stone + 12 scrap, HQ 3). Repair 12 wood + 4 stone. One camp serves BOTH roads (forest and quarry); the front sites are unchanged. A camp WORKS when repaired and the HQ has reached `roads.minHq` (2). Placeholder numbers (tune in a playtest):
+
+| Camp level | Road travel time | Run danger | A raid night takes at most (stash on a road) |
+|---|---|---|---|
+| 1 Waystation | 85 % | -30 % | 10 % |
+| 2 Fortified Camp (the guard) | 70 % | -60 % | 5 % |
+
+- **Shorter road**: `scavenge`, `stash` and `retrieve` trips to forest/quarry sites take the camp's share of their TRAVEL ticks (the extra rounds and camp-pitching time are not shortened); the vehicle multiplier then applies on top. Learner read: `scavenge.sites[].ticksNow`.
+- **Safer runs**: `runDanger` = site danger, raised by a loud motor vehicle (`vehicles.types[].noisePercent`: motor cart +25 %, truck +50 % of the danger itself, so a calm site stays calm), plus `roads.loadedRaidDayDanger` (15) on a LOADED run (retrieve) along a road on a raid or boss day (the full cart is the target), then cut by the camp. Danger is fixed at departure (`away.danger`) and drives the existing hurt roll (half the load, health damage). `scavenge.sites[].dangerToday` now includes the camp cut.
+- **Guard**: `stashLossPercent` = the normal near/deep/camped share, capped by the camp level's `stashLossPercent` for road sites. The "camp or a guard cuts the loss" item of R2 is now real.
+- Learner reads: `camp_1.camp` = `{ working, open, minHq, level, active, activeLevel, regions, loadedRaidDayDanger, now, thisLevel, next }` (`now` / `thisLevel` / `next` = `{ roadTicksPercent, dangerCutPercent, stashLossPercent }` or null), `scavenge.sites[].road` = `{ road, camp, ticksPercent, dangerCutPercent, stashLossPercent }`. The camp card has a "Road report" button (inserts `console.log(camp_1.camp)`); repair and upgrade are the usual buttons.
+- Decision: noise is expressed as danger, not as the wave attention meter (that meter only matters during a wave and decays before dusk).
+- Not built: a camp sheltering a survivor caught outside by a wave (she is still lost, `survivor.lost`), one camp per road, a camp picture (placeholder art), a guard survivor posted at the camp, vehicle wear.
+- Data: `data/roads.js`, `data/world.js` `road_camp`, `data/vehicles.js` `noisePercent`. Code: `buildings/roads.js` (pure rules + learner view), `scavenge/index.js` (`roadPercent`, `runDanger`, `tripPlan` `road`, `stashLossPercent`). Tests: `tests/roadcamp.test.js`.
+
 ## 4. Open questions
 - (decided) The mining station opens at HQ 3; stash risk follows the R2 defaults above.
 - [open] Whether the old scrap recipes for iron and lead bars should be removed now that ore exists (kept for now as a slow fallback).
 - [open] A beast-drawn cart as the other branch at garage level 2 ("cart with a beast or motor"): feed instead of fuel? Only the motor branch is built.
-- [open] Whether a motor run should make noise (R7 road danger) and whether vehicles should wear out.
+- (decided in R7) A motor run is loud: it raises the run's danger. [open] Whether vehicles should wear out.
 - [open] Whether FOREST and QUARRY should later become live grids with real trees and rocks like the outpost.

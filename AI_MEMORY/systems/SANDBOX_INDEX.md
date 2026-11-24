@@ -9,7 +9,7 @@ Run untrusted learner JavaScript once, synchronously, in an isolated Worker, and
 # Responsibilities
 
 - Static safety check (`validateSource`): forbidden identifiers (eval, Function, constructor, prototype, import, require, process, globalThis, window, self, document, fetch, setTimeout, setInterval, Date, performance, async, await, Reflect, Proxy, WebAssembly, storage APIs…), escape sequences, max 10000 chars. Friendly messages with line numbers.
-- Fresh Worker per run (browser Worker or Node `worker_threads`), terminated on timeout (`timeoutMs` 1500).
+- Fresh Worker per run (browser Worker or Node `worker_threads`), terminated on timeout (`timeoutMs` 3000).
 - In-worker hardening (`runtime.js`): `Function.prototype.constructor` removed, dangerous globals shadowed to `undefined`, seeded `Math.random`, frozen deep copies of the view, `maxCommands` 500, `maxLogs` 200.
 - Environment: `survivor`, `survivors`, `base`, `fence`, `hq`, `buildings`, `nodes`, `world`, `tick`, `console.log`, `Math`, plus every building/node by id when it is a valid identifier and not already taken.
 - `survivor.on(event, fn)`: functions cannot cross the Worker boundary, so the function SOURCE TEXT is registered; not allowed inside a hook (`HOOK_NOT_ALLOWED`).
@@ -22,7 +22,7 @@ Run untrusted learner JavaScript once, synchronously, in an isolated Worker, and
 
 # Core Data
 
-`DEFAULT_BUDGET { maxCommands 500, maxLogs 200, timeoutMs 1500 }`; error codes `SAFETY_VIOLATION`, `EXECUTION_TIMEOUT`, `WORKER_ERROR`, `SYNTAX_ERROR`, `RUNTIME_ERROR`, `COMMAND_BUDGET_EXCEEDED`.
+`DEFAULT_BUDGET { maxCommands 500, maxLogs 200, timeoutMs 3000 }`; error codes `SAFETY_VIOLATION`, `EXECUTION_TIMEOUT`, `WORKER_ERROR`, `SYNTAX_ERROR`, `RUNTIME_ERROR`, `COMMAND_BUDGET_EXCEEDED`.
 
 # State
 

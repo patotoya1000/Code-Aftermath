@@ -4,7 +4,7 @@ import { COMMANDS, normalizeCall } from '../api/index.js';
 // Runs INSIDE the worker. Builds the frozen learner environment and executes the code once, synchronously,
 // to produce a bounded list of commands (Clock A). It never waits for simulation state (Clock B).
 
-export const DEFAULT_BUDGET = Object.freeze({ maxCommands: 500, maxLogs: 200, timeoutMs: 1500 });
+export const DEFAULT_BUDGET = Object.freeze({ maxCommands: 500, maxLogs: 200, timeoutMs: 3000 });
 
 // Names shadowed to `undefined` inside learner code (defence in depth on top of the static check + worker isolation).
 const SHADOWED = [

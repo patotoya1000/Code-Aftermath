@@ -2,7 +2,7 @@ import { deepFreeze, API_VERSION, own } from '../../kernel/index.js';
 import { available, stockKey, nodeKey, total, summary } from '../resources/index.js';
 import { deriveConditions, carriedLoad, carryCapacity, skillProgress } from '../survivors/index.js';
 import { environmentView } from '../environment/index.js';
-import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, stationsFor, hqLevelOf, hqLock, armorOf, miningInfoFor, garageInfoFor } from '../buildings/index.js';
+import { maxHealthOf, assetKey, storageCapacity, isOperational, nextUpgrade, stationsFor, hqLevelOf, hqLock, armorOf, miningInfoFor, garageInfoFor, campInfoFor } from '../buildings/index.js';
 import { waterInfoFor } from '../water/index.js';
 import { perishableView, coldInfoFor } from '../spoilage/index.js';
 import { farmInfoFor, cropBook } from '../farming/index.js';
@@ -71,6 +71,7 @@ function buildingView(state, defs, b) {
   const tower = towerInfoFor(state, defs, b); // watchtowers: level, slots, range bonus, who is posted
   const mining = miningInfoFor(state, defs, b, hqLevelOf(state)); // mining station: open, yield, cave-in risk, per-ore numbers (R4)
   const garage = garageInfoFor(state, defs, b); // garage: level, open, each vehicle with its numbers and whether it can leave (R5)
+  const camp = campInfoFor(state, defs, b); // road camp: working, open, active level and its road numbers (R7)
   return {
     id: b.id, type: b.type, name: def.levels[b.level]?.name ?? def.name, level: b.level, x: b.x, y: b.y,
     health: b.health, maxHealth: maxHealthOf(defs, b), condition: b.condition, ...(b.bounds ? { bounds: { ...b.bounds } } : {}),
@@ -80,7 +81,7 @@ function buildingView(state, defs, b) {
     ...(def.levels[b.level]?.armor !== undefined ? { armor: armorOf(defs, b) } : {}), // P3: what a zombie's wall hit is reduced by (fence, gate)
     ...(nextUpgrade(defs, b) ? { nextLevel: { name: def.levels[b.level + 1].name ?? def.name, maxHealth: def.levels[b.level + 1].maxHealth, ...(def.levels[b.level + 1].armor !== undefined ? { armor: def.levels[b.level + 1].armor } : {}) } } : {}),
     ...(storageInfo ? { storageInfo } : {}), ...(water ? { water } : {}), ...(def.note ? { note: def.note } : {}),
-    ...(cold ? { cold } : {}), ...(farm ? { farm } : {}), ...(power ? { power } : {}), ...(tower ? { tower } : {}), ...(mining ? { mining } : {}), ...(garage ? { garage } : {}),
+    ...(cold ? { cold } : {}), ...(farm ? { farm } : {}), ...(power ? { power } : {}), ...(tower ? { tower } : {}), ...(mining ? { mining } : {}), ...(garage ? { garage } : {}), ...(camp ? { camp } : {}),
     ...(recipesHere.length ? { recipes: recipesHere } : {}), // station buildings: which recipes are cooked here (and from which level)
   };
 }

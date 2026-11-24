@@ -105,6 +105,7 @@ function currentProjection() {
   return proj;
 }
 
+// ---------- Render / refresh ----------
 function refreshUI() {
   if (!freeSim) return;
   paintScreens();
@@ -113,11 +114,8 @@ function refreshUI() {
   updateTutor();
   collectEvents();
   renderFeed();
-  if (isLessonMode) {
-    renderLessonList();
-    renderLessonInstructions();
-    if (lessonAttempt) renderLessonResult();
-  }
+  // Lesson list/instruction DOM is rebuilt only after an explicit lesson action or result.
+  // Rebuilding it every 250 ms detaches lesson buttons while a click is in progress.
 }
 
 function renderUI() {

@@ -14,6 +14,7 @@ import { town } from './data/town.js';
 import { scavenge } from './data/scavenge.js';
 import { mining } from './data/mining.js';
 import { vehicles } from './data/vehicles.js';
+import { roads } from './data/roads.js';
 
 const KNOWN_HANDLERS = ['move', 'gather', 'deposit', 'rest', 'consume', 'repair', 'upgrade', 'cook', 'farm', 'combat', 'guard', 'collect', 'take', 'equip', 'mount', 'reload', 'lure', 'scavenge', 'mine'];
 
@@ -408,6 +409,21 @@ export function validateDefinitions(d) {
       need(whole(t.carryPercent, 100), `vehicle ${id}: carryPercent must be a whole number >= 100 (a vehicle never carries less than a survivor)`);
       need(whole(t.ticksPercent, 1) && t.ticksPercent <= 100, `vehicle ${id}: ticksPercent must be a whole number from 1 to 100 (a vehicle is never slower)`);
       need(whole(t.fuel, 0), `vehicle ${id}: fuel must be a whole number >= 0`);
+      need(whole(t.noisePercent, 0), `vehicle ${id}: noisePercent must be a whole number >= 0`);
+    }
+  }
+  // R7 road camps (docs/game/24 section 3g): the camp building, its gate, the road regions and every camp level's numbers must be known and whole.
+  {
+    const r = d.roads;
+    const lv = d.buildings[r?.camp]?.levels;
+    need(r && lv?.[1], 'roads: camp must be a known building type');
+    need(r && whole(r.minHq, 1) && whole(r.loadedRaidDayDanger, 0), 'roads: minHq must be a whole number >= 1 and loadedRaidDayDanger >= 0');
+    need(r && Array.isArray(r.regions) && r.regions.length > 0 && r.regions.every((x) => typeof x === 'string' && x && x !== 'front'), 'roads: regions must list site region names other than front');
+    let prev = { roadTicksPercent: 101, dangerCutPercent: -1, stashLossPercent: 101 };
+    for (const [n, def] of Object.entries(lv ?? {})) {
+      const c = def.camp;
+      need(c && whole(c.roadTicksPercent, 1) && c.roadTicksPercent <= 100 && whole(c.dangerCutPercent, 0) && c.dangerCutPercent <= 100 && whole(c.stashLossPercent, 0) && c.stashLossPercent <= 100, `road camp level ${n}: camp needs roadTicksPercent 1-100, dangerCutPercent 0-100 and stashLossPercent 0-100 (whole numbers)`);
+      if (c) { need(c.roadTicksPercent <= prev.roadTicksPercent && c.dangerCutPercent >= prev.dangerCutPercent && c.stashLossPercent <= prev.stashLossPercent, `road camp level ${n}: a higher level must not be worse than the one below`); prev = c; }
     }
   }
   for (const [id, l] of Object.entries(d.lessons)) {
@@ -420,7 +436,7 @@ export function validateDefinitions(d) {
 
 /** Build the validated, deeply-frozen definition set. `overrides` replaces whole top-level tables. */
 export function createDefinitions(overrides = {}) {
-  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, vehicles, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, armors, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
+  const defs = structuredClone({ items, carry, actions, needs, clock, policies, hooks, survivorTemplates, progression, environment, recipes, crops, farming, events, eventSchedule, town, scavenge, mining, vehicles, roads, zombies, raidSchedule, wanderer, bosses, bossSchedule, waveRules, lootTables, weapons, armors, towers, noise, nodeTypes, buildings, scenarios, lessons, skills: SKILLS, traits: TRAITS, ...overrides });
   for (const [id, crop] of Object.entries(defs.crops ?? {})) crop.id ??= id; // a crop knows its own id (the table key)
   validateDefinitions(defs);
   return deepFreeze(defs);

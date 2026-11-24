@@ -39,6 +39,11 @@ export function buildingActionList(b, view = {}) {
       out.push({ id: `haul:${v.id}`, label: `Haul with ${v.name}`, snippet: `survivor.retrieve(\"${site?.id ?? 'forest_edge'}\", { vehicle: \"${v.id}\" });`, enabled: !!(g.working && g.open && v.canUse && site), reason: why });
     }
   }
+  if (b.camp) { // R7: the road camp has no command of its own; its card says what it does now and what it needs (repair / upgrade buttons are the usual ones)
+    const c = b.camp; const hq = view?.hq?.level ?? 0;
+    out.push({ id: 'roads', label: 'Road report', snippet: `console.log(${b.id}.camp);`, enabled: true,
+      reason: !c.working ? 'Repair the camp first.' : !c.open ? `Needs HQ level ${c.minHq} (it is level ${hq}): upgrade the hq first.` : c.now ? `Working: forest and quarry trips take ${c.now.roadTicksPercent} % of their travel, runs there are ${c.now.dangerCutPercent} % safer, a raid takes at most ${c.now.stashLossPercent} % of a stash on the roads.` : 'Not working yet.' });
+  }
   if (b.upgrade) {
     const short = Object.entries(b.upgrade.cost).filter(([k, v]) => have(view, k) < v).map(([k, v]) => `${v - have(view, k)} more ${k}`);
     const ready = b.condition === 'repaired' && b.health >= b.maxHealth;
@@ -222,8 +227,9 @@ export function stashActionList(view = {}) {
   for (const s of sv.sites) {
     const st = s.stash; if (!st) continue;
     const gate = (ticks) => (!free ? 'Nobody is free to go.' : dusk === 0 ? 'The gate is shut at night.' : dusk <= ticks + 10 ? `The trip takes ${ticks} ticks and dusk is ${dusk} away: she would be lost if a wave starts.` : null);
-    const stashWhy = gate(s.ticks) ?? (st.room < 1 ? `The stash holds ${st.capacity} units: retrieve it first.` : `One round, ${s.ticks} ticks; the haul stays here (${st.units}/${st.capacity} units). Add rounds or { camp: true } by hand.`);
-    out.push({ id: `stash:${s.id}`, site: s, label: `Stash at ${s.name}`, snippet: `survivor.stash(\"${s.id}\");`, enabled: !gate(s.ticks) && st.room >= 1, reason: stashWhy });
+    const tk = s.ticksNow ?? s.ticks; // R7: a working road camp shortens the road
+    const stashWhy = gate(tk) ?? (st.room < 1 ? `The stash holds ${st.capacity} units: retrieve it first.` : `One round, ${tk} ticks; the haul stays here (${st.units}/${st.capacity} units). Add rounds or { camp: true } by hand.`);
+    out.push({ id: `stash:${s.id}`, site: s, label: `Stash at ${s.name}`, snippet: `survivor.stash(\"${s.id}\");`, enabled: !gate(tk) && st.room >= 1, reason: stashWhy });
     if (st.units > 0) {
       const risk = st.atRiskTonight ? ` A raid is due tonight: it takes ${st.lossPercent}% of this stash${st.protected ? ' (camped)' : ''}.` : ` A raid would take ${st.lossPercent}% of it${st.protected ? ' (camped)' : ''}.`;
       const why = gate(st.retrieveTicks) ?? `${st.retrieveTicks} ticks there and back, ${st.units} units waiting.${risk}`;

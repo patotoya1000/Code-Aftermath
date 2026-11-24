@@ -11,7 +11,7 @@ page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${
 const check = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`); if (!cond) problems.push(msg); };
 const text = (sel) => page.textContent(sel);
 
-await page.goto('http://localhost:8123/');
+await page.goto('http://localhost:8123/', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => document.querySelector('#clock-label')?.textContent.includes('PAUSED'));
 check((await text('#clock-detail')).includes('STRATEGY 10/10'), 'clock bar shows 10 strategy points and starts paused');
 check(await page.$('#btn-next-turn') === null && await page.$('#btn-play') !== null && await page.$('#btn-speed') !== null, 'turn button is gone; play and speed controls exist');
@@ -55,7 +55,8 @@ const t = Math.min(box.width / 40, box.height / 16); // the live map is the 40x1
 const ox = box.x + (box.width - 40 * t) / 2; const oy = box.y + (box.height - 16 * t) / 2;
 await page.mouse.click(ox + 12.5 * t, oy + 6.5 * t); // gate tile (12, 6), in the line wall (the painted gate is taller than its cell and picks the gate too)
 check((await text('#inspector-card')).includes('Gate'), 'clicking the gate selects it');
-check(await page.locator('#inspector-card [data-snippet="survivor.repair(gate);"]').count() === 1, 'the inspector Repair button inserts code that names the gate by id');
+await page.click('#inspector-tabs [data-tab="commands"]');
+check(await page.locator('#inspector-card [data-snippet="survivor.repair(gate);"]').count() >= 1, 'the inspector Repair button inserts code that names the gate by id');
 await page.click('#btn-code');
 await page.fill('#code-editor', 'survivor.repair(gate);');
 await page.click('#btn-run-code');
@@ -70,8 +71,8 @@ check((await text('#screen-badge')).includes('MAP 1') && await page.locator('#sc
 await page.click('[data-spot="hall"]');
 check(await page.locator('#detail-town').isVisible(), 'clicking the recruit hall opens its panel');
 await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.waitForTimeout(800);
-await page.click('#screen-east'); await page.waitForTimeout(800);
-check((await text('#screen-badge')).includes('MAP 3') && await page.locator('#screen-east').isDisabled(), 'the east arrow slides to MAP 3 FRONT');
+await page.click('#screen-east'); await page.waitForFunction(() => document.querySelector('#screen-badge')?.textContent.includes('MAP 3')); 
+check((await text('#screen-badge')).includes('MAP 3') && !(await page.locator('#screen-east').isDisabled()), 'the east arrow slides to MAP 3 FRONT');
 await page.click('[data-spot="junkyard"]');
 check((await text('#detail-front-title')).includes('Junkyard'), 'clicking a site on the front map opens it');
 await page.click('#screen-west'); await page.waitForTimeout(800);

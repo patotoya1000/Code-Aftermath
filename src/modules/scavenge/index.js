@@ -1,6 +1,6 @@
 import { hashString } from '../../kernel/index.js';
 import { stockKey, credit, discard } from '../resources/index.js';
-import { storageRoom, vehicleRefusal, fuelPlan, vehicleCarry, vehicleTicks } from '../buildings/index.js';
+import { storageRoom, vehicleRefusal, fuelPlan, vehicleCarry, vehicleTicks, campEffect } from '../buildings/index.js';
 import { syncStock } from '../spoilage/index.js';
 import { awardSkillXp, carryCapacity, carriedLoad } from '../survivors/index.js';
 import { dayOf, timeOf } from '../environment/index.js';
@@ -25,6 +25,8 @@ import { townView } from '../town/index.js';
 //   a vehicle R5 (docs/game/24 section 3e): `survivor.retrieve(site, { vehicle })` hauls with a hand cart / motor cart / truck from the garage: her carry capacity x `carryPercent`, the run takes `ticksPercent` of the
 //             haul time, a motorised run burns fuel paid when she LEAVES (not refunded if she is lost), and one vehicle of each kind can be out at a time (it is busy while `away.vehicle` names it).
 //   a raid    `raidStashes`: when a wave starts every stash loses a share of each item (near / deep / protected, rounded up); a stash at a site far from the wall is the easier prize.
+// R7 ROAD CAMP (docs/game/24 section 3g): a working road camp shortens the travel of trips to forest / quarry sites (`roadPercent`), cuts the danger of runs there (`runDanger`) and caps a raid
+//   night's share of a stash along the roads (`stashLossPercent`). A motor vehicle is loud (its `noisePercent` raises the danger) and a loaded run (retrieve) along a road on a raid day is a target.
 // Learner reads: `scavenge` (sites, danger today, recovery, who is away) and `board` (raids + train + events + sites in one place).
 
 const num = (seed, key) => parseInt(hashString(`scavenge:${seed}:${key}`).slice(-8), 16);
@@ -45,6 +47,24 @@ export function dangerOn(defs, seed, siteId, day) {
   return Math.min(100, site.danger + (dusk ? defs.scavenge.raidDayDanger : 0));
 }
 
+/** Percent of its travel ticks a trip to this site takes now: 100, or the working road camp's `roadTicksPercent` for a road site. Pure. */
+export const roadPercent = (state, defs, siteId) => campEffect(state, defs, siteId)?.roadTicksPercent ?? 100;
+
+/**
+ * The danger percent a run faces (R7): the site's `dangerOn`, higher for a loud motor vehicle (its `noisePercent` of the danger), plus `roads.loadedRaidDayDanger` for a LOADED run (retrieve)
+ * along a road on a raid day, then cut by the working road camp's `dangerCutPercent`. Capped at 100; a site with no danger stays calm unless it is a loaded run on a raid day. Pure.
+ */
+export function runDanger(state, defs, siteId, day, { mode = 'scavenge', vehicle = null } = {}) {
+  let d = dangerOn(defs, state.seed, siteId, day);
+  const noise = vehicle ? (defs.vehicles.types[vehicle]?.noisePercent ?? 0) : 0;
+  d = Math.floor((d * (100 + noise)) / 100);
+  const raidDay = Boolean(raidForDay(defs, state.seed, day) || bossForDay(defs, day));
+  const fx = campEffect(state, defs, siteId);
+  if (mode === 'retrieve' && raidDay && defs.roads.regions.includes(defs.scavenge.sites[siteId].region ?? 'front')) d += defs.roads.loadedRaidDayDanger;
+  if (fx) d = Math.floor((d * (100 - fx.dangerCutPercent)) / 100);
+  return Math.min(100, d);
+}
+
 /** The loot a trip brings, rolled from a hash: { item: qty } at `percent` recovery. Pure. */
 export function rollLoot(defs, seed, key, siteId, percent, hurt) {
   const out = {};
@@ -59,22 +79,23 @@ export function rollLoot(defs, seed, key, siteId, percent, hurt) {
 }
 
 /** Trip length and kind for a command. Pure. mode: 'scavenge' | 'stash' | 'retrieve'. */
-export function tripPlan(defs, siteId, mode, { rounds = 1, camp = false, vehicle = null } = {}) {
+export function tripPlan(defs, siteId, mode, { rounds = 1, camp = false, vehicle = null, road = 100 } = {}) {
   const site = defs.scavenge.sites[siteId]; const st = defs.scavenge.stash;
+  const travel = road >= 100 ? site.ticks : Math.max(1, Math.ceil((site.ticks * road) / 100)); // R7: a working road camp shortens the road (never the extra rounds or the camp pitching)
   if (mode === 'retrieve') {
-    const onFoot = Math.max(1, Math.ceil((site.ticks * st.haulTripPercent) / 100));
+    const onFoot = Math.max(1, Math.ceil((travel * st.haulTripPercent) / 100));
     return { mode, ticks: vehicleTicks(defs, vehicle, onFoot), ...(vehicle ? { vehicle } : {}) };
   }
-  if (mode === 'stash') return { mode, rounds, camp, ticks: site.ticks + (rounds - 1) * st.rounds.ticks + (camp ? st.campTicks : 0) };
-  return { mode: 'scavenge', ticks: site.ticks };
+  if (mode === 'stash') return { mode, rounds, camp, ticks: travel + (rounds - 1) * st.rounds.ticks + (camp ? st.campTicks : 0) };
+  return { mode: 'scavenge', ticks: travel };
 }
 
 /** Leave: the survivor stands at the gate. Called by the scavenge handler when she arrives. */
 export function depart(ctx, s, siteId, mode = 'scavenge', opts = {}) {
   const { state, defs } = ctx;
-  const plan = tripPlan(defs, siteId, mode, opts);
+  const plan = tripPlan(defs, siteId, mode, { ...opts, road: roadPercent(state, defs, siteId) });
   s.status = 'away';
-  s.away = { siteId, mode: plan.mode, departTick: state.tick, returnTick: state.tick + plan.ticks, danger: dangerOn(defs, state.seed, siteId, dayOf(defs, state.tick)) };
+  s.away = { siteId, mode: plan.mode, departTick: state.tick, returnTick: state.tick + plan.ticks, danger: runDanger(state, defs, siteId, dayOf(defs, state.tick), { mode: plan.mode, vehicle: plan.vehicle ?? null }) };
   if (plan.mode === 'stash') { s.away.rounds = plan.rounds; s.away.camp = plan.camp; }
   let fuel = null;
   if (plan.vehicle) { // R5: the vehicle goes with her; its fuel is paid now (the handler checked the refusal rules a moment ago, at the gate)
@@ -188,8 +209,9 @@ function comeBackRetrieve(ctx, s) {
 /** Percent of each item a raid takes from the stash at `siteId` (data: stash.lossPercent). Pure. */
 export function stashLossPercent(defs, state, siteId) {
   const st = defs.scavenge.stash; const entry = state.scavenge.stash?.[siteId];
-  if (entry?.protected) return st.lossPercent.protected;
-  return defs.scavenge.sites[siteId].ticks >= st.deepFromTicks ? st.lossPercent.deep : st.lossPercent.near;
+  const base = entry?.protected ? st.lossPercent.protected : defs.scavenge.sites[siteId].ticks >= st.deepFromTicks ? st.lossPercent.deep : st.lossPercent.near;
+  const fx = campEffect(state, defs, siteId); // R7: the road camp's guard caps the loss along its roads, never makes it worse
+  return fx ? Math.min(base, fx.stashLossPercent) : base;
 }
 
 /** A wave started: every stash loses a share of each item (rounded up, never more than it holds). A protected (camped) stash loses the least. */
@@ -256,12 +278,19 @@ function stashSiteView(state, defs, id, day) {
   const st = defs.scavenge.stash; const entry = state.scavenge.stash?.[id];
   const units = stashUnits(entry);
   const raidNight = !state.threats?.wave && Boolean(raidForDay(defs, state.seed, day) || bossForDay(defs, day));
-  const retrieveTicks = tripPlan(defs, id, 'retrieve').ticks;
+  const road = roadPercent(state, defs, id);
+  const retrieveTicks = tripPlan(defs, id, 'retrieve', { road }).ticks;
   return {
     items: { ...(entry?.items ?? {}) }, units, capacity: st.capPerSite, room: Math.max(0, st.capPerSite - units), protected: Boolean(entry?.protected),
     deep: defs.scavenge.sites[id].ticks >= st.deepFromTicks, lossPercent: stashLossPercent(defs, state, id), atRiskTonight: units > 0 && raidNight, retrieveTicks,
-    retrieveTicksWith: Object.fromEntries(Object.keys(defs.vehicles.types).map((v) => [v, tripPlan(defs, id, 'retrieve', { vehicle: v }).ticks])), // R5: the same run with each vehicle
+    retrieveTicksWith: Object.fromEntries(Object.keys(defs.vehicles.types).map((v) => [v, tripPlan(defs, id, 'retrieve', { vehicle: v, road }).ticks])), // R5: the same run with each vehicle
   };
+}
+
+/** What the road camp does for one site now (R7): { road, camp (the working level, 0 = none), ticksPercent, dangerCutPercent, stashLossPercent }. A front site is not on a road. */
+function roadSiteView(state, defs, id) {
+  const fx = campEffect(state, defs, id);
+  return { road: defs.roads.regions.includes(defs.scavenge.sites[id].region ?? 'front'), camp: fx?.level ?? 0, ticksPercent: fx?.roadTicksPercent ?? 100, dangerCutPercent: fx?.dangerCutPercent ?? 0, stashLossPercent: fx?.stashLossPercent ?? null };
 }
 
 function sitesView(state, defs) {
@@ -273,7 +302,8 @@ function sitesView(state, defs) {
     const rec = state.scavenge.sites[id];
     return {
       stash: stashSiteView(state, defs, id, day),
-      id, name: st.name, region: st.region ?? 'front', ticks: st.ticks, danger: st.danger, dangerToday: dangerOn(defs, state.seed, id, day), regrowDays: st.regrowDays,
+      id, name: st.name, region: st.region ?? 'front', ticks: st.ticks, ticksNow: tripPlan(defs, id, 'scavenge', { road: roadPercent(state, defs, id) }).ticks, danger: st.danger, dangerToday: runDanger(state, defs, id, day), regrowDays: st.regrowDays,
+      road: roadSiteView(state, defs, id),
       recoveryPercent: percent, lastLootedDay: rec ? rec.lastDay : null, yield: Object.fromEntries(Object.entries(st.yield).map(([i, r]) => [i, [...r]])), expected,
       awayNow: Object.values(state.survivors).filter((s) => s.status === 'away' && s.away?.siteId === id).length,
     };
